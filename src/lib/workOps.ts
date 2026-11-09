@@ -4,6 +4,7 @@ import { useApp } from './app'
 import { t } from './i18n'
 import { buildWork, findTaskLine, rewriteTaskLine, tokensForState, type Task, type TaskEdit, type UiState } from './work'
 import { formatWorkTokens } from './taskTokens'
+import { forgetTile, loadLayout, renameTile, saveLayout, type Layout } from './tiles'
 import { removeView, upsertView, VIEWS_PATH, viewsNoteHeader, type View } from './views'
 
 interface WorkUi {
@@ -16,10 +17,12 @@ interface WorkUi {
   hub: string | null
   /** 새 프로젝트 마법사가 열려 있나 */
   wizard: boolean
-  /** 지금 보고 있는 저장된 보기 이름(없으면 기본 화면). 기기별로 기억한다 */
-  view: string | null
-  setView(name: string | null): void
-  /** 보기 편집기: view 가 있으면 수정, 없으면 새 보기 */
+  /** 내 업무 타일 배치(순서·숨김·접기·줄 수). 개인 취향이라 기기에 기억한다 */
+  layout: Layout
+  patchLayout(f: (l: Layout) => Layout): void
+  /** 화면 편집 중(타일 순서·숨기기·추가) */
+  editing: boolean
+  /** 사용자 타일 편집기: view 가 있으면 수정, 없으면 새 타일 */
   viewEditor: null | { view?: View }
   openHub(path: string): void
 }
@@ -30,11 +33,14 @@ export const useWorkUi = create<WorkUi>((set) => ({
   closeEditor: () => set({ editor: null }),
   hub: null,
   wizard: false,
-  view: (() => { try { return localStorage.getItem('nosidian.workview') } catch { return null } })(),
-  setView: (name) => {
-    try { name ? localStorage.setItem('nosidian.workview', name) : localStorage.removeItem('nosidian.workview') } catch { /* 저장소를 못 쓰면 이번 실행에서만 유지 */ }
-    set({ view: name })
-  },
+  layout: loadLayout(),
+  patchLayout: (f) =>
+    set((st) => {
+      const layout = f(st.layout)
+      saveLayout(layout)
+      return { layout }
+    }),
+  editing: false,
   viewEditor: null,
   openHub: (path) => {
     set({ hub: path })
@@ -136,12 +142,12 @@ export function saveView(v: View, oldName?: string): void {
   const f = app.files[VIEWS_PATH]
   if (f && !f.deleted) app.setContent(VIEWS_PATH, upsertView(f.content, v, oldName))
   else app.createNote(VIEWS_PATH, upsertView(viewsNoteHeader(), v), false)
-  useWorkUi.getState().setView(v.name)
+  if (oldName && oldName.toLowerCase() !== v.name.toLowerCase()) useWorkUi.getState().patchLayout((l) => renameTile(l, oldName, v.name)) // 이름이 바뀌면 자리·설정이 따라간다
 }
 
 export function deleteView(name: string): void {
   const app = useApp.getState()
   const f = app.files[VIEWS_PATH]
   if (f && !f.deleted) app.setContent(VIEWS_PATH, removeView(f.content, name))
-  if (useWorkUi.getState().view?.toLowerCase() === name.toLowerCase()) useWorkUi.getState().setView(null)
+  useWorkUi.getState().patchLayout((l) => forgetTile(l, name))
 }

@@ -19,7 +19,7 @@
 
 1. **마크다운이 유일한 진실.** 노트도, 일정도, 날짜 색상도 `.md` 안의 텍스트다. 별도 DB·전용 포맷이 없다. 앱을 지워도 파일은 남는다.
 2. **로컬 우선, 서버 없음.** 모든 데이터는 기기의 IndexedDB(vault마다 하나)에 있고, 동기화는 사용자의 계정(GitHub 저장소 / Drive 폴더 / OneDrive 폴더)으로 직접 한다. 운영 비용·계정 시스템·백엔드가 없다.
-3. **파생 데이터는 저장하지 않고 계산한다.** 링크 인덱스, 태그, 그래프, 캘린더(일정 목록), 날짜 색상, **프로젝트·업무 대기열·건강도·타임라인·보기 결과**는 노트에서 매번 만든다(캐시만 있음). 팀이 같이 쓰는 설정(건강도 문턱·저장된 보기)도 기기가 아니라 vault 안의 노트(`_workspace/`)에 둔다.
+3. **파생 데이터는 저장하지 않고 계산한다.** 링크 인덱스, 태그, 그래프, 캘린더(일정 목록), 날짜 색상, **프로젝트·업무 대기열·건강도·타임라인·보기 결과**는 노트에서 매번 만든다(캐시만 있음). 팀이 같이 쓰는 설정(건강도 문턱·내 타일의 조건)도 기기가 아니라 vault 안의 노트(`_workspace/`)에 둔다.
 4. **UI는 단순하고 평평하게.** 흰색·검정·빨강, 2px 모서리, 얇은 선, 그림자 없음. PC(≥900px)는 3단 레이아웃, 그 미만은 하단 탭.
 5. **비개발자도 쓸 수 있어야 한다.** 마크다운 문법을 몰라도 GUI로 일정을 넣을 수 있고, 결과는 사람이 읽을 수 있는 한 줄로 저장된다.
 
@@ -45,7 +45,7 @@
 
 ### 프로젝트·업무 — 내 업무 (Phase 2, 앱의 시작 화면) — 자세한 규격은 docs/WORK.md
 - **프로젝트** = 프론트매터 `type: project` 노트. **업무** = 체크리스트 한 줄 + 꼬리표 `due:` `owner:` `p:` `status:` `side:` `kind:` `proj:` `=> 결론`(체크박스는 표준 `[ ]`/`[x]`만 — 다른 마크다운 도구에서도 그냥 읽힌다).
-- **내 업무 화면**(시작 화면): 프로젝트를 가로질러 *기한이 지난 일 · 결정할 일 · 오늘 마감 · 이번 주 · 대기 중인 일 · 진행 중 · 담당자 없는 일 · 정리할 업무*를 모으고, 각 줄 오른쪽에 *왜 여기 있는지*를 표시한다. 설정의 "내 이름"으로 내 담당만 모아 본다. 맨 위 **보기 선택**에서 조건(담당·프로젝트·상태·마감·글)을 저장해 두고 불러온다.
+- **내 업무 화면**(시작 화면): 프로젝트를 가로질러 *기한이 지난 일 · 결정할 일 · 오늘 마감 · 이번 주 · 대기 중인 일 · 진행 중 · 담당자 없는 일 · 정리할 업무*를 모으고, 각 줄 오른쪽에 *왜 여기 있는지*를 표시한다. 설정의 "내 이름"으로 내 담당만 모아 본다. 화면은 **타일**의 모음이라 "화면 편집"에서 순서를 바꾸고 숨기고 줄 수를 정하며, 조건(담당·프로젝트·상태·마감·글)으로 **내 타일**을 만들 수 있다.
 - **업무 편집기(GUI)**: 상태·마감·담당·우선순위·프로젝트·결정 여부를 폼으로 고르면 한 줄로 저장. 그 줄만 고치고(들여쓰기·일정 꼬리표 보존) 줄 번호가 밀려도 제목으로 찾는다. 새 업무는 프로젝트의 "할 일" 노트나 "받은 업무" 노트에 모인다.
 - **프로젝트 허브**: 할 일 · **보드(칸반, 카드를 옮기면 `status` 가 바뀜)** · 문서 · **타임라인**(마감·업무·결정·일정을 날짜순으로). 머리글에 사람이 적은 판단(`health:`)과 시스템 **점검**(기한 지난 일·확인일 지난 결정·늦은 대기·담당자 없는 일)을 따로 보여 준다.
 - **새 프로젝트 마법사**: 템플릿(일반·행사·콘텐츠)에서 폴더와 문서를 만들고, 마감일에서 거꾸로 준비 일정 날짜를 채운다.
@@ -158,7 +158,7 @@ app/
 │  │  ├─ taskTokens.ts        업무 꼬리표(due·owner·p·status·side·kind·proj·결론) 읽기/쓰기
 │  │  ├─ work.ts              ★ 프로젝트·업무 인덱스, 대기열, 한 줄 다시 쓰기 (순수 함수, 내용 해시 캐시)
 │  │  ├─ workOps.ts           노트에 쓰는 업무 연산(추가·수정·삭제·이동·보기 저장) + 화면 상태
-│  │  ├─ health.ts · timeline.ts · views.ts · projectTemplates.ts   건강도·타임라인·저장된 보기·템플릿 (순수 함수)
+│  │  ├─ health.ts · timeline.ts · views.ts · tiles.ts · projectTemplates.ts   건강도·타임라인·타일 조건·타일 배치·템플릿 (순수 함수)
 │  │  ├─ holidays.ts          공휴일·음력(Intl 중국력)
 │  │  ├─ reminders.ts         PC 알림(Web Locks로 한 창만)
 │  │  ├─ nativeCal.ts         Android 브리지(스냅샷·알림 목록 생성)
@@ -170,7 +170,7 @@ app/
 │  ├─ components/             Calendar, EventEditor, Widget, NoteView, Editor, Reader, Graph,
 │  │                          Search, FileTree, InfoPanel, Palette, FindBar, Settings, Onboarding, VaultSheet, Dialogs …
 │  │                          WorkHome(내 업무) · ProjectHub · TaskEditor · NewProject · ViewEditor · NewNote · Select
-│  └─ lib/*.test.ts · test/   vitest 테스트 9개 파일(업무·건강도·타임라인·보기·템플릿·일정 공존·예제 vault)
+│  └─ lib/*.test.ts · test/   vitest 테스트 10개 파일(업무·건강도·타임라인·타일·보기·템플릿·일정 공존·예제 vault)
 ├─ electron/                  main.cjs(서버·창·IPC) · widget.cjs · desktopLayer.cjs · preload.cjs
 ├─ android/app/src/main/java/com/amsidian/app/
 │                             MainActivity · OpenFilePlugin · CalendarBridgePlugin · CalStore · Links
@@ -196,7 +196,7 @@ cd android && gradlew.bat assembleDebug                        # → android/app
 ```
 - **GitHub 연결**: Fine-grained PAT(대상 저장소 1개, Contents: Read and write)를 첫 화면에 입력. 저장소에 커밋이 1개 이상 있어야 한다.
 - **Google Drive / OneDrive**: 사용자가 OAuth 클라이언트 ID를 직접 넣는다(앱이 공용 ID를 제공하지 않음).
-- 린트 `npm run lint`(oxlint), 타입체크 `npx tsc -b`, **테스트 `npm test`**(vitest + jsdom + fake-indexeddb, 86개: 업무 문법·대기열·노트에 쓰는 연산·건강도·타임라인·보기·템플릿). 화면은 실제 앱(Electron 시험 인스턴스·Android 실기기)에서 CDP 스크립트와 스크린샷으로 확인한다. 캘린더·위젯·동기화·에디터에는 자동화 테스트가 거의 없다.
+- 린트 `npm run lint`(oxlint), 타입체크 `npx tsc -b`, **테스트 `npm test`**(vitest + jsdom + fake-indexeddb, 94개: 업무 문법·대기열·노트에 쓰는 연산·건강도·타임라인·타일·보기·템플릿). 화면은 실제 앱(Electron 시험 인스턴스·Android 실기기)에서 CDP 스크립트와 스크린샷으로 확인한다. 캘린더·위젯·동기화·에디터에는 자동화 테스트가 거의 없다.
 - 저장 위치 이름은 옛 이름 그대로 `Amsidian`/`amsidian`(IndexedDB, Electron userData, localStorage 키). 바꾸면 기존 사용자의 데이터가 사라진 것처럼 보이므로 유지한다.
 
 ---

@@ -50,7 +50,7 @@ function Form({ view }: { view?: View }) {
   }
   const remove = async () => {
     if (!view) return
-    if (!(await confirmAsk(t('보기를 삭제할까요?'), view.name, t('삭제'), true))) return
+    if (!(await confirmAsk(t('타일을 삭제할까요?'), view.name, t('삭제'), true))) return
     deleteView(view.name)
     close()
   }
@@ -59,17 +59,17 @@ function Form({ view }: { view?: View }) {
 
   return (
     <div className="ee-wrap" onClick={close}>
-      <div className="ee" role="dialog" aria-label={view ? t('보기 수정') : t('새 보기')} onClick={(e) => e.stopPropagation()}>
+      <div className="ee" role="dialog" aria-label={view ? t('타일 수정') : t('새 타일')} onClick={(e) => e.stopPropagation()}>
         <div className="ee-head">
-          <h3>{view ? t('보기 수정') : t('새 보기')}</h3>
+          <h3>{view ? t('타일 수정') : t('새 타일')}</h3>
           <button className="icon-btn" onClick={close} aria-label={t('닫기')}><Icon name="close" /></button>
         </div>
         <div className="ee-body">
           <label className="ee-field">
-            <span>{t('보기 이름')}</span>
+            <span>{t('타일 이름')}</span>
             <input ref={ref} value={name} onChange={(e) => setName(e.target.value)} placeholder={t('예) 이번 주 내 일')} />
           </label>
-          {taken && <p className="hint small te-note">{t('같은 이름의 보기가 이미 있어요.')}</p>}
+          {taken && <p className="hint small te-note">{t('같은 이름의 타일이 이미 있어요.')}</p>}
 
           <label className="ee-field">
             <span>{t('담당자')}</span>

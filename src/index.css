@@ -874,3 +874,26 @@ html.popup-win .ee { max-width: none; max-height: none; height: 100%; border-rad
 .wrk-viewedit { border: none; background: none; color: var(--muted); min-height: 0; padding: 6px 8px; font-size: 13px; }
 .wrk-viewedit:hover { color: var(--text); }
 .wrk-viewres { margin-top: 16px; }
+
+/* ── 내 업무: 타일 ── */
+.wrk-tile > .wrk-tilehead { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 8px 12px; min-height: 28px; }
+.wrk-tiletitle { display: flex; align-items: center; gap: 6px; border: none; background: none; padding: 0; min-height: 28px; color: var(--muted); text-align: left; }
+.wrk-tname { font-size: 13px; font-weight: 600; }
+.wrk-tile.danger .wrk-tiletitle { color: var(--accent); }
+.wrk-tile.collapsed > .wrk-tilehead { margin-bottom: 0; }
+.wrk-tile.collapsed { margin-top: 28px; }
+.wrk-tilebody > .hint { margin: 0 8px; }
+.wrk-tilectl { display: flex; align-items: center; gap: 2px; flex-wrap: wrap; justify-content: flex-end; }
+.wrk-tilebtn { border: none; background: none; min-height: 32px; padding: 0 8px; font-size: 13px; color: var(--muted); }
+.wrk-tilebtn:hover { color: var(--text); }
+.wrk-tilectl .icon-btn { width: 32px; height: 32px; min-height: 32px; }
+.sel-btn.wrk-limitsel { width: auto; height: 32px; min-height: 32px; padding: 0 8px; font-size: 13px; border-color: var(--border); background: var(--bg2); color: var(--muted); }
+.wrk-more { display: block; margin: 4px 8px 0; padding: 6px 0; border: none; background: none; min-height: 0; font-size: 13px; color: var(--muted); text-align: left; }
+.wrk-more:hover { color: var(--text); }
+.wrk-tile.editing { padding: 10px 6px 12px; margin-top: 20px; border-radius: var(--r); outline: 1px dashed var(--border); cursor: grab; }
+.wrk-tile.editing .wrk-tilebody { opacity: 0.55; pointer-events: none; }
+.wrk-editbar { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 8px; padding: 10px 8px; background: var(--bg); border-bottom: 1px solid var(--border); font-size: 13px; color: var(--muted); }
+.wrk-hiddenrow { display: flex; align-items: center; justify-content: space-between; min-height: 44px; padding: 0 8px; }
+.wrk-hiddenname { font-size: 15px; }
+.head-actions .icon-btn.on { color: var(--accent); }
+.wrk-viewbar, .wrk-viewedit, .wrk-viewres { display: none; }

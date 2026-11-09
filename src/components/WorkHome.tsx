@@ -1,6 +1,6 @@
 // 내 업무: 앱의 홈. 오늘 일정 + 밀린 일·대기·담당자 없는 일을 프로젝트를 가로질러 한 자리에 모은다.
 // 저장하는 데이터는 없다 — 노트에서 매번 계산한다(lib/work.ts). 각 줄은 "왜 여기 있는지"를 보여 주고, 누르면 원본 노트로 간다.
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { useApp } from '../lib/app'
 import { t } from '../lib/i18n'
 import { fmtDay, openDay, todayYmd } from '../lib/calendar'
@@ -9,6 +9,7 @@ import { EventRow, QuickAdd, useCalMap } from './Calendar'
 import { Icon } from './Icon'
 import { Select } from './Select'
 import { applyView, readViews, type View } from '../lib/views'
+import { customName, isCustom, LIMIT_CHOICES, moveBefore, moveTile, resolveTiles, setCollapsed, setHidden, setLimit, type BuiltinTile } from '../lib/tiles'
 import { moveToProject, toggleOrClose, useWorkUi } from '../lib/workOps'
 import { projectHealth, readThresholds, type Health, type Signal } from '../lib/health'
 
@@ -32,37 +33,29 @@ export function useHealth(work: WorkIndex): Map<string, Health | null> {
   }, [files, work])
 }
 
-/** 정리할 업무: 어느 프로젝트에도 속하지 않은 업무(받은 업무 등). 고르면 그 프로젝트의 할 일 노트로 옮겨 간다 */
-function Triage({ work }: { work: WorkIndex }) {
-  const loose = work.tasks.filter((x) => !x.project && !x.done && x.state !== 'dropped')
-  if (!loose.length) return null
+/** 정리할 업무 한 줄: 어느 프로젝트에도 속하지 않은 업무. 프로젝트를 고르면 그 프로젝트의 할 일 노트로 옮겨 간다 */
+function TriageRow({ tk, work }: { tk: Task; work: WorkIndex }) {
   return (
-    <section className="wrk-sec">
-      <h3>{t('정리할 업무')}<span className="wrk-count">{loose.length}</span></h3>
-      <p className="hint wrk-triage-hint">{t('프로젝트를 고르면 그 프로젝트의 할 일 노트로 옮겨져요.')}</p>
-      {loose.map((tk) => (
-        <div key={tk.id} className="wrk-row wrk-triage">
-          <button className="wrk-main" onClick={() => useWorkUi.getState().openEditor(tk)}>
-            <span className="wrk-body">
-              <span className="wrk-title">{tk.title}</span>
-              <span className="wrk-meta">{tk.due && <span className="wrk-due">{tk.due.slice(5)}</span>}{tk.owner.length > 0 && <span className="wrk-owner">{tk.owner.join(', ')}</span>}</span>
-            </span>
-          </button>
-          <Select
-            className="wrk-moveto"
-            value=""
-            ariaLabel={t('프로젝트로 옮기기')}
-            title={t('프로젝트로 옮기기')}
-            placeholder={t('프로젝트로 옮기기…')}
-            options={work.projects.map((p) => ({ value: p.path, label: p.name, hint: p.status }))}
-            onChange={(path) => {
-              const p = work.projects.find((x) => x.path === path)
-              if (p && moveToProject(tk, p.path)) useApp.getState().say(t('"{name}" 로 옮겼어요', { name: p.name }))
-            }}
-          />
-        </div>
-      ))}
-    </section>
+    <div className="wrk-row wrk-triage">
+      <button className="wrk-main" onClick={() => useWorkUi.getState().openEditor(tk)}>
+        <span className="wrk-body">
+          <span className="wrk-title">{tk.title}</span>
+          <span className="wrk-meta">{tk.due && <span className="wrk-due">{tk.due.slice(5)}</span>}{tk.owner.length > 0 && <span className="wrk-owner">{tk.owner.join(', ')}</span>}</span>
+        </span>
+      </button>
+      <Select
+        className="wrk-moveto"
+        value=""
+        ariaLabel={t('프로젝트로 옮기기')}
+        title={t('프로젝트로 옮기기')}
+        placeholder={t('프로젝트로 옮기기…')}
+        options={work.projects.map((p) => ({ value: p.path, label: p.name, hint: p.status }))}
+        onChange={(path) => {
+          const p = work.projects.find((x) => x.path === path)
+          if (p && moveToProject(tk, p.path)) useApp.getState().say(t('"{name}" 로 옮겼어요', { name: p.name }))
+        }}
+      />
+    </div>
   )
 }
 
@@ -84,16 +77,6 @@ function reasonText(q: QueueItem): string {
     default: return ''
   }
 }
-
-const SECTIONS: { key: keyof Omit<Queues, 'total'>; title: string; tone?: 'danger' | 'warn' }[] = [
-  { key: 'overdue', title: '기한이 지난 일', tone: 'danger' },
-  { key: 'decisions', title: '결정할 일' },
-  { key: 'today', title: '오늘 마감' },
-  { key: 'week', title: '이번 주' },
-  { key: 'waiting', title: '대기 중인 일', tone: 'warn' },
-  { key: 'doing', title: '진행 중' },
-  { key: 'unowned', title: '담당자 없는 일' },
-]
 
 function TaskRow({ q, projects }: { q: QueueItem; projects: Map<string, Project> }) {
   const app = useApp.getState()
@@ -129,30 +112,116 @@ function itemOf(task: Task, today: string): QueueItem {
   return { task, reason: '' }
 }
 
-/** 보기 선택줄: 기본 화면 / 저장된 보기들 / 새 보기 */
-function ViewBar({ views, active }: { views: View[]; active: View | null }) {
-  const NEW = '__new'
+/** 타일 하나가 보여 줄 내용 */
+interface TileData {
+  title: string
+  tone?: 'danger' | 'warn'
+  /** 줄들. 타일의 "처음 보일 줄 수" 제한은 여기에만 적용된다 */
+  rows: ReactNode[]
+  /** 제목 옆 개수(없으면 표시 안 함) */
+  count?: number
+  /** 줄 위에 늘 보이는 것 */
+  top?: ReactNode
+  /** 줄 아래에 늘 보이는 것 */
+  footer?: ReactNode
+  /** 줄이 없을 때 보일 글 */
+  emptyText?: string
+  /** 줄이 없어도 타일을 보일지(오늘 일정·프로젝트·사용자 타일). 아니면 비어 있을 땐 화면에서 빠진다 */
+  alwaysShow?: boolean
+  /** "처음 보일 줄 수" 선택을 줄지 */
+  limitable: boolean
+  /** 사용자가 만든 타일이면 그 조건 */
+  custom?: View
+}
+
+const LIMIT_LABEL = (n: number) => (n === 0 ? t('모두') : t('{n}줄', { n }))
+
+function TileView({ id, data, limit, collapsed, editing, onMove, onDropOn }: {
+  id: string
+  data: TileData
+  limit: number
+  collapsed: boolean
+  editing: boolean
+  onMove(dir: -1 | 1): void
+  onDropOn(dragId: string): void
+}) {
+  const [expanded, setExpanded] = useState(false)
+  const patch = useWorkUi.getState().patchLayout
+  const shown = limit > 0 && !expanded ? data.rows.slice(0, limit) : data.rows
+  const rest = data.rows.length - shown.length
+  const count = data.count ?? (data.limitable ? data.rows.length : undefined)
   return (
-    <div className="wrk-viewbar">
-      <Select
-        value={active?.name ?? ''}
-        title={t('보기')}
-        ariaLabel={t('보기')}
-        className="wrk-viewsel"
-        options={[{ value: '', label: t('기본 화면') }, ...views.map((v) => ({ value: v.name, label: v.name })), { value: NEW, label: '+ ' + t('새 보기…') }]}
-        onChange={(v) => (v === NEW ? useWorkUi.setState({ viewEditor: {} }) : useWorkUi.getState().setView(v || null))}
-      />
-      {active && <button className="wrk-viewedit" onClick={() => useWorkUi.setState({ viewEditor: { view: active } })}>{t('편집')}</button>}
-    </div>
+    <section
+      className={`wrk-sec wrk-tile ${data.tone ?? ''}${editing ? ' editing' : ''}${collapsed ? ' collapsed' : ''}`}
+      draggable={editing}
+      onDragStart={(e) => e.dataTransfer.setData('text/plain', id)}
+      onDragOver={(e) => editing && e.preventDefault()}
+      onDrop={(e) => {
+        if (!editing) return
+        e.preventDefault()
+        onDropOn(e.dataTransfer.getData('text/plain'))
+      }}
+    >
+      <div className="wrk-tilehead">
+        <button className="wrk-tiletitle" aria-expanded={!collapsed} onClick={() => patch((l) => setCollapsed(l, id, !collapsed))}>
+          {(collapsed || editing) && <Icon name={collapsed ? 'chevron' : 'chevron-down'} size={14} />}
+          <span className="wrk-tname">{data.title}</span>
+          {count !== undefined && <span className="wrk-count">{count}</span>}
+        </button>
+        {editing && (
+          <div className="wrk-tilectl">
+            {data.limitable && (
+              <Select<string>
+                value={String(limit)}
+                title={t('처음 보일 줄 수')}
+                ariaLabel={t('처음 보일 줄 수')}
+                className="wrk-limitsel"
+                options={LIMIT_CHOICES.map((n) => ({ value: String(n), label: LIMIT_LABEL(n) }))}
+                onChange={(v) => patch((l) => setLimit(l, id, Number(v)))}
+              />
+            )}
+            {data.custom && <button className="wrk-tilebtn" onClick={() => useWorkUi.setState({ viewEditor: { view: data.custom } })}>{t('조건')}</button>}
+            <button className="icon-btn" aria-label={t('위로')} onClick={() => onMove(-1)}><Icon name="chevron-up" size={16} /></button>
+            <button className="icon-btn" aria-label={t('아래로')} onClick={() => onMove(1)}><Icon name="chevron-down" size={16} /></button>
+            <button className="wrk-tilebtn" onClick={() => patch((l) => setHidden(l, id, true))}>{t('숨기기')}</button>
+          </div>
+        )}
+      </div>
+      {!collapsed && (
+        <div className="wrk-tilebody">
+          {data.top}
+          {shown}
+          {data.rows.length === 0 && data.emptyText && <p className="hint">{data.emptyText}</p>}
+          {data.limitable && limit > 0 && data.rows.length > limit && (
+            <button className="wrk-more" onClick={() => setExpanded(!expanded)}>{expanded ? t('접기') : t('{n}개 더 보기', { n: rest })}</button>
+          )}
+          {data.footer}
+        </div>
+      )}
+    </section>
   )
 }
+
+const BUILTIN_TITLE: Record<BuiltinTile, string> = {
+  today: '오늘 일정',
+  overdue: '기한이 지난 일',
+  decisions: '결정할 일',
+  dueToday: '오늘 마감',
+  week: '이번 주',
+  waiting: '대기 중인 일',
+  doing: '진행 중',
+  unowned: '담당자 없는 일',
+  triage: '정리할 업무',
+  projects: '프로젝트',
+}
+const QUEUE_OF: Partial<Record<BuiltinTile, keyof Omit<Queues, 'total'>>> = { overdue: 'overdue', decisions: 'decisions', dueToday: 'today', week: 'week', waiting: 'waiting', doing: 'doing', unowned: 'unowned' }
 
 export function WorkHome() {
   const work = useWork()
   const files = useApp((s) => s.files)
   const views = useMemo(() => readViews(files), [files])
-  const viewName = useWorkUi((s) => s.view)
-  const active = views.find((v) => v.name.toLowerCase() === viewName?.toLowerCase()) ?? null
+  const layout = useWorkUi((s) => s.layout)
+  const editing = useWorkUi((s) => s.editing)
   const health = useHealth(work)
   const myName = useApp((s) => s.settings.myName)
   const me = useMemo(() => parseMe(myName), [myName])
@@ -160,12 +229,78 @@ export function WorkHome() {
   const today = todayYmd()
   const q = useMemo(() => buildQueues(work, today, scope === 'mine' ? me : []), [work, today, scope, me])
   const projects = useMemo(() => new Map(work.projects.map((p) => [p.path, p])), [work])
-  const viewTasks = useMemo(() => (active ? applyView(work, active, today, me) : []), [work, active, today, me])
   const empty = work.tasks.length === 0 && work.projects.length === 0
   // 마감일(due)이 일정으로도 잡히므로, 업무 대기열에 이미 있는 항목은 오늘 일정에서 뺀다 (두 번 보이지 않게)
   const cal = useCalMap()
   const taskIds = useMemo(() => new Set(work.tasks.map((x) => x.id)), [work])
   const todayEvents = (cal.get(today) ?? []).filter((e) => !taskIds.has(e.id))
+  const customs = useMemo(() => views.map((v) => v.name), [views])
+  const tiles = resolveTiles(layout, customs)
+  const patch = useWorkUi.getState().patchLayout
+  const setEditing = (on: boolean) => useWorkUi.setState({ editing: on })
+
+  const dataFor = (id: string): TileData | null => {
+    if (isCustom(id)) {
+      const v = views.find((x) => x.name === customName(id))
+      if (!v) return null
+      const tasks = applyView(work, v, today, me)
+      return { title: v.name, rows: tasks.map((tk) => <TaskRow key={tk.id} q={itemOf(tk, today)} projects={projects} />), limitable: true, alwaysShow: true, emptyText: t('조건에 맞는 열린 업무가 없어요.'), custom: v }
+    }
+    const b = id as BuiltinTile
+    const qk = QUEUE_OF[b]
+    if (qk) {
+      const tone = b === 'overdue' ? 'danger' : b === 'waiting' ? 'warn' : undefined
+      return { title: t(BUILTIN_TITLE[b]), tone, rows: q[qk].map((it) => <TaskRow key={it.task.id + qk} q={it} projects={projects} />), limitable: true }
+    }
+    if (b === 'today') {
+      return {
+        title: t(BUILTIN_TITLE.today),
+        rows: todayEvents.map((e) => <EventRow key={e.id + e.date} ev={e} />),
+        top: <div className="wrk-add-inline"><QuickAdd date={today} /></div>,
+        emptyText: t('이 날은 일정이 없습니다.'),
+        alwaysShow: true,
+        limitable: false,
+      }
+    }
+    if (b === 'triage') {
+      const loose = work.tasks.filter((x) => !x.project && !x.done && x.state !== 'dropped')
+      if (work.projects.length === 0) return { title: t(BUILTIN_TITLE.triage), rows: [], limitable: true }
+      return {
+        title: t(BUILTIN_TITLE.triage),
+        rows: loose.map((tk) => <TriageRow key={tk.id} tk={tk} work={work} />),
+        top: loose.length ? <p className="hint wrk-triage-hint">{t('프로젝트를 고르면 그 프로젝트의 할 일 노트로 옮겨져요.')}</p> : undefined,
+        limitable: true,
+      }
+    }
+    // projects
+    return {
+      title: t(BUILTIN_TITLE.projects),
+      count: work.projects.length || undefined,
+      rows: work.projects.map((p) => {
+        const ts = work.byProject.get(p.path) ?? []
+        const open = ts.filter((x) => !x.done && x.state !== 'dropped').length
+        const h = health.get(p.path)
+        return (
+          <button key={p.path} className="wrk-projrow" onClick={() => useWorkUi.getState().openHub(p.path)}>
+            <span className="wrk-pname">{p.name}</span>
+            <span className="wrk-pmeta">
+              {p.status && <em>{p.status}</em>}
+              {h && h.level !== 'ok' && <span className={`wrk-health ${h.level}`}>{healthLabel(h)}</span>}
+              {p.due && <span>{t('마감 {d}', { d: p.due.slice(5) })}</span>}
+              <span>{t('열린 일 {n}/{m}', { n: open, m: ts.length })}</span>
+            </span>
+          </button>
+        )
+      }),
+      footer: <button className="wrk-newproj" onClick={() => useWorkUi.setState({ wizard: true })}>+ {t('새 프로젝트')}</button>,
+      alwaysShow: true,
+      limitable: false,
+    }
+  }
+
+  const hiddenTiles = tiles.filter((x) => x.hidden)
+  const titleOf = (id: string) => (isCustom(id) ? customName(id) : t(BUILTIN_TITLE[id as BuiltinTile]))
+  const todayShown = tiles.some((x) => x.id === 'today' && !x.hidden)
 
   return (
     <div className="work">
@@ -173,22 +308,19 @@ export function WorkHome() {
         <h2>{t('내 업무')}<small>{fmtDay(today)}</small></h2>
         <div className="head-actions">
           <button className="icon-btn" title={t('업무 추가')} onClick={() => useWorkUi.getState().openEditor()}><Icon name="plus" /></button>
+          <button className={`icon-btn${editing ? ' on' : ''}`} title={t('화면 편집')} aria-pressed={editing} onClick={() => setEditing(!editing)}><Icon name="sliders" /></button>
           <button className="icon-btn" title={t('오늘의 노트 열기')} onClick={() => openDay(today)}><Icon name="edit" /></button>
         </div>
       </div>
       <div className="wrk-scroll">
         <div className="wrk-inner">
-          {(work.tasks.length > 0 || views.length > 0) && <ViewBar views={views} active={active} />}
-
-          {active && (
-            <section className="wrk-sec wrk-viewres">
-              <h3>{active.name}<span className="wrk-count">{viewTasks.length}</span></h3>
-              {viewTasks.length === 0 && <p className="hint pad">{t('조건에 맞는 열린 업무가 없어요.')}</p>}
-              {viewTasks.map((tk) => <TaskRow key={tk.id} q={itemOf(tk, today)} projects={projects} />)}
-            </section>
+          {editing && (
+            <div className="wrk-editbar">
+              <span>{t('타일의 순서를 바꾸고, 숨기고, 새로 만들 수 있어요.')}</span>
+              <button className="primary" onClick={() => setEditing(false)}>{t('완료')}</button>
+            </div>
           )}
 
-          {!active && <>
           {me.length > 0 ? (
             <div className="seg wrk-scope">
               <button className={scope === 'mine' ? 'on' : ''} onClick={() => setScope('mine')}>{t('내 것 ({name})', { name: me[0] })}</button>
@@ -200,46 +332,40 @@ export function WorkHome() {
             )
           )}
 
-          <section className="wrk-sec">
-            <h3>{t('오늘 일정')}</h3>
-            <div className="wrk-add-inline"><QuickAdd date={today} /></div>
-            {todayEvents.length ? <div className="ev-list">{todayEvents.map((e) => <EventRow key={e.id + e.date} ev={e} />)}</div> : <p className="hint">{t('이 날은 일정이 없습니다.')}</p>}
-          </section>
+          {tiles.filter((x) => !x.hidden).map((tile) => {
+            const data = dataFor(tile.id)
+            if (!data) return null
+            if (!editing && !data.alwaysShow && data.rows.length === 0) return null // 비어 있는 타일은 평소엔 화면에서 빠진다
+            return (
+              <TileView
+                key={tile.id}
+                id={tile.id}
+                data={data}
+                limit={tile.limit}
+                collapsed={tile.collapsed}
+                editing={editing}
+                onMove={(dir) => patch((l) => moveTile(l, customs, tile.id, dir))}
+                onDropOn={(dragId) => dragId && patch((l) => moveBefore(l, customs, dragId, tile.id))}
+              />
+            )
+          })}
 
-          {SECTIONS.map(({ key, title, tone }) =>
-            q[key].length > 0 ? (
-              <section key={key} className={`wrk-sec ${tone ?? ''}`}>
-                <h3>{t(title)}<span className="wrk-count">{q[key].length}</span></h3>
-                {q[key].map((it) => <TaskRow key={it.task.id + key} q={it} projects={projects} />)}
-              </section>
-            ) : null,
-          )}
-
-          {work.tasks.length > 0 && q.total === 0 && q.doing.length === 0 && q.unowned.length === 0 && (
+          {!editing && work.tasks.length > 0 && q.total === 0 && q.doing.length === 0 && q.unowned.length === 0 && (
             <p className="hint pad wrk-clear">{t('밀린 일이 없습니다. 👍')}</p>
           )}
 
-          {work.projects.length > 0 && <Triage work={work} />}
-
-          <section className="wrk-sec">
-              <h3>{t('프로젝트')}{work.projects.length > 0 && <span className="wrk-count">{work.projects.length}</span>}</h3>
-              {work.projects.map((p) => {
-                const ts = work.byProject.get(p.path) ?? []
-                const open = ts.filter((x) => !x.done && x.state !== 'dropped').length
-                return (
-                  <button key={p.path} className="wrk-projrow" onClick={() => useWorkUi.getState().openHub(p.path)}>
-                    <span className="wrk-pname">{p.name}</span>
-                    <span className="wrk-pmeta">
-                      {p.status && <em>{p.status}</em>}
-                      {health.get(p.path) && health.get(p.path)!.level !== 'ok' && <span className={`wrk-health ${health.get(p.path)!.level}`}>{healthLabel(health.get(p.path)!)}</span>}
-                      {p.due && <span>{t('마감 {d}', { d: p.due.slice(5) })}</span>}
-                      <span>{t('열린 일 {n}/{m}', { n: open, m: ts.length })}</span>
-                    </span>
-                  </button>
-                )
-              })}
-              <button className="wrk-newproj" onClick={() => useWorkUi.setState({ wizard: true })}>+ {t('새 프로젝트')}</button>
+          {editing && (
+            <section className="wrk-sec wrk-addtiles">
+              <div className="wrk-tilehead"><span className="wrk-tname">{t('타일 추가')}</span></div>
+              {hiddenTiles.map((x) => (
+                <div key={x.id} className="wrk-hiddenrow">
+                  <span className="wrk-hiddenname">{titleOf(x.id)}</span>
+                  <button className="wrk-tilebtn" onClick={() => patch((l) => setHidden(l, x.id, false))}>{t('보이기')}</button>
+                </div>
+              ))}
+              <button className="wrk-newproj" onClick={() => useWorkUi.setState({ viewEditor: {} })}>+ {t('조건으로 새 타일 만들기')}</button>
             </section>
+          )}
 
           {empty && (
             <div className="wrk-guide">
@@ -248,10 +374,9 @@ export function WorkHome() {
               <pre>{`---\ntype: project\nstatus: active\n---\n\n- [ ] 견적서 수정 due:2026-11-12 owner:홍길동\n- [ ] 확인 요청 status:waiting due:2026-11-14`}</pre>
             </div>
           )}
-          </>}
         </div>
       </div>
-      {!active && <div className="wrk-foot"><QuickAdd date={today} /></div>}
+      {todayShown && !editing && <div className="wrk-foot"><QuickAdd date={today} /></div>}
     </div>
   )
 }
