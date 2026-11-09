@@ -13,6 +13,8 @@ import { startNativeBridge } from './lib/nativeCal'
 import { pruneAllDaily, useCal } from './lib/calendar'
 import { EventEditor } from './components/EventEditor'
 import { WorkHome } from './components/WorkHome'
+import { ProjectHub } from './components/ProjectHub'
+import { TaskEditor } from './components/TaskEditor'
 import { CalendarMain, CalendarMobile, CalendarSide, DayPanel, TodayView } from './components/Calendar'
 import { NoteView } from './components/NoteView'
 import { Settings } from './components/Settings'
@@ -192,7 +194,7 @@ export default function App() {
   ]
 
   if (wide) {
-    const mainTab = tab === 'today' ? 'work' : tab === 'graph' || tab === 'settings' || tab === 'calendar' || tab === 'work' ? tab : 'note'
+    const mainTab = tab === 'today' ? 'work' : tab === 'graph' || tab === 'settings' || tab === 'calendar' || tab === 'work' || tab === 'project' ? tab : 'note'
     // 이미 열려 있는 탭을 다시 누르면 사이드바를 접고, 접혀 있으면 그 탭으로 연다
     const pickLeft = (t: 'files' | 'search') => {
       const app = useApp.getState()
@@ -204,7 +206,7 @@ export default function App() {
     return (
       <div className="layout wide" key={lang}>
         <nav className="rail">
-          <button className={mainTab === 'work' ? 'on' : ''} onClick={() => useApp.getState().go('work')} title={t('내 업무')}><Icon name="tasks" /></button>
+          <button className={mainTab === 'work' || mainTab === 'project' ? 'on' : ''} onClick={() => useApp.getState().go('work')} title={t('내 업무')}><Icon name="tasks" /></button>
           <button className={mainTab === 'calendar' ? 'on' : ''} onClick={() => useApp.getState().go('calendar')} title={t('캘린더')}><Icon name="calendar" /></button>
           <button className={leftOpen && leftTab === 'files' && mainTab === 'note' ? 'on' : ''} onClick={() => pickLeft('files')} title={t('메모')}><Icon name="note" /></button>
           <button className={leftOpen && railActive('search') ? 'on' : ''} onClick={() => pickLeft('search')} title={t('검색 (Ctrl+Shift+F)')}><Icon name="search" /></button>
@@ -223,11 +225,12 @@ export default function App() {
         )}
         <main className="main">
           <div className={`view${mainTab === 'calendar' ? ' cal-split' : ''}`} key={`${activeVault}:${mainTab}`}>
-            {mainTab === 'graph' ? <Graph /> : mainTab === 'settings' ? <Settings /> : mainTab === 'work' ? <WorkHome /> : mainTab === 'calendar' ? (<><CalendarMain /><DayPanel /></>) : <NoteView wide />}
+            {mainTab === 'graph' ? <Graph /> : mainTab === 'settings' ? <Settings /> : mainTab === 'work' ? <WorkHome /> : mainTab === 'project' ? <ProjectHub /> : mainTab === 'calendar' ? (<><CalendarMain /><DayPanel /></>) : <NoteView wide />}
           </div>
         </main>
         <Palette />
         <EventEditor />
+        <TaskEditor />
         <VaultSheet />
         <Dialogs />
       </div>
@@ -241,6 +244,7 @@ export default function App() {
         <div className="view" key={`${activeVault}:${tab}`}>
           {tab === 'note' && <NoteView wide={false} />}
           {tab === 'work' && <WorkHome />}
+          {tab === 'project' && <ProjectHub />}
           {tab === 'today' && <TodayView />}
           {tab === 'calendar' && <CalendarMobile />}
           {tab === 'files' && (<><FileTree /><div className="fab-sync"><SyncBtn cls="fab" /></div></>)}
@@ -252,7 +256,7 @@ export default function App() {
       {!hideNav && (
         <nav className="tabbar">
           {nav.map((n) => (
-            <button key={n.id} className={tab === n.id || (n.id === 'files' && tab === 'note') ? 'on' : ''} onClick={() => useApp.getState().go(n.id)}>
+            <button key={n.id} className={tab === n.id || (n.id === 'files' && tab === 'note') || (n.id === 'work' && tab === 'project') ? 'on' : ''} onClick={() => useApp.getState().go(n.id)}>
               <Icon name={n.icon} size={22} />
               <span>{n.label}</span>
             </button>
@@ -261,6 +265,7 @@ export default function App() {
       )}
       <Palette />
       <EventEditor />
+        <TaskEditor />
       <VaultSheet />
       <Dialogs />
     </div>

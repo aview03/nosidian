@@ -5,7 +5,7 @@
 //    → 토큰도 없고 프로젝트에도 안 속한 평범한 체크리스트(장보기 목록 등)는 업무가 아니다 (대기열이 의미를 잃지 않게)
 //  - 소속: ① 줄의 proj: / 노트의 프론트매터 project:  ② 프로젝트 노트가 있는 폴더 아래  ③ 프로젝트 노트 자신
 import { baseName, dirName, splitFrontmatter } from './links'
-import { splitWorkTokens, type Side, type WorkStatus } from './taskTokens'
+import { formatWorkTokens, splitWorkTokens, type Side, type WorkStatus, type WorkTokens } from './taskTokens'
 import type { NoteFile } from './types'
 
 export type TaskState = 'todo' | WorkStatus
@@ -239,3 +239,76 @@ export function buildQueues(work: WorkIndex, today: string, me: string[] = []): 
 
 /** 설정의 내 이름("홍길동, 길동")을 목록으로 */
 export const parseMe = (s: string | undefined): string[] => (s ?? '').split(/[,，]/).map((x) => x.trim()).filter(Boolean)
+
+// ── 한 줄 편집 (순수 함수: 저장소를 건드리지 않는다. 쓰는 일은 workOps.ts) ──
+export interface TaskEdit {
+  title: string
+  done: boolean
+  tokens: WorkTokens
+}
+
+const LINE = /^(\s*[-*+]\s+)\[([ xX])\]\s+(.*)$/
+const SCHEDULE_TAIL = [
+  /(?:^|\s)(@\d{4}-\d{2}-\d{2})(?=\s|$)/,
+  /(?:^|\s)(end:\d{4}-\d{2}-\d{2})(?=\s|$)/,
+  /(?:^|\s)(repeat:\S+)(?=\s|$)/,
+  /(?:^|\s)(until:\d{4}-\d{2}-\d{2})(?=\s|$)/,
+]
+
+/** 줄의 제목(업무·일정 꼬리표를 걷어 낸 글). 체크리스트 줄이 아니면 null */
+export function titleOfLine(line: string): string | null {
+  const m = LINE.exec(line)
+  if (!m) return null
+  let body = splitWorkTokens(m[3]).rest
+  body = body.replace(/^\d{1,2}:\d{2}(?:\s*[-–~]\s*\d{1,2}:\d{2})?\s+/, '')
+  for (const re of SCHEDULE_TAIL) body = body.replace(re, ' ')
+  return body.replace(/\s+/g, ' ').trim()
+}
+
+/** 업무가 있는 줄 번호. 줄 번호가 밀렸으면(다른 사람이 위에 줄을 추가했을 때 등) 같은 제목을 찾는다. 없으면 -1 */
+export function findTaskLine(content: string, task: { line: number; title: string }): number {
+  const lines = content.split('\n')
+  if (lines[task.line] !== undefined && titleOfLine(lines[task.line]) === task.title) return task.line
+  return lines.findIndex((l) => titleOfLine(l) === task.title)
+}
+
+/**
+ * 한 줄을 편집 내용으로 다시 쓴다. 들여쓰기·불릿, 일정 꼬리표(시간·@날짜·end·repeat·until)와
+ * 모르는 status:/side: 값은 그대로 보존하고, 제목과 업무 꼬리표만 바꾼다. 체크리스트 줄이 아니면 null.
+ */
+export function rewriteTaskLine(line: string, edit: TaskEdit): string | null {
+  const m = LINE.exec(line)
+  if (!m) return null
+  let body = splitWorkTokens(m[3]).rest
+  let time = ''
+  const tm = /^(\d{1,2}:\d{2}(?:\s*[-–~]\s*\d{1,2}:\d{2})?)\s+/.exec(body)
+  if (tm) {
+    time = tm[1]
+    body = body.slice(tm[0].length)
+  }
+  const keep: string[] = []
+  for (const re of SCHEDULE_TAIL) {
+    const x = re.exec(body)
+    if (x) {
+      keep.push(x[1])
+      body = body.replace(x[0], ' ')
+    }
+  }
+  for (const x of body.matchAll(/(?:^|\s)((?:status|side):\S+)/g)) keep.push(x[1]) // 모르는 값은 지우지 않는다
+  const title = edit.title.replace(/\s+/g, ' ').trim()
+  const parts = [time, title, ...keep, formatWorkTokens(edit.tokens)].filter(Boolean)
+  return `${m[1]}[${edit.done ? 'x' : ' '}] ${parts.join(' ')}`
+}
+
+/** 화면에서 고르는 상태: 상대 차례(status:waiting 또는 side:other)는 '답 대기' 하나로 보여 준다 */
+export type UiState = 'todo' | 'doing' | 'waiting' | 'dropped'
+export const uiStateOf = (t: Pick<Task, 'state' | 'side'>): UiState => (t.state === 'waiting' || t.side === 'other' ? 'waiting' : t.state)
+export const tokensForState = (ui: UiState, base: WorkTokens): WorkTokens => {
+  const { status: _s, side: _d, ...rest } = base
+  void _s
+  void _d
+  if (ui === 'doing') return { ...rest, status: 'doing' }
+  if (ui === 'waiting') return { ...rest, status: 'waiting', side: 'other' }
+  if (ui === 'dropped') return { ...rest, status: 'dropped' }
+  return rest
+}

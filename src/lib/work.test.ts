@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildQueues, buildWork, parseMe } from './work'
+import { buildQueues, buildWork, findTaskLine, parseMe, rewriteTaskLine, titleOfLine, tokensForState, uiStateOf } from './work'
 import type { NoteFile } from './types'
 
 const note = (path: string, content: string): NoteFile => ({ path, content, sha: null, dirty: false, mtime: 0 })
@@ -134,5 +134,57 @@ describe('숫자 상식 검사 (대기열이 의미를 잃지 않게)', () => {
     const w = buildWork(mk(note('p/업무.md', lines.join('\n'))))
     const q = buildQueues(w, TODAY)
     expect(q.overdue.length).toBeLessThan(w.tasks.length / 4)
+  })
+})
+
+
+describe('한 줄 편집 (rewriteTaskLine)', () => {
+  const edit = (title: string, tokens = {}, done = false) => ({ title, done, tokens })
+
+  it('제목과 업무 꼬리표만 바꾸고 들여쓰기·불릿은 그대로', () => {
+    const out = rewriteTaskLine('  * [ ] 견적서 수정 due:2026-11-12 owner:홍길동', edit('견적서 최종 수정', { due: '2026-11-15', owner: ['김철수'], p: 1 }))
+    expect(out).toBe('  * [ ] 견적서 최종 수정 due:2026-11-15 owner:김철수 p:1')
+  })
+
+  it('일정 꼬리표(시간·@날짜·end·repeat·until)는 보존한다', () => {
+    const out = rewriteTaskLine('- [ ] 14:00-15:00 회의 @2026-11-20 repeat:weekly until:2026-12-31 owner:나', edit('주간 회의', { owner: ['민수'] }))
+    expect(out).toBe('- [ ] 14:00-15:00 주간 회의 @2026-11-20 repeat:weekly until:2026-12-31 owner:민수')
+  })
+
+  it('모르는 status 값은 지우지 않는다', () => {
+    const out = rewriteTaskLine('- [ ] 뭔가 status:모름 due:2026-11-12', edit('뭔가', { due: '2026-11-13' }))
+    expect(out).toContain('status:모름')
+    expect(out).toContain('due:2026-11-13')
+  })
+
+  it('완료 표시와 결론', () => {
+    const out = rewriteTaskLine('- [ ] 정책 확정 status:waiting side:other', edit('정책 확정', { conclusion: '불가로 결정' }, true))
+    expect(out).toBe('- [x] 정책 확정 => 불가로 결정')
+  })
+
+  it('쓴 줄을 다시 읽으면 같은 업무', () => {
+    const line = rewriteTaskLine('- [ ] 시작', edit('룸 문의', tokensForState('waiting', { due: '2026-11-08', owner: ['민수'] })))!
+    expect(line).toBe('- [ ] 룸 문의 status:waiting side:other due:2026-11-08 owner:민수')
+    const w = buildWork(mk(note('p/업무.md', line)))
+    expect(w.tasks[0]).toMatchObject({ title: '룸 문의', state: 'waiting', side: 'other', due: '2026-11-08', owner: ['민수'] })
+    expect(uiStateOf(w.tasks[0])).toBe('waiting')
+  })
+
+  it('체크리스트가 아닌 줄은 건드리지 않는다', () => {
+    expect(rewriteTaskLine('그냥 문장', edit('x'))).toBeNull()
+    expect(titleOfLine('# 제목')).toBeNull()
+  })
+
+  it('줄 번호가 밀려도 같은 제목의 줄을 찾는다', () => {
+    const content = '새로 생긴 줄\n- [ ] 다른 일\n- [ ] 대상 업무 due:2026-11-12'
+    expect(findTaskLine(content, { line: 0, title: '대상 업무' })).toBe(2)
+    expect(findTaskLine(content, { line: 2, title: '대상 업무' })).toBe(2)
+    expect(findTaskLine(content, { line: 0, title: '없는 업무' })).toBe(-1)
+  })
+
+  it('상태 → 꼬리표', () => {
+    expect(tokensForState('todo', { status: 'doing', side: 'other', due: '2026-11-12' })).toEqual({ due: '2026-11-12' })
+    expect(tokensForState('doing', {})).toEqual({ status: 'doing' })
+    expect(tokensForState('dropped', {})).toEqual({ status: 'dropped' })
   })
 })

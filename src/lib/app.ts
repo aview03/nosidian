@@ -17,7 +17,7 @@ export interface ExternalDoc {
   hideBanner?: boolean // 안내 배너를 무시함
 }
 
-export type Tab = 'note' | 'files' | 'search' | 'graph' | 'settings' | 'calendar' | 'today' | 'work'
+export type Tab = 'note' | 'files' | 'search' | 'graph' | 'settings' | 'calendar' | 'today' | 'work' | 'project'
 
 /** 앱을 켰을 때의 첫 화면(홈): PC·모바일 모두 내 업무. 안드로이드 뒤로가기의 종착지이기도 하다 */
 export const homeTab = (): Tab => 'work'
@@ -408,7 +408,7 @@ export const useApp = create<AppState>((set, get) => {
       const s = get()
       const f = s.current ? s.files[s.current] : null
       const shown = !!s.external || (!!f && !f.deleted)
-      const visible = s.tab === 'note' || (s.tab !== 'graph' && s.tab !== 'settings' && s.tab !== 'calendar' && s.tab !== 'today' && s.tab !== 'work' && window.matchMedia('(min-width: 900px)').matches)
+      const visible = s.tab === 'note' || (s.tab !== 'graph' && s.tab !== 'settings' && s.tab !== 'calendar' && s.tab !== 'today' && s.tab !== 'work' && s.tab !== 'project' && window.matchMedia('(min-width: 900px)').matches)
       if (!shown || !visible) return
       set({ findOpen: true, findFocus: s.findFocus + 1 })
     },

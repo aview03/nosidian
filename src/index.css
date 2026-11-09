@@ -719,3 +719,23 @@ html.popup-win .ee { max-width: none; max-height: none; height: 100%; border-rad
   .gm-cell { padding: 3px 4px; }
   .gm-ev { font-size: 12px; }
 }
+
+/* ── 업무 편집기 · 프로젝트 허브 ── */
+.te-states button { min-width: 0; }
+.te-note { margin: -4px 0 0; }
+.wrk-note { flex: none; width: 32px; min-height: 32px; height: 32px; color: var(--muted); opacity: 0.7; }
+.wrk-row:hover .wrk-note { opacity: 1; }
+.wrk-row.fin .wrk-title { color: var(--muted); text-decoration: line-through; }
+.wrk-late { color: var(--accent); font-weight: 600; }
+.wrk-concl { color: var(--muted); font-style: italic; }
+.hub-head { gap: 4px; }
+.hub-head h2 { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hub-meta { display: flex; flex-wrap: wrap; gap: 4px 12px; padding: 0 16px 8px; font-size: 13px; color: var(--muted); }
+.hub-meta em { font-style: normal; color: var(--accent); font-weight: 600; }
+.hub-health { color: var(--text); }
+.hub-tabs { margin: 0 12px 4px; max-width: 860px; }
+.hub-today { color: var(--accent); font-weight: 600; }
+.hub-done > summary { cursor: pointer; font-size: 13px; color: var(--muted); font-weight: 600; margin: 14px 8px 4px; display: flex; align-items: center; gap: 8px; }
+
+.hub > .panel-head, .hub > .hub-meta, .hub > .hub-tabs { width: 100%; max-width: 884px; margin-left: auto; margin-right: auto; }
+.hub > .hub-tabs { padding: 0; }

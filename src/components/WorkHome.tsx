@@ -7,6 +7,7 @@ import { fmtDay, openDay, todayYmd } from '../lib/calendar'
 import { buildQueues, buildWork, parseMe, type Project, type QueueItem, type Queues, type WorkIndex } from '../lib/work'
 import { EventRow, QuickAdd, useCalMap } from './Calendar'
 import { Icon } from './Icon'
+import { useWorkUi } from '../lib/workOps'
 
 export function useWork(): WorkIndex {
   const files = useApp((s) => s.files)
@@ -42,7 +43,7 @@ function TaskRow({ q, projects }: { q: QueueItem; projects: Map<string, Project>
   return (
     <div className={`wrk-row${q.reason === 'overdue' ? ' late' : ''}`}>
       <input type="checkbox" className="task" checked={tk.done} onChange={() => app.toggleTask(tk.path, tk.line)} aria-label={tk.title} />
-      <button className="wrk-main" onClick={() => app.openNote(tk.path)}>
+      <button className="wrk-main" onClick={() => useWorkUi.getState().openEditor(tk)}>
         <span className="wrk-title">{tk.p === 1 && <b className="wrk-p">!</b>}{tk.title}</span>
         <span className="wrk-meta">
           <em className={`wrk-why ${q.reason}`}>{reasonText(q)}</em>
@@ -51,6 +52,7 @@ function TaskRow({ q, projects }: { q: QueueItem; projects: Map<string, Project>
           {tk.due && q.reason !== 'overdue' && q.reason !== 'today' && <span className="wrk-due">{tk.due.slice(5)}</span>}
         </span>
       </button>
+      <button className="icon-btn wrk-note" title={t('노트에서 보기')} onClick={() => app.openNote(tk.path)}><Icon name="note" size={16} /></button>
     </div>
   )
 }
@@ -74,6 +76,7 @@ export function WorkHome() {
       <div className="panel-head">
         <h2>{t('내 업무')}<small>{fmtDay(today)}</small></h2>
         <div className="head-actions">
+          <button className="icon-btn" title={t('업무 추가')} onClick={() => useWorkUi.getState().openEditor()}><Icon name="plus" /></button>
           <button className="icon-btn" title={t('오늘의 노트 열기')} onClick={() => openDay(today)}><Icon name="edit" /></button>
         </div>
       </div>
@@ -116,7 +119,7 @@ export function WorkHome() {
                 const ts = work.byProject.get(p.path) ?? []
                 const open = ts.filter((x) => !x.done && x.state !== 'dropped').length
                 return (
-                  <button key={p.path} className="wrk-projrow" onClick={() => useApp.getState().openNote(p.path)}>
+                  <button key={p.path} className="wrk-projrow" onClick={() => useWorkUi.getState().openHub(p.path)}>
                     <span className="wrk-pname">{p.name}</span>
                     <span className="wrk-pmeta">
                       {p.status && <em>{p.status}</em>}
@@ -132,7 +135,7 @@ export function WorkHome() {
           {empty && (
             <div className="wrk-guide">
               <h3>{t('프로젝트 업무를 시작해 보세요')}</h3>
-              <p>{t('노트 맨 위에 프로젝트 속성을 넣고, 할 일 줄에 마감·담당자를 적으면 여기에 모입니다.')}</p>
+              <p>{t('위의 + 로 업무를 추가하거나, 노트 맨 위에 프로젝트 속성을 넣고 할 일 줄에 마감·담당자를 적으면 여기에 모입니다.')}</p>
               <pre>{`---\ntype: project\nstatus: active\n---\n\n- [ ] 견적서 수정 due:2026-11-12 owner:홍길동\n- [ ] 확인 요청 status:waiting due:2026-11-14`}</pre>
             </div>
           )}
