@@ -4,6 +4,7 @@ import { useApp } from './app'
 import { t } from './i18n'
 import { buildWork, findTaskLine, rewriteTaskLine, tokensForState, type Task, type TaskEdit, type UiState } from './work'
 import { formatWorkTokens } from './taskTokens'
+import { removeView, upsertView, VIEWS_PATH, viewsNoteHeader, type View } from './views'
 
 interface WorkUi {
   /** 업무 편집기: task 가 있으면 수정, 없으면 새 업무(project = 넣을 프로젝트 노트 경로) */
@@ -15,6 +16,11 @@ interface WorkUi {
   hub: string | null
   /** 새 프로젝트 마법사가 열려 있나 */
   wizard: boolean
+  /** 지금 보고 있는 저장된 보기 이름(없으면 기본 화면). 기기별로 기억한다 */
+  view: string | null
+  setView(name: string | null): void
+  /** 보기 편집기: view 가 있으면 수정, 없으면 새 보기 */
+  viewEditor: null | { view?: View }
   openHub(path: string): void
 }
 
@@ -24,6 +30,12 @@ export const useWorkUi = create<WorkUi>((set) => ({
   closeEditor: () => set({ editor: null }),
   hub: null,
   wizard: false,
+  view: (() => { try { return localStorage.getItem('nosidian.workview') } catch { return null } })(),
+  setView: (name) => {
+    try { name ? localStorage.setItem('nosidian.workview', name) : localStorage.removeItem('nosidian.workview') } catch { /* 저장소를 못 쓰면 이번 실행에서만 유지 */ }
+    set({ view: name })
+  },
+  viewEditor: null,
   openHub: (path) => {
     set({ hub: path })
     useApp.getState().go('project')
@@ -116,4 +128,20 @@ export function moveToProject(task: Task, projectPath: string): boolean {
   const to = addTask({ title: task.title, done: task.done, tokens }, projectPath)
   if (to === task.path) return false
   return deleteTask(task)
+}
+
+/** 보기를 보기 노트(_workspace/보기.md)에 저장한다. 노트가 없으면 설명과 함께 만든다. oldName: 이름을 바꾸는 수정일 때 원래 이름 */
+export function saveView(v: View, oldName?: string): void {
+  const app = useApp.getState()
+  const f = app.files[VIEWS_PATH]
+  if (f && !f.deleted) app.setContent(VIEWS_PATH, upsertView(f.content, v, oldName))
+  else app.createNote(VIEWS_PATH, upsertView(viewsNoteHeader(), v), false)
+  useWorkUi.getState().setView(v.name)
+}
+
+export function deleteView(name: string): void {
+  const app = useApp.getState()
+  const f = app.files[VIEWS_PATH]
+  if (f && !f.deleted) app.setContent(VIEWS_PATH, removeView(f.content, name))
+  if (useWorkUi.getState().view?.toLowerCase() === name.toLowerCase()) useWorkUi.getState().setView(null)
 }

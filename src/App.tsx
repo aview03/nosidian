@@ -17,6 +17,7 @@ import { ProjectHub } from './components/ProjectHub'
 import { TaskEditor } from './components/TaskEditor'
 import { NewProject } from './components/NewProject'
 import { NewNote } from './components/NewNote'
+import { ViewEditor } from './components/ViewEditor'
 import { CalendarMain, CalendarMobile, CalendarSide, DayPanel, TodayView } from './components/Calendar'
 import { NoteView } from './components/NoteView'
 import { Settings } from './components/Settings'
@@ -235,6 +236,7 @@ export default function App() {
         <TaskEditor />
         <NewProject />
         <NewNote />
+        <ViewEditor />
         <VaultSheet />
         <Dialogs />
       </div>
@@ -272,6 +274,7 @@ export default function App() {
         <TaskEditor />
         <NewProject />
         <NewNote />
+        <ViewEditor />
       <VaultSheet />
       <Dialogs />
     </div>

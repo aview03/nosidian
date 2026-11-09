@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useApp } from './app'
 import { setLang } from './i18n'
-import { addTask, deleteTask, moveTask, moveToProject, updateTask } from './workOps'
+import { addTask, deleteTask, deleteView, moveTask, moveToProject, saveView, updateTask } from './workOps'
 import { buildQueues, buildWork, tokensForState } from './work'
 import type { NoteFile } from './types'
 
@@ -121,5 +121,17 @@ describe('업무 연산이 노트를 고친다', () => {
     const tasks = buildWork(useApp.getState().files).tasks
     expect(tasks.map((x) => x.title)).toEqual(['세금 신고'])
     expect(tasks[0].project).toBeNull()
+  })
+
+  it('saveView/deleteView: 보기 노트가 없으면 설명과 함께 만들고, 고치고, 지운다', () => {
+    load(PROJECT)
+    saveView({ name: '민수 일', owner: '민수' })
+    expect(text('_workspace/보기.md')).toContain('# 저장된 보기')
+    expect(text('_workspace/보기.md')).toContain('- 민수 일 :: owner=민수')
+    saveView({ name: '민수 일(지남)', owner: '민수', due: 'overdue' }, '민수 일')
+    expect(text('_workspace/보기.md')).toContain('- 민수 일(지남) :: owner=민수; due=overdue')
+    expect(text('_workspace/보기.md')).not.toContain('- 민수 일 ::')
+    deleteView('민수 일(지남)')
+    expect(text('_workspace/보기.md')).not.toContain('민수 일(지남) ::')
   })
 })

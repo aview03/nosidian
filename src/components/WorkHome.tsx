@@ -4,10 +4,11 @@ import { useMemo, useState } from 'react'
 import { useApp } from '../lib/app'
 import { t } from '../lib/i18n'
 import { fmtDay, openDay, todayYmd } from '../lib/calendar'
-import { buildQueues, buildWork, parseMe, type Project, type QueueItem, type Queues, type WorkIndex } from '../lib/work'
+import { addDaysYmd, buildQueues, buildWork, diffDays, parseMe, type Project, type Task, type QueueItem, type Queues, type WorkIndex } from '../lib/work'
 import { EventRow, QuickAdd, useCalMap } from './Calendar'
 import { Icon } from './Icon'
 import { Select } from './Select'
+import { applyView, readViews, type View } from '../lib/views'
 import { moveToProject, toggleOrClose, useWorkUi } from '../lib/workOps'
 import { projectHealth, readThresholds, type Health, type Signal } from '../lib/health'
 
@@ -117,8 +118,41 @@ function TaskRow({ q, projects }: { q: QueueItem; projects: Map<string, Project>
   )
 }
 
+/** 업무 한 줄을 QueueItem 으로 (보기 결과에서 "왜 여기 있나" 문구를 쓰기 위해) */
+function itemOf(task: Task, today: string): QueueItem {
+  if (task.kind === 'decision') return { task, reason: 'decision', days: task.due ? diffDays(today, task.due) : undefined }
+  if (task.state === 'waiting' || task.side === 'other') return { task, reason: 'waiting', days: task.due ? diffDays(today, task.due) : undefined }
+  if (task.due && task.due < today) return { task, reason: 'overdue', days: diffDays(today, task.due) }
+  if (task.due === today) return { task, reason: 'today' }
+  if (task.due && task.due <= addDaysYmd(today, 7)) return { task, reason: 'week', days: diffDays(task.due, today) }
+  if (task.state === 'doing') return { task, reason: 'doing' }
+  return { task, reason: '' }
+}
+
+/** 보기 선택줄: 기본 화면 / 저장된 보기들 / 새 보기 */
+function ViewBar({ views, active }: { views: View[]; active: View | null }) {
+  const NEW = '__new'
+  return (
+    <div className="wrk-viewbar">
+      <Select
+        value={active?.name ?? ''}
+        title={t('보기')}
+        ariaLabel={t('보기')}
+        className="wrk-viewsel"
+        options={[{ value: '', label: t('기본 화면') }, ...views.map((v) => ({ value: v.name, label: v.name })), { value: NEW, label: '+ ' + t('새 보기…') }]}
+        onChange={(v) => (v === NEW ? useWorkUi.setState({ viewEditor: {} }) : useWorkUi.getState().setView(v || null))}
+      />
+      {active && <button className="wrk-viewedit" onClick={() => useWorkUi.setState({ viewEditor: { view: active } })}>{t('편집')}</button>}
+    </div>
+  )
+}
+
 export function WorkHome() {
   const work = useWork()
+  const files = useApp((s) => s.files)
+  const views = useMemo(() => readViews(files), [files])
+  const viewName = useWorkUi((s) => s.view)
+  const active = views.find((v) => v.name.toLowerCase() === viewName?.toLowerCase()) ?? null
   const health = useHealth(work)
   const myName = useApp((s) => s.settings.myName)
   const me = useMemo(() => parseMe(myName), [myName])
@@ -126,6 +160,7 @@ export function WorkHome() {
   const today = todayYmd()
   const q = useMemo(() => buildQueues(work, today, scope === 'mine' ? me : []), [work, today, scope, me])
   const projects = useMemo(() => new Map(work.projects.map((p) => [p.path, p])), [work])
+  const viewTasks = useMemo(() => (active ? applyView(work, active, today, me) : []), [work, active, today, me])
   const empty = work.tasks.length === 0 && work.projects.length === 0
   // 마감일(due)이 일정으로도 잡히므로, 업무 대기열에 이미 있는 항목은 오늘 일정에서 뺀다 (두 번 보이지 않게)
   const cal = useCalMap()
@@ -143,6 +178,17 @@ export function WorkHome() {
       </div>
       <div className="wrk-scroll">
         <div className="wrk-inner">
+          {(work.tasks.length > 0 || views.length > 0) && <ViewBar views={views} active={active} />}
+
+          {active && (
+            <section className="wrk-sec wrk-viewres">
+              <h3>{active.name}<span className="wrk-count">{viewTasks.length}</span></h3>
+              {viewTasks.length === 0 && <p className="hint pad">{t('조건에 맞는 열린 업무가 없어요.')}</p>}
+              {viewTasks.map((tk) => <TaskRow key={tk.id} q={itemOf(tk, today)} projects={projects} />)}
+            </section>
+          )}
+
+          {!active && <>
           {me.length > 0 ? (
             <div className="seg wrk-scope">
               <button className={scope === 'mine' ? 'on' : ''} onClick={() => setScope('mine')}>{t('내 것 ({name})', { name: me[0] })}</button>
@@ -202,9 +248,10 @@ export function WorkHome() {
               <pre>{`---\ntype: project\nstatus: active\n---\n\n- [ ] 견적서 수정 due:2026-11-12 owner:홍길동\n- [ ] 확인 요청 status:waiting due:2026-11-14`}</pre>
             </div>
           )}
+          </>}
         </div>
       </div>
-      <div className="wrk-foot"><QuickAdd date={today} /></div>
+      {!active && <div className="wrk-foot"><QuickAdd date={today} /></div>}
     </div>
   )
 }

@@ -867,3 +867,10 @@ html.popup-win .ee { max-width: none; max-height: none; height: 100%; border-rad
 .tl-milestone { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 8px; font-weight: 700; }
 .tl-milestone svg { width: 18px; height: 18px; color: var(--accent); }
 .tl-undated { margin: 36px 8px 0; font-size: 13px; }
+
+/* 저장된 보기 */
+.wrk-viewbar { display: flex; align-items: center; gap: 8px; margin: 0 8px 12px; }
+.wrk-viewbar .sel-btn.wrk-viewsel { width: auto; min-width: 150px; max-width: 280px; height: 38px; border-color: var(--border); background: var(--bg2); font-size: 14px; font-weight: 600; }
+.wrk-viewedit { border: none; background: none; color: var(--muted); min-height: 0; padding: 6px 8px; font-size: 13px; }
+.wrk-viewedit:hover { color: var(--text); }
+.wrk-viewres { margin-top: 16px; }
