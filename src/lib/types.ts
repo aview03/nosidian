@@ -7,6 +7,7 @@ export interface NoteFile {
   deleted?: boolean
   mtime: number
   conflict?: { sha: string; content: string } // 원격과 충돌 시 원격 버전
+  base?: string // 내가 고치기 시작할 때의 내용(= 마지막 동기화본). 원격과 갈라졌을 때 줄 단위로 합치는 기준. 고치는 중(dirty)일 때만 있다
 }
 
 export interface AssetMeta {

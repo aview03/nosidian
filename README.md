@@ -107,13 +107,13 @@ PC (≥900px)                                          모바일 (<900px)
 ### 데이터 흐름 (한 번 이해하면 거의 전부 설명된다)
 1. 사용자가 노트를 고치면 `setContent` → 메모리(`files`) 즉시 반영 → 400ms 디바운스로 IndexedDB 저장, `dirty=true`.
 2. 메모리 상태가 바뀌면 파생 데이터가 다시 계산된다: 링크 인덱스(`buildIndex`, 짧은 지연 후), 캘린더(`buildCalendar`, 파일 내용이 같으면 파싱 캐시 재사용).
-3. 동기화(`sync`): 원격 목록을 받아 새/변경 파일만 내려받고(6개 병렬), `dirty` 파일을 한 번에 올린다(GitHub는 트리 API로 커밋 1개, 메시지 `Nosidian: sync N notes`). 로컬이 수정 중인데 원격도 바뀌면 `conflict`에 원격본을 보관하고 사용자가 해결한다.
+3. 동기화(`sync`): 원격 목록을 받아 새/변경 파일만 내려받고(6개 병렬), `dirty` 파일을 한 번에 올린다(GitHub는 트리 API로 커밋 1개, 메시지 `Nosidian: sync N notes`). 로컬이 수정 중인데 원격도 바뀌면 **줄 단위로 자동 병합**을 시도한다(고친 줄이 겹치지 않으면 합쳐서 올림). 같은 줄을 서로 다르게 고쳤을 때만 `conflict`에 원격본을 보관하고 사용자가 해결한다(다른 곳 보기 포함). 올리는 사이 원격이 먼저 바뀌면(409/422) 한 번은 자동으로 다시 받아 합친다. 병합 기준은 노트를 처음 고칠 때의 내용(`NoteFile.base`, 고치는 중일 때만 보관).
 4. **창 간(PC)**: 위젯 창과 본 창은 같은 origin이라 같은 IndexedDB를 쓴다. 쓴 쪽이 `BroadcastChannel`로 알리면 받은 쪽이 DB를 다시 읽어 합친다(저장 대기 중인 자기 편집은 덮어쓰지 않음). 동기화는 본 창만.
 5. **네이티브(Android)**: 노트 변경 후 1.2초 뒤(백그라운드 진입 시 즉시) 지난 35일~앞으로 120일의 일정 스냅샷과 알림 목록을 `CalendarBridge.setSnapshot`으로 넘긴다 → SharedPreferences 저장 → 위젯 갱신 + AlarmManager 재등록. 위젯은 이 스냅샷만 읽으므로 앱이 꺼져 있어도 그려진다.
 
 ### 핵심 데이터 모델
 ```ts
-NoteFile { path, content, sha | null, dirty, deleted?, mtime, conflict?: { sha, content } }
+NoteFile { path, content, sha | null, dirty, deleted?, mtime, conflict?: { sha, content }, base? }
 VaultMeta { id, name, remote: GitHub | GDrive | OneDrive | null, bookmarks, recent, lastSync }
 Settings  { theme, fontSize, dailyFolder, startMode, lang, leftOpen, rightOpen,
             calHolidays, calLunar, remindMin, vaults[], activeVault, ... }   // localStorage('amsidian.settings')
@@ -158,6 +158,7 @@ app/
 │  │  ├─ taskTokens.ts        업무 꼬리표(due·owner·p·status·side·kind·proj·결론) 읽기/쓰기
 │  │  ├─ work.ts              ★ 프로젝트·업무 인덱스, 대기열, 한 줄 다시 쓰기 (순수 함수, 내용 해시 캐시)
 │  │  ├─ workOps.ts           노트에 쓰는 업무 연산(추가·수정·삭제·이동·보기 저장) + 화면 상태
+│  │  ├─ merge.ts             줄 단위 3자 병합(동기화에서 같은 노트를 둘이 고쳤을 때)
 │  │  ├─ health.ts · timeline.ts · views.ts · tiles.ts · projectTemplates.ts   건강도·타임라인·타일 조건·타일 배치·템플릿 (순수 함수)
 │  │  ├─ holidays.ts          공휴일·음력(Intl 중국력)
 │  │  ├─ reminders.ts         PC 알림(Web Locks로 한 창만)
@@ -170,7 +171,7 @@ app/
 │  ├─ components/             Calendar, EventEditor, Widget, NoteView, Editor, Reader, Graph,
 │  │                          Search, FileTree, InfoPanel, Palette, FindBar, Settings, Onboarding, VaultSheet, Dialogs …
 │  │                          WorkHome(내 업무) · ProjectHub · TaskEditor · NewProject · ViewEditor · NewNote · Select
-│  └─ lib/*.test.ts · test/   vitest 테스트 10개 파일(업무·건강도·타임라인·타일·보기·템플릿·일정 공존·예제 vault)
+│  └─ lib/*.test.ts · test/   vitest 테스트 13개 파일(업무·건강도·타임라인·타일·보기·템플릿·일정 공존·예제 vault)
 ├─ electron/                  main.cjs(서버·창·IPC) · widget.cjs · desktopLayer.cjs · preload.cjs
 ├─ android/app/src/main/java/com/amsidian/app/
 │                             MainActivity · OpenFilePlugin · CalendarBridgePlugin · CalStore · Links
@@ -196,7 +197,7 @@ cd android && gradlew.bat assembleDebug                        # → android/app
 ```
 - **GitHub 연결**: Fine-grained PAT(대상 저장소 1개, Contents: Read and write)를 첫 화면에 입력. 저장소에 커밋이 1개 이상 있어야 한다.
 - **Google Drive / OneDrive**: 사용자가 OAuth 클라이언트 ID를 직접 넣는다(앱이 공용 ID를 제공하지 않음).
-- 린트 `npm run lint`(oxlint), 타입체크 `npx tsc -b`, **테스트 `npm test`**(vitest + jsdom + fake-indexeddb, 103개: 업무 문법·대기열·노트에 쓰는 연산·건강도·타임라인·타일·보기·템플릿). 화면은 실제 앱(Electron 시험 인스턴스·Android 실기기)에서 CDP 스크립트와 스크린샷으로 확인한다. 캘린더·위젯·동기화·에디터에는 자동화 테스트가 거의 없다.
+- 린트 `npm run lint`(oxlint), 타입체크 `npx tsc -b`, **테스트 `npm test`**(vitest + jsdom + fake-indexeddb, 125개: 업무 문법·대기열·노트에 쓰는 연산·건강도·타임라인·타일·보기·템플릿). 화면은 실제 앱(Electron 시험 인스턴스·Android 실기기)에서 CDP 스크립트와 스크린샷으로 확인한다. 캘린더·위젯·동기화·에디터에는 자동화 테스트가 거의 없다.
 - 저장 위치 이름은 옛 이름 그대로 `Amsidian`/`amsidian`(IndexedDB, Electron userData, localStorage 키). 바꾸면 기존 사용자의 데이터가 사라진 것처럼 보이므로 유지한다.
 
 ---
@@ -211,8 +212,8 @@ cd android && gradlew.bat assembleDebug                        # → android/app
 - 알림: PC는 앱/위젯이 열려 있어야 울린다. Android는 정확 알람이 아니라 절전 모드에서 몇 분 늦을 수 있다. Android 위젯은 읽기+열기 전용이며, 클라우드로 들어온 변경은 앱을 한 번 열어야 위젯에 반영된다.
 - 번역은 노트 기능까지 6개 언어, 캘린더·위젯·업무(내 업무 등) 문구는 한국어/영어만.
 - **프로젝트 관리는 소규모 팀 전제**: `owner:` 는 문자열일 뿐 인증이 아니고, 권한·승인·감사가 없다. 같은 노트를 두 사람이 동시에 고치면 파일 단위 충돌이 난다(회의·받은 업무를 사람/회의별 노트로 나누도록 유도). 조직용 서버는 별도 결정(docs/phase2).
-- 프로젝트 관리의 알려진 빈 곳: "며칠째 멈춘 일" 같은 활동 기반 지표와 변경 이력 타임라인은 만들지 않음(변경 시각을 믿을 수 없음), 칸반 끌어놓기는 PC 마우스로만(모바일은 ‹ › 버튼), 업무·프로젝트 화면은 한국어/영어만.
-- 동기화는 파일 단위(마지막 쓰기 + 수동 충돌 해결)이며 줄/문단 단위 병합이 없다. 암호화·E2E 없음(원격 서비스가 평문 `.md`를 본다). 매우 큰 저장소는 일부만 가져온다(GitHub 트리 truncated).
+- 프로젝트 관리의 알려진 빈 곳(동시 편집은 위 줄 병합으로 줄었음): "며칠째 멈춘 일" 같은 활동 기반 지표와 변경 이력 타임라인은 만들지 않음(변경 시각을 믿을 수 없음), 칸반 끌어놓기는 PC 마우스로만(모바일은 ‹ › 버튼), 업무·프로젝트 화면은 한국어/영어만.
+- 동기화는 파일 단위 전송이고, 같은 노트를 동시에 고쳤을 때는 **줄 단위 3자 병합**(`lib/merge.ts`)으로 겹치지 않는 수정을 자동으로 합친다. 같은 줄을 서로 다르게 고치거나 한쪽이 지운 줄을 다른 쪽이 고치면 수동 해결(내 것/원격 것/둘 다)이며, 문단 이동 감지·글자 단위 병합은 없다. 이 병합은 **기준(base)이 있는 노트**(이 기능이 들어간 뒤 고친 노트)에만 적용된다. 암호화·E2E 없음(원격 서비스가 평문 `.md`를 본다). 매우 큰 저장소는 일부만 가져온다(GitHub 트리 truncated).
 
 **코드**
 - `lib/app.ts`가 상태·동기화·vault·설정을 한 파일에 모두 담고 있다(분리 후보).
@@ -228,7 +229,7 @@ cd android && gradlew.bat assembleDebug                        # → android/app
 
 1. **일정 모델**: 반복 예외("이번 주만 취소"), 알림 시각 사용자 지정(일정별), 할 일(마감일/우선순위) 분리, 일정에 색/카테고리. *제약: 저장은 사람이 읽는 마크다운 한 줄을 유지해야 한다(원칙 1).*
 2. **외부 연동**: ICS 가져오기/내보내기, Google Calendar·Outlook 읽기 전용 구독, 안드로이드 기본 캘린더 공유. *제약: 서버가 없다(원칙 2) — 클라이언트 OAuth만 가능.*
-3. **동기화·협업**: 줄 단위 병합, 충돌 UX, 공유 vault(여러 사람), 동기화 주기·백그라운드 동기화(특히 Android 위젯 최신성), 선택적 암호화.
+3. **동기화·협업**: 문단/글자 단위 병합, 공유 vault(여러 사람) 운영 가이드, 동기화 주기·백그라운드 동기화(특히 Android 위젯 최신성), 선택적 암호화.
 4. **지식 관리 쪽 확장**: 템플릿, 주간/월간 리뷰 자동 생성, 태그·속성 기반 쿼리(Dataview 유사), 캘린더와 노트 링크의 결합(그날 만든/수정한 노트 보기), 할 일 모아보기.
 5. **위젯·알림**: iOS 지원 여부(현재 없음), Android 위젯 상호작용(체크 토글), 위젯 크기별 레이아웃, 투명 위젯(Windows) 대안, 정확 알람 권한 도입 여부.
 6. **온보딩·비개발자 UX**: 첫 실행 시 예제 자동 생성 여부, 동기화 연결 마법사(Drive/OneDrive 클라이언트 ID 입력이 가장 큰 허들), GitHub PAT 발급 가이드, 마크다운 모름 사용자를 위한 서식 UI.

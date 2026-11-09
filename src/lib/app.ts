@@ -8,6 +8,7 @@ import { demoNotes } from './demo'
 import { t, setLang, resolveLang, getLang } from './i18n'
 import { confirmAsk, choose } from './dialog'
 import { writeSource, downloadText, type ExternalSource } from './externalIO'
+import { mergeNote } from './merge'
 
 export interface ExternalDoc {
   name: string
@@ -127,7 +128,7 @@ interface AppState {
   connect(cfg: RemoteCfg): Promise<void>
   startDemo(): Promise<void>
   disconnect(): Promise<void>
-  sync(): Promise<void>
+  sync(retried?: boolean): Promise<void>
 }
 
 /** 400ms 디바운스로 저장 대기 중인 편집을 지금 바로 IndexedDB 에 쓴다 (작은 창을 닫기 직전에 호출) */
@@ -159,6 +160,8 @@ export const useApp = create<AppState>((set, get) => {
     else rebuildTimer = setTimeout(run, 250)
   }
   const saveSettings = () => localStorage.setItem(SETTINGS_KEY, JSON.stringify(get().settings))
+  /** 내용을 고친 노트. 처음 고치는 순간의 내용을 base 로 남겨 둔다(원격과 갈라졌을 때 줄 단위로 합치는 기준) */
+  const edited = (f: NoteFile, content: string, mtime = Date.now()): NoteFile => ({ ...f, content, dirty: true, mtime, base: f.dirty ? f.base : f.content })
   const putFile = (f: NoteFile, debounce = false) => {
     set((s) => ({ files: { ...s.files, [f.path]: f } }))
     if (debounce) {
@@ -419,7 +422,7 @@ export const useApp = create<AppState>((set, get) => {
     setContent(path, content) {
       const f = get().files[path]
       if (!f || f.content === content) return
-      putFile({ ...f, content, dirty: true, mtime: Date.now() }, true)
+      putFile(edited(f, content), true)
       rebuild()
     },
     createNote(path, content = '', open = true) {
@@ -449,7 +452,7 @@ export const useApp = create<AppState>((set, get) => {
           if (g.path === newPath) continue
           const next = g.content.replace(re, `$1${newName}`)
           if (next !== g.content) {
-            putFile({ ...g, content: next, dirty: true, mtime: now })
+            putFile(edited(g, next, now))
             updated++
           }
         }
@@ -527,10 +530,10 @@ export const useApp = create<AppState>((set, get) => {
       const f = get().files[path]
       if (!f?.conflict) return
       const c = f.conflict
-      if (how === 'remote') putFile({ ...f, content: c.content, sha: c.sha, dirty: false, conflict: undefined })
-      else if (how === 'local') putFile({ ...f, sha: c.sha, dirty: true, conflict: undefined })
+      if (how === 'remote') putFile({ ...f, content: c.content, sha: c.sha, dirty: false, conflict: undefined, base: undefined })
+      else if (how === 'local') putFile({ ...f, sha: c.sha, dirty: true, conflict: undefined, base: c.content })
       else {
-        putFile({ ...f, sha: c.sha, dirty: true, conflict: undefined })
+        putFile({ ...f, sha: c.sha, dirty: true, conflict: undefined, base: c.content })
         get().createNote(path.replace(/\.md$/i, '') + ' (' + t('원격 버전') + ').md', c.content, false)
       }
       rebuild(true)
@@ -678,7 +681,7 @@ export const useApp = create<AppState>((set, get) => {
       get().patchSettings({ remote: null, lastSync: null, bookmarks: [], recent: [] })
     },
 
-    async sync() {
+    async sync(retried = false) {
       const { settings, syncing } = get()
       const cfg = settings.remote
       if (!cfg || syncing) return
@@ -697,6 +700,7 @@ export const useApp = create<AppState>((set, get) => {
         const files = { ...get().files }
         const toFetch: RemoteEntry[] = []
         const changed: NoteFile[] = []
+        let merged = 0
         for (const [path, e] of remote) {
           const l = files[path]
           if (!l) toFetch.push(e)
@@ -726,8 +730,12 @@ export const useApp = create<AppState>((set, get) => {
           for (let e = queue.shift(); e; e = queue.shift()) {
             const content = await prov.readText(e)
             const l = files[e.path]
-            if (l?.dirty && !l.deleted) files[e.path] = { ...l, conflict: { sha: e.rev, content } }
-            else files[e.path] = { path: e.path, content, sha: e.rev, dirty: false, mtime: Date.now() }
+            if (l?.dirty && !l.deleted) {
+              // 내가 고치는 중인데 원격도 바뀌었다 → 고친 줄이 겹치지 않으면 자동으로 합친다
+              const r = mergeNote(l, { sha: e.rev, content })
+              files[e.path] = r.file
+              if (r.auto) merged++
+            } else files[e.path] = { path: e.path, content, sha: e.rev, dirty: false, mtime: Date.now() }
             changed.push(files[e.path])
             if (++done % 10 === 0) get().say(t('가져오는 중… {done}/{total}', { done, total: toFetch.length }))
           }
@@ -759,7 +767,8 @@ export const useApp = create<AppState>((set, get) => {
             } else {
               // 푸시하는 사이 편집이 있었다면 dirty 유지
               const cur = next[f.path]
-              next[f.path] = { ...cur, sha: revs.get(f.path)!, dirty: cur.content !== f.content }
+              const stillDirty = cur.content !== f.content
+              next[f.path] = { ...cur, sha: revs.get(f.path)!, dirty: stillDirty, base: stillDirty ? f.content : undefined }
               upd.push(next[f.path])
             }
           }
@@ -772,10 +781,17 @@ export const useApp = create<AppState>((set, get) => {
         get().say(
           conflicts
             ? t('동기화 완료 · 충돌 {n}건 확인 필요', { n: conflicts })
-            : t('동기화 완료 · 받음 {pulled} · 올림 {pushed}', { pulled: toFetch.length, pushed }),
+            : merged
+              ? t('동기화 완료 · 받음 {pulled} · 올림 {pushed} · 자동 병합 {merged}', { pulled: toFetch.length, pushed, merged })
+              : t('동기화 완료 · 받음 {pulled} · 올림 {pushed}', { pulled: toFetch.length, pushed }),
         )
       } catch (e) {
         const err = e as Error & { status?: number }
+        if ((err.status === 422 || err.status === 409) && !retried) {
+          // 올리는 사이 다른 사람이 먼저 올렸다 → 한 번은 알아서 다시 받아 합친 뒤 올려 본다
+          set({ syncing: false })
+          return await get().sync(true)
+        }
         get().say(
           err.status === 422 || err.status === 409
             ? t('원격이 먼저 변경되었습니다. 다시 동기화해 주세요')

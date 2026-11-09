@@ -1,4 +1,5 @@
 import { t } from '../lib/i18n'
+import { diffHunks } from '../lib/merge'
 import { tx } from '../lib/tx'
 import { useRef } from 'react'
 import { EditorView } from '@codemirror/view'
@@ -179,6 +180,7 @@ export function NoteView({ wide }: { wide: boolean }) {
       {file.conflict && (
         <div className="banner">
           {tx('{b} 원격의 이 노트가 다른 곳에서 수정되었습니다.', { b: <b>{t('충돌')}</b> })}
+          <ConflictDiff mine={file.content} theirs={file.conflict.content} />
           <div className="banner-actions">
             <button onClick={() => app.resolveConflict(current, 'local')}>{t('내 버전 유지')}</button>
             <button onClick={() => app.resolveConflict(current, 'remote')}>{t('원격 버전 사용')}</button>
@@ -221,5 +223,26 @@ export function NoteView({ wide }: { wide: boolean }) {
 
       {!wide && <InfoSheet open={sheet === 'info'} path={current} onScroll={scrollTo} onClose={() => app.setSheet(null)} />}
     </div>
+  )
+}
+
+/** 충돌한 곳만 보여 준다: 내 글과 원격 글이 다른 구간(최대 5곳, 곳마다 3줄까지) */
+export function ConflictDiff({ mine, theirs }: { mine: string; theirs: string }) {
+  const m = mine.split('\n')
+  const r = theirs.split('\n')
+  const hunks = diffHunks(m, r)
+  if (!hunks || hunks.length === 0) return null
+  const show = (lines: string[]) => (lines.length ? lines.slice(0, 3).join('\n') + (lines.length > 3 ? '\n…' : '') : t('(없음)'))
+  return (
+    <details className="conflict-diff">
+      <summary>{t('다른 곳 {n}군데 보기', { n: hunks.length })}</summary>
+      {hunks.slice(0, 5).map((h, i) => (
+        <div key={i} className="cd-hunk">
+          <div><b>{t('내 것')}</b><pre>{show(m.slice(h.s, h.e))}</pre></div>
+          <div><b>{t('원격')}</b><pre>{show(h.lines)}</pre></div>
+        </div>
+      ))}
+      {hunks.length > 5 && <p className="hint small">{t('… 외 {n}군데', { n: hunks.length - 5 })}</p>}
+    </details>
   )
 }
