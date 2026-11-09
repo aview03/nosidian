@@ -19,7 +19,7 @@ describe.each(['ko', 'en'] as const)('예제 vault (%s): 처음 여는 사람이
     expect(work.tasks).toHaveLength(7)
   })
 
-  it('기한 초과 1 · 오늘 1 · 이번 주 1 · 답 대기 1 · 진행 중 1 · 담당자 없음 1', () => {
+  it('기한 초과 1 · 오늘 1 · 이번 주 1 · 대기 1 · 진행 중 1 · 담당자 없음 1', () => {
     expect([q.overdue.length, q.today.length, q.week.length, q.waiting.length, q.doing.length, q.unowned.length]).toEqual([1, 1, 1, 1, 1, 1])
   })
 

@@ -4,7 +4,7 @@
 //   - [ ] 상장 재고 확인 status:waiting side:other due:2026-11-12
 //   - [x] 영상 이벤트 정책 => 중복 수상은 불가로 결정
 //
-// 호환성 원칙: 체크박스는 표준 마크다운(`[ ]`/`[x]`)만 쓴다. 진행 중·대기·접음 같은 상태는 `status:` 토큰으로 둔다
+// 호환성 원칙: 체크박스는 표준 마크다운(`[ ]`/`[x]`)만 쓴다. 진행 중·대기·취소됨 같은 상태는 `status:` 토큰으로 둔다
 // (Obsidian 등 다른 마크다운 도구에서도 그냥 체크박스 + 글자로 읽힌다).
 
 export type WorkStatus = 'doing' | 'waiting' | 'dropped'
@@ -37,7 +37,7 @@ const RE = {
 const STATUS_ALIAS: Record<string, WorkStatus> = {
   doing: 'doing', 진행: 'doing', 진행중: 'doing', '진행-중': 'doing',
   waiting: 'waiting', 대기: 'waiting', 대기중: 'waiting', 답대기: 'waiting',
-  dropped: 'dropped', 접음: 'dropped', 취소: 'dropped', 보류: 'dropped',
+  dropped: 'dropped', 취소됨: 'dropped', 취소: 'dropped', 접음: 'dropped', 보류: 'dropped', // 예전 이름(접음)도 계속 읽는다
 }
 const SIDE_ALIAS: Record<string, Side> = { me: 'me', 나: 'me', 우리: 'me', other: 'other', 상대: 'other', 상대방: 'other', 고객: 'other' }
 

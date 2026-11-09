@@ -18,8 +18,8 @@ export function TaskEditor() {
 const STATES: [UiState, string][] = [
   ['todo', '할 일'],
   ['doing', '진행 중'],
-  ['waiting', '답 대기'],
-  ['dropped', '접음'],
+  ['waiting', '대기'],
+  ['dropped', '취소됨'],
 ]
 
 function Form({ task, project }: { task?: Task; project: string | null }) {

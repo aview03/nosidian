@@ -300,7 +300,7 @@ export function rewriteTaskLine(line: string, edit: TaskEdit): string | null {
   return `${m[1]}[${edit.done ? 'x' : ' '}] ${parts.join(' ')}`
 }
 
-/** 화면에서 고르는 상태: 상대 차례(status:waiting 또는 side:other)는 '답 대기' 하나로 보여 준다 */
+/** 화면에서 고르는 상태: 상대 차례(status:waiting 또는 side:other)는 '대기' 하나로 보여 준다 */
 export type UiState = 'todo' | 'doing' | 'waiting' | 'dropped'
 export const uiStateOf = (t: Pick<Task, 'state' | 'side'>): UiState => (t.state === 'waiting' || t.side === 'other' ? 'waiting' : t.state)
 export const tokensForState = (ui: UiState, base: WorkTokens): WorkTokens => {

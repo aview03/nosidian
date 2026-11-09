@@ -15,7 +15,7 @@ export function calendarDemo(ko: boolean): Record<string, string> {
   if (ko) {
     return {
       '프로젝트/행사 준비/프로젝트 개요.md': `---\ntype: project\nstatus: 진행 중\nowner: 민수\ndue: ${day(30)}\n---\n# 행사 준비\n\n지인 모임을 준비하는 작은 프로젝트입니다. 같은 폴더의 [[할 일]] 노트에 적은 체크리스트가 **내 업무**에 모입니다.\n\n- 장소: 시내 한식당\n- 인원: 20명\n`,
-      '프로젝트/행사 준비/할 일.md': `# 할 일\n\n마감일(\`due:\`)·담당자(\`owner:\`)·상태(\`status:\`)를 한 줄에 적으면 내 업무에서 기한이 지난 일, 오늘 마감, 답을 기다리는 일로 나뉘어 보입니다.\n\n- [ ] 장소 예약금 입금 due:${day(-3)} owner:민수 p:1\n- [ ] 참석자 최종 확인 due:${t0} owner:지현\n- [ ] 케이크 주문 due:${day(3)} owner:지현\n- [ ] 식당에 룸 가능 여부 문의 status:waiting side:상대 due:${day(-1)} owner:민수\n- [ ] 현수막 시안 정하기 status:doing owner:지현\n- [ ] 사진 담당 정하기 due:${day(10)}\n- [x] 날짜 확정 owner:민수 => 토요일 저녁으로 결정\n`,
+      '프로젝트/행사 준비/할 일.md': `# 할 일\n\n마감일(\`due:\`)·담당자(\`owner:\`)·상태(\`status:\`)를 한 줄에 적으면 내 업무에서 기한이 지난 일, 오늘 마감, 대기 중인 일로 나뉘어 보입니다.\n\n- [ ] 장소 예약금 입금 due:${day(-3)} owner:민수 p:1\n- [ ] 참석자 최종 확인 due:${t0} owner:지현\n- [ ] 케이크 주문 due:${day(3)} owner:지현\n- [ ] 식당에 룸 가능 여부 문의 status:waiting side:상대 due:${day(-1)} owner:민수\n- [ ] 현수막 시안 정하기 status:doing owner:지현\n- [ ] 사진 담당 정하기 due:${day(10)}\n- [x] 날짜 확정 owner:민수 => 토요일 저녁으로 결정\n`,
       [`Daily/${t0}.md`]: `# ${t0}\n\n## 할 일\n- [ ] 09:00 아침 산책\n- [ ] 12:30 점심 약속\n- [ ] 장보기 목록 확인\n- [x] 물 한 잔 마시기\n\n## 메모\n이 노트의 체크리스트 한 줄이 곧 오늘의 일정입니다. **캘린더** 탭에서 확인해 보세요.\n`,
       [`Daily/${t1}.md`]: `# ${t1}\n\n## 할 일\n- [ ] 15:00 치과 예약\n- [ ] 19:00-20:00 저녁 운동\n\n## 메모\n\n`,
       '일상/주간 루틴.md': `# 주간 루틴\n\n날짜 뒤에 \`repeat:weekly\` 를 붙이면 매주 반복돼요.\n\n- [ ] 19:00 요가 @${t0} repeat:weekly\n\n#일상\n`,

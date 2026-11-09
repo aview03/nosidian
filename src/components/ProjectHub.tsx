@@ -23,7 +23,7 @@ export function TaskLine({ tk, showProject }: { tk: Task; showProject?: string }
       <button className="wrk-main" onClick={() => useWorkUi.getState().openEditor(tk)}>
         <span className="wrk-title">{tk.p === 1 && <b className="wrk-p">!</b>}{tk.title}</span>
         <span className="wrk-meta">
-          {ui !== 'todo' && !tk.done && <em className={`wrk-why ${ui === 'waiting' ? 'waiting' : ''}`}>{ui === 'doing' ? t('진행 중') : ui === 'waiting' ? t('답 대기') : t('접음')}</em>}
+          {ui !== 'todo' && !tk.done && <em className={`wrk-why ${ui === 'waiting' ? 'waiting' : ''}`}>{ui === 'doing' ? t('진행 중') : ui === 'waiting' ? t('대기') : t('취소됨')}</em>}
           {tk.due && <span className={late ? 'wrk-late' : 'wrk-due'}>{tk.due.slice(5)}</span>}
           {tk.owner.length > 0 && <span className="wrk-owner">{tk.owner.join(', ')}</span>}
           {showProject && <span className="wrk-proj">{showProject}</span>}
@@ -67,7 +67,7 @@ export function ProjectHub() {
   const groups: { key: string; title: string; items: Task[] }[] = [
     { key: 'doing', title: t('진행 중'), items: open.filter((x) => uiStateOf(x) === 'doing') },
     { key: 'todo', title: t('할 일'), items: open.filter((x) => uiStateOf(x) === 'todo') },
-    { key: 'waiting', title: t('답 대기'), items: open.filter((x) => uiStateOf(x) === 'waiting') },
+    { key: 'waiting', title: t('대기'), items: open.filter((x) => uiStateOf(x) === 'waiting') },
   ]
   const finished = tasks.filter((x) => x.done || uiStateOf(x) === 'dropped')
   const byDue = (a: Task, b: Task) => (a.due ?? '9999').localeCompare(b.due ?? '9999') || (a.p ?? 9) - (b.p ?? 9)
@@ -124,7 +124,7 @@ export function ProjectHub() {
               {open.length === 0 && <p className="hint pad">{tasks.length ? t('열린 일이 없어요. 👍') : t('아직 업무가 없어요. 위의 + 로 추가해 보세요.')}</p>}
               {finished.length > 0 && (
                 <details className="wrk-sec hub-done">
-                  <summary>{t('완료·접음')} <span className="wrk-count">{finished.length}</span></summary>
+                  <summary>{t('완료·취소됨')} <span className="wrk-count">{finished.length}</span></summary>
                   {[...finished].sort(byDue).map((x) => <TaskLine key={x.id} tk={x} />)}
                 </details>
               )}

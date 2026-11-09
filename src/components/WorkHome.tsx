@@ -1,4 +1,4 @@
-// 내 업무: 앱의 홈. 오늘 일정 + 밀린 일·답 대기·담당자 없는 일을 프로젝트를 가로질러 한 자리에 모은다.
+// 내 업무: 앱의 홈. 오늘 일정 + 밀린 일·대기·담당자 없는 일을 프로젝트를 가로질러 한 자리에 모은다.
 // 저장하는 데이터는 없다 — 노트에서 매번 계산한다(lib/work.ts). 각 줄은 "왜 여기 있는지"를 보여 주고, 누르면 원본 노트로 간다.
 import { useMemo, useState } from 'react'
 import { useApp } from '../lib/app'
@@ -20,7 +20,7 @@ function reasonText(q: QueueItem): string {
     case 'overdue': return t('기한 {n}일 지남', { n })
     case 'today': return t('오늘 마감')
     case 'week': return n === 1 ? t('내일 마감') : t('D-{n}', { n })
-    case 'waiting': return n > 0 ? t('답 대기 · 기한 {n}일 지남', { n }) : t('답 대기')
+    case 'waiting': return n > 0 ? t('대기 · 기한 {n}일 지남', { n }) : t('대기')
     case 'doing': return t('진행 중')
     case 'unowned': return t('담당자 없음')
     default: return ''
@@ -31,7 +31,7 @@ const SECTIONS: { key: keyof Omit<Queues, 'total'>; title: string; tone?: 'dange
   { key: 'overdue', title: '기한이 지난 일', tone: 'danger' },
   { key: 'today', title: '오늘 마감' },
   { key: 'week', title: '이번 주' },
-  { key: 'waiting', title: '답을 기다리는 일', tone: 'warn' },
+  { key: 'waiting', title: '대기 중인 일', tone: 'warn' },
   { key: 'doing', title: '진행 중' },
   { key: 'unowned', title: '담당자 없는 일' },
 ]

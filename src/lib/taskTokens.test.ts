@@ -40,6 +40,13 @@ describe('splitWorkTokens', () => {
     expect(r.tokens.due).toBe('2026-11-30')
   })
 
+  it('상태 이름: 대기·취소됨이 기본, 예전 이름(접음)도 읽는다', () => {
+    expect(splitWorkTokens('a status:대기').tokens.status).toBe('waiting')
+    expect(splitWorkTokens('a status:취소됨').tokens.status).toBe('dropped')
+    expect(splitWorkTokens('a status:접음').tokens.status).toBe('dropped') // 호환
+    expect(splitWorkTokens('a status:취소').tokens.status).toBe('dropped')
+  })
+
   it('p 는 1~3 만', () => {
     expect(splitWorkTokens('a p:2').tokens.p).toBe(2)
     expect(splitWorkTokens('a p:9').has).toBe(false)
