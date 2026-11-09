@@ -162,7 +162,7 @@ export function ProjectHub() {
       <div className="seg wide hub-tabs">
         <button className={tab === 'tasks' ? 'on' : ''} onClick={() => setTab('tasks')}>{t('할 일')}</button>
         <button className={tab === 'board' ? 'on' : ''} onClick={() => setTab('board')}>{t('보드')}</button>
-        <button className={tab === 'docs' ? 'on' : ''} onClick={() => setTab('docs')}>{t('문서')} {docs.length}</button>
+        <button className={tab === 'docs' ? 'on' : ''} onClick={() => setTab('docs')}>{t('문서')}</button>
         <button className={tab === 'schedule' ? 'on' : ''} onClick={() => setTab('schedule')}>{t('일정')}</button>
       </div>
 

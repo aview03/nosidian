@@ -810,3 +810,10 @@ html.popup-win .ee { max-width: none; max-height: none; height: 100%; border-rad
 .hub > .hub-tabs { width: auto; margin: 4px 16px 8px; max-width: 884px; }
 .hub > .hub-meta { padding: 0 16px; }
 @media (min-width: 900px) { .hub > .hub-tabs { margin-left: 20px; margin-right: 20px; } .hub > .hub-meta { padding: 0 16px 0 20px; } }
+
+/* 허브 탭: 화면 폭에 늘어나는 상자 대신, 글자 크기만큼만 차지하는 밑줄 탭으로 (왼쪽 정렬, 폭과 무관) */
+.hub > .hub-tabs { display: flex; gap: 4px; width: auto; max-width: none; margin: 4px 16px 12px; padding: 0; border: none; border-bottom: 1px solid var(--border); border-radius: 0; background: none; overflow-x: auto; }
+.hub > .hub-tabs button { flex: none; width: auto; min-height: 40px; padding: 0 12px; border: none; border-bottom: 2px solid transparent; border-radius: 0; background: none; color: var(--muted); font-size: 15px; font-weight: 500; margin-bottom: -1px; }
+.hub > .hub-tabs button.on { background: none; color: var(--text); font-weight: 700; border-bottom-color: var(--text); }
+@media (min-width: 900px) { .hub > .hub-tabs { margin-left: 20px; margin-right: 20px; } .board { grid-template-columns: repeat(4, 260px); justify-content: start; } }
+.hub > .hub-tabs { overflow-y: hidden; scrollbar-width: none; } .hub > .hub-tabs::-webkit-scrollbar { display: none; }
