@@ -770,3 +770,12 @@ html.popup-win .ee { max-width: none; max-height: none; height: 100%; border-rad
 .wrk-note { display: none; }
 @media (hover: hover) { .wrk-row:hover .wrk-note { display: grid; } }
 .wrk-projrow { padding: 12px 8px; gap: 4px; }
+
+/* 추가 입력줄: 넓은 화면은 '오늘 일정' 안에, 모바일은 캘린더처럼 화면 아래에 붙인다 */
+.wrk-foot { display: none; }
+@media (max-width: 899px) {
+  .wrk-add-inline { display: none; }
+  .wrk-foot { display: block; flex: none; border-top: 1px solid var(--border); background: var(--bg2); }
+  .wrk-foot .quick-add { padding: 8px 12px; }
+  .wrk-inner { padding-bottom: 24px; }
+}

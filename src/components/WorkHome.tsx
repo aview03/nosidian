@@ -97,7 +97,7 @@ export function WorkHome() {
 
           <section className="wrk-sec">
             <h3>{t('오늘 일정')}</h3>
-            <QuickAdd date={today} />
+            <div className="wrk-add-inline"><QuickAdd date={today} /></div>
             {todayEvents.length ? <div className="ev-list">{todayEvents.map((e) => <EventRow key={e.id + e.date} ev={e} />)}</div> : <p className="hint">{t('이 날은 일정이 없습니다.')}</p>}
           </section>
 
@@ -143,6 +143,7 @@ export function WorkHome() {
           )}
         </div>
       </div>
+      <div className="wrk-foot"><QuickAdd date={today} /></div>
     </div>
   )
 }
