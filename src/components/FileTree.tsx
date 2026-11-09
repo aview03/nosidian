@@ -2,8 +2,8 @@ import { t } from '../lib/i18n'
 import { useMemo, useState } from 'react'
 import { useApp } from '../lib/app'
 import { baseName } from '../lib/links'
-import { ask } from '../lib/dialog'
 import { Icon } from './Icon'
+import { openNewFolder, openNewNote } from './NewNote'
 import { importFromPicker } from '../lib/importFiles'
 import { useActiveVault } from './VaultSheet'
 import { NoteContextMenu, useNoteMenu } from './NoteContextMenu'
@@ -56,14 +56,8 @@ export function FileTree() {
     localStorage.setItem('amsidian.closed', JSON.stringify([...n]))
   }
 
-  const newNote = async (dir = '') => {
-    const n = await ask(t('새 노트'), '', dir ? t('{dir}/ 아래에 만듭니다', { dir }) : t('이름 또는 폴더/이름'), t('만들기'))
-    if (n?.trim()) app.createNote((dir ? dir + '/' : '') + n.trim())
-  }
-  const newFolder = async () => {
-    const n = await ask(t('새 폴더'), '', t('폴더에 첫 노트가 생성됩니다 (Git은 빈 폴더를 저장하지 않아요)'), t('만들기'))
-    if (n?.trim()) app.createNote(n.trim().replace(/\/$/, '') + '/' + t('새 노트'))
-  }
+  const newNote = (dir?: string) => openNewNote(dir)
+  const newFolder = () => openNewFolder()
 
   const row = (n: Node, depth: number) => {
     const pad = { paddingLeft: 12 + depth * 16 }

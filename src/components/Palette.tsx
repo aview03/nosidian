@@ -3,11 +3,11 @@ import { t } from '../lib/i18n'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useApp } from '../lib/app'
 import { baseName } from '../lib/links'
-import { ask } from '../lib/dialog'
 import { usePresence } from '../lib/presence'
 import { Capacitor } from '@capacitor/core'
 import { importFromPicker } from '../lib/importFiles'
 import { useWorkUi } from '../lib/workOps'
+import { openNewNote } from './NewNote'
 import { SETTINGS_PATH, settingsNoteContent } from '../lib/health'
 
 interface Item {
@@ -58,7 +58,7 @@ export function Palette() {
   const commands: Item[] = useMemo(() => {
     const s = useApp.getState()
     return [
-      { id: 'new', title: t('새 노트 만들기'), run: async () => { const n = await ask(t('새 노트'), '', t('이름 또는 폴더/이름'), t('만들기')); if (n?.trim()) s.createNote(n.trim()) } },
+      { id: 'new', title: t('새 노트 만들기'), run: () => openNewNote() },
       { id: 'import', title: t('기기에서 md 파일 가져오기'), run: () => void importFromPicker() },
       ...(Capacitor.isNativePlatform() ? [] : [{ id: 'importdir', title: t('기기에서 폴더 가져오기'), run: () => void importFromPicker(true) }]),
       { id: 'vault', title: t('vault 전환 · 추가'), run: () => s.setVaultSheet(true) },

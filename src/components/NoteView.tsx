@@ -4,13 +4,13 @@ import { useRef } from 'react'
 import { EditorView } from '@codemirror/view'
 import { useApp } from '../lib/app'
 import { baseName } from '../lib/links'
-import { ask } from '../lib/dialog'
 import { renameNoteDialog, deleteNoteDialog, copyNoteLink } from '../lib/noteActions'
 import { Reader, scrollToAnchor } from './Reader'
 import { Editor } from './Editor'
 import { InfoPanel } from './InfoPanel'
 import { FindBar } from './FindBar'
 import { Icon } from './Icon'
+import { openNewNote } from './NewNote'
 import { usePresence } from '../lib/presence'
 
 function InfoSheet({ open, path, onScroll, onClose }: { open: boolean; path: string; onScroll(line: number, text: string): void; onClose(): void }) {
@@ -101,10 +101,7 @@ export function NoteView({ wide }: { wide: boolean }) {
         <p>{t('파일 목록에서 노트를 고르거나, 새 노트를 만들어 시작하세요.')}</p>
         <div className="empty-actions">
           <button className="primary" onClick={() => app.setPalette('switcher')}>{t('노트 찾기')}<span className="only-wide"> (Ctrl+O)</span></button>
-          <button onClick={async () => {
-            const n = await ask(t('새 노트'), '', t('이름 또는 폴더/이름'), t('만들기'))
-            if (n?.trim()) app.createNote(n.trim())
-          }}>{t('새 노트')}</button>
+          <button onClick={() => openNewNote()}>{t('새 노트')}</button>
           <button onClick={() => app.openDaily()}>{t('오늘의 노트')}</button>
         </div>
       </div>
