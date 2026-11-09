@@ -823,3 +823,35 @@ html.popup-win .ee { max-width: none; max-height: none; height: 100%; border-rad
 .wrk-moveto { flex: none; max-width: 150px; height: 36px; min-height: 36px; padding: 0 8px; font-size: 13px; color: var(--muted); background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r); }
 
 .wrk-kind { display: inline-block; margin-right: 8px; padding: 1px 6px; border: 1px solid var(--muted); border-radius: var(--r); color: var(--muted); font-size: 11px; font-weight: 600; vertical-align: 1px; }
+
+.wrk-health { font-style: normal; }
+.wrk-health.warn { color: var(--text); font-weight: 600; }
+.wrk-health.risk { color: var(--accent); font-weight: 700; }
+.wrk-health.ok { color: var(--muted); }
+
+/* ── 앱 전용 선택 상자 (Select.tsx) ── */
+.sel-btn { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; height: 46px; padding: 0 12px; text-align: left; border: 1px solid var(--text); border-radius: var(--r); background: var(--bg); font-size: 15px; }
+.sel-btn .sel-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sel-btn.sel-empty { color: var(--muted); }
+.sel-btn svg { flex: none; width: 16px; height: 16px; color: var(--muted); }
+.sel-btn:focus-visible, .sel-btn[aria-expanded='true'] { outline: none; border-color: var(--accent); }
+.sel-btn:disabled { opacity: 0.45; }
+.sel-wrap { position: fixed; inset: 0; z-index: 90; }
+.sel-wrap.sheet-mode { background: #0000008c; display: flex; align-items: flex-end; }
+.sel-pop { position: fixed; display: flex; flex-direction: column; background: var(--bg); border: 1px solid var(--border); border-radius: var(--r); padding: 4px; box-shadow: 0 8px 28px #0006; overflow-y: auto; }
+.sel-sheet { width: 100%; max-height: 70dvh; display: flex; flex-direction: column; background: var(--bg); border-radius: var(--r); padding: 0 8px calc(8px + var(--safe-b)); animation: up 0.2s ease-out; }
+.sel-title { margin: 12px 8px 8px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.sel-list { display: flex; flex-direction: column; overflow-y: auto; }
+.sel-opt { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 0 12px; border: none; background: none; text-align: left; font-size: 15px; border-radius: var(--r); }
+.sel-opt .sel-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sel-opt small { color: var(--muted); font-size: 12px; }
+.sel-opt svg { flex: none; width: 16px; height: 16px; color: var(--accent); }
+.sel-opt.hl { background: var(--bg3); }
+.sel-opt.on .sel-label { font-weight: 700; }
+.sel-cancel { margin-top: 6px; min-height: 46px; width: 100%; }
+.sel-btn.wrk-moveto { width: auto; max-width: 190px; height: 36px; padding: 0 10px; border-color: var(--border); background: var(--bg2); color: var(--muted); font-size: 13px; }
+
+/* 프로젝트 줄 메타: 항목은 줄바꿈하지 않고, 점검 문구는 자기 줄에 */
+.wrk-pmeta { display: flex; flex-wrap: wrap; gap: 2px 14px; align-items: baseline; }
+.wrk-pmeta > * { white-space: nowrap; }
+.wrk-pmeta > .wrk-health { order: 9; flex-basis: 100%; white-space: normal; }

@@ -65,8 +65,8 @@ describe('업무 연산이 노트를 고친다', () => {
     expect(addTask(edit('세금 신고', { due: '2026-11-16' }), null)).toBe('받은 업무.md')
     addTask(edit('우체국 가기'), null)
     expect(text('받은 업무.md')).toBe('# 받은 업무\n\n- [ ] 세금 신고 due:2026-11-16\n- [ ] 우체국 가기\n')
-    // 프로젝트 밖이지만 꼬리표가 있는 것만 업무로 센다
-    expect(buildWork(useApp.getState().files).tasks.map((t) => t.title)).toEqual(['세금 신고'])
+    // 받은 업무 노트의 줄은 꼬리표가 없어도 전부 업무(정리할 업무)
+    expect(buildWork(useApp.getState().files).tasks.map((t) => t.title)).toEqual(['세금 신고', '우체국 가기'])
   })
 
   it('moveTask: 칸을 옮기면 status 만 바뀌고 나머지는 그대로 (대기는 side:other 도)', () => {
@@ -113,5 +113,13 @@ describe('업무 연산이 노트를 고친다', () => {
     const t2 = buildWork(useApp.getState().files).tasks.find((x) => x.title === '장소 정하기')!
     expect(updateTask(t2, { title: t2.title, done: true, tokens: { kind: 'decision', conclusion: '식당으로 결정' } })).toBe(true)
     expect(buildQueues(buildWork(useApp.getState().files), '2026-11-09').decisions).toHaveLength(0)
+  })
+
+  it('받은 업무 노트의 줄은 꼬리표가 없어도 업무로 센다(정리할 업무)', () => {
+    load(PROJECT)
+    addTask(edit('세금 신고'), null) // 마감·담당 없이
+    const tasks = buildWork(useApp.getState().files).tasks
+    expect(tasks.map((x) => x.title)).toEqual(['세금 신고'])
+    expect(tasks[0].project).toBeNull()
   })
 })

@@ -7,6 +7,7 @@ import {
   type CalEvent, type Quick, type Repeat,
 } from '../lib/calendar'
 import { Icon } from './Icon'
+import { Select } from './Select'
 
 const addHour = (hhmm: string, h: number) => {
   const [a, b] = hhmm.split(':').map(Number)
@@ -161,12 +162,10 @@ function Form({ date, ev }: { date: string; ev?: CalEvent }) {
             </div>
           )}
 
-          <label className="ee-field">
+          <div className="ee-field">
             <span>{t('반복')}</span>
-            <select value={rep} disabled={multi} onChange={(e) => setRep(e.target.value as '' | Repeat)}>
-              {REPS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-            </select>
-          </label>
+            <Select<'' | Repeat> value={rep} disabled={multi} ariaLabel={t('반복')} title={t('반복')} options={REPS.map(([v, l]) => ({ value: v as '' | Repeat, label: l }))} onChange={setRep} />
+          </div>
           {multi && <p className="hint small ee-note">{t('며칠에 걸친 일정은 반복할 수 없어요.')}</p>}
           {rep === 'weekly' && !multi && (
             <div className="ee-days" aria-label={t('반복할 요일')}>

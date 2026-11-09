@@ -46,6 +46,9 @@ export interface WorkIndex {
   byProject: Map<string, Task[]>
 }
 
+/** 받은 업무 노트(루트): 꼬리표 없이 적은 줄도 업무로 센다 */
+export const INBOX = /^(받은 업무|Inbox)\.md$/i
+
 const TASK_LINE = /^\s*[-*+]\s+\[([ xX])\]\s+(.*)$/
 
 interface RawTask {
@@ -161,7 +164,7 @@ export function buildWork(files: Record<string, NoteFile>): WorkIndex {
     const info = infoOf(f)
     for (const r of info.tasks) {
       const project = resolve(f.path, info.fm, r.tokens.proj)
-      if (!r.has && !project) continue // 평범한 체크리스트는 업무가 아니다
+      if (!r.has && !project && !INBOX.test(f.path)) continue // 평범한 체크리스트는 업무가 아니다 (받은 업무 노트는 예외: 거기 적은 건 전부 정리할 업무)
       const t: Task = {
         id: `${f.path}:${r.line}`,
         path: f.path,

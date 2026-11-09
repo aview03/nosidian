@@ -7,7 +7,29 @@ import { fmtDay, openDay, todayYmd } from '../lib/calendar'
 import { buildQueues, buildWork, parseMe, type Project, type QueueItem, type Queues, type WorkIndex } from '../lib/work'
 import { EventRow, QuickAdd, useCalMap } from './Calendar'
 import { Icon } from './Icon'
+import { Select } from './Select'
 import { moveToProject, toggleOrClose, useWorkUi } from '../lib/workOps'
+import { projectHealth, readThresholds, type Health, type Signal } from '../lib/health'
+
+export function signalText(s: Signal): string {
+  switch (s.key) {
+    case 'overdue': return t('기한 지난 일 {n}', { n: s.count })
+    case 'decisionLate': return t('확인일이 지난 결정 {n}', { n: s.count })
+    case 'waitingLate': return t('답이 늦은 대기 {n}', { n: s.count })
+    default: return t('담당자 없는 일 {n}', { n: s.count })
+  }
+}
+export const healthLabel = (h: Health) => (h.level === 'ok' ? t('정상') : `${h.level === 'risk' ? t('위험') : t('주의')} · ${h.signals.map(signalText).join(' · ')}`)
+
+/** 프로젝트별 시스템 점검(파생). 사람이 적은 health: 와 따로 쓴다 */
+export function useHealth(work: WorkIndex): Map<string, Health | null> {
+  const files = useApp((s) => s.files)
+  return useMemo(() => {
+    const th = readThresholds(files)
+    const today = todayYmd()
+    return new Map(work.projects.map((p) => [p.path, projectHealth(work.byProject.get(p.path) ?? [], today, th)]))
+  }, [files, work])
+}
 
 /** 정리할 업무: 어느 프로젝트에도 속하지 않은 업무(받은 업무 등). 고르면 그 프로젝트의 할 일 노트로 옮겨 간다 */
 function Triage({ work }: { work: WorkIndex }) {
@@ -25,18 +47,18 @@ function Triage({ work }: { work: WorkIndex }) {
               <span className="wrk-meta">{tk.due && <span className="wrk-due">{tk.due.slice(5)}</span>}{tk.owner.length > 0 && <span className="wrk-owner">{tk.owner.join(', ')}</span>}</span>
             </span>
           </button>
-          <select
+          <Select
             className="wrk-moveto"
             value=""
-            aria-label={t('프로젝트로 옮기기')}
-            onChange={(e) => {
-              const p = work.projects.find((x) => x.path === e.target.value)
+            ariaLabel={t('프로젝트로 옮기기')}
+            title={t('프로젝트로 옮기기')}
+            placeholder={t('프로젝트로 옮기기…')}
+            options={work.projects.map((p) => ({ value: p.path, label: p.name, hint: p.status }))}
+            onChange={(path) => {
+              const p = work.projects.find((x) => x.path === path)
               if (p && moveToProject(tk, p.path)) useApp.getState().say(t('"{name}" 로 옮겼어요', { name: p.name }))
             }}
-          >
-            <option value="">{t('프로젝트로 옮기기…')}</option>
-            {work.projects.map((p) => <option key={p.path} value={p.path}>{p.name}</option>)}
-          </select>
+          />
         </div>
       ))}
     </section>
@@ -97,6 +119,7 @@ function TaskRow({ q, projects }: { q: QueueItem; projects: Map<string, Project>
 
 export function WorkHome() {
   const work = useWork()
+  const health = useHealth(work)
   const myName = useApp((s) => s.settings.myName)
   const me = useMemo(() => parseMe(myName), [myName])
   const [scope, setScope] = useState<'mine' | 'all'>('mine')
@@ -162,6 +185,7 @@ export function WorkHome() {
                     <span className="wrk-pname">{p.name}</span>
                     <span className="wrk-pmeta">
                       {p.status && <em>{p.status}</em>}
+                      {health.get(p.path) && health.get(p.path)!.level !== 'ok' && <span className={`wrk-health ${health.get(p.path)!.level}`}>{healthLabel(health.get(p.path)!)}</span>}
                       {p.due && <span>{t('마감 {d}', { d: p.due.slice(5) })}</span>}
                       <span>{t('열린 일 {n}/{m}', { n: open, m: ts.length })}</span>
                     </span>

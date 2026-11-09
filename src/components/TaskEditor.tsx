@@ -7,6 +7,7 @@ import { fmtDay, todayYmd } from '../lib/calendar'
 import { addDaysYmd, parseMe, tokensForState, uiStateOf, type Task, type UiState } from '../lib/work'
 import { addTask, deleteTask, updateTask, useWorkUi } from '../lib/workOps'
 import { Icon } from './Icon'
+import { Select } from './Select'
 import { useWork } from './WorkHome'
 
 export function TaskEditor() {
@@ -158,13 +159,16 @@ function Form({ task, project, closing }: { task?: Task; project: string | null;
             </div>
           </div>
 
-          <label className="ee-field">
+          <div className="ee-field">
             <span>{t('프로젝트')}</span>
-            <select value={proj} onChange={(e) => setProj(e.target.value)}>
-              <option value="">{t('프로젝트 없음')}</option>
-              {projects.map((x) => <option key={x.path} value={x.path}>{x.name}</option>)}
-            </select>
-          </label>
+            <Select
+              value={proj}
+              ariaLabel={t('프로젝트')}
+              title={t('프로젝트')}
+              options={[{ value: '', label: t('프로젝트 없음') }, ...projects.map((x) => ({ value: x.path, label: x.name, hint: x.status }))]}
+              onChange={setProj}
+            />
+          </div>
           {!task && <p className="hint small te-note">{proj ? t('선택한 프로젝트 폴더의 "할 일" 노트에 추가돼요.') : t('"받은 업무" 노트에 추가돼요. 나중에 프로젝트로 옮길 수 있어요.')}</p>}
         </div>
 

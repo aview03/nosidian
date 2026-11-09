@@ -8,7 +8,7 @@ import { uiStateOf, type Task, type UiState } from '../lib/work'
 import { moveTask, toggleOrClose, useWorkUi } from '../lib/workOps'
 import { EventRow, useCalMap } from './Calendar'
 import { Icon } from './Icon'
-import { useWork } from './WorkHome'
+import { healthLabel, signalText, useHealth, useWork } from './WorkHome'
 
 type Tab = 'tasks' | 'board' | 'docs' | 'schedule'
 
@@ -92,6 +92,7 @@ export function TaskLine({ tk, showProject }: { tk: Task; showProject?: string }
 export function ProjectHub() {
   const path = useWorkUi((s) => s.hub)
   const work = useWork()
+  const healthMap = useHealth(work)
   const files = useApp((s) => s.files)
   const index = useApp((s) => s.index)
   const cal = useCalMap()
@@ -159,6 +160,7 @@ export function ProjectHub() {
         {project.owner.length > 0 && <span className="wrk-owner">{project.owner.join(', ')}</span>}
         {project.due && <span>{t('마감 {d}', { d: project.due })}</span>}
         {project.health && <span className="hub-health">{t('판단')}: {project.health}</span>}
+        {healthMap.get(project.path) && <span className={`wrk-health ${healthMap.get(project.path)!.level}`} title={healthMap.get(project.path)!.signals.map(signalText).join(' · ')}>{t('점검')}: {healthLabel(healthMap.get(project.path)!)}</span>}
         <span>{t('열린 일 {n}/{m}', { n: open.length, m: tasks.length })}</span>
       </div>
       <div className="seg wide hub-tabs">
