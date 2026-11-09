@@ -15,6 +15,7 @@ import { EventEditor } from './components/EventEditor'
 import { WorkHome } from './components/WorkHome'
 import { ProjectHub } from './components/ProjectHub'
 import { TaskEditor } from './components/TaskEditor'
+import { NewProject } from './components/NewProject'
 import { CalendarMain, CalendarMobile, CalendarSide, DayPanel, TodayView } from './components/Calendar'
 import { NoteView } from './components/NoteView'
 import { Settings } from './components/Settings'
@@ -231,6 +232,7 @@ export default function App() {
         <Palette />
         <EventEditor />
         <TaskEditor />
+        <NewProject />
         <VaultSheet />
         <Dialogs />
       </div>
@@ -266,6 +268,7 @@ export default function App() {
       <Palette />
       <EventEditor />
         <TaskEditor />
+        <NewProject />
       <VaultSheet />
       <Dialogs />
     </div>

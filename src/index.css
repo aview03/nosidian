@@ -798,3 +798,10 @@ html.popup-win .ee { max-width: none; max-height: none; height: 100%; border-rad
 .board-move button:disabled { opacity: .25; }
 @media (max-width: 899px) { .board { grid-template-columns: repeat(4, 78vw); scroll-snap-type: x mandatory; gap: 12px; } .board-col { scroll-snap-align: start; } }
 .board-col > h3 .wrk-count, .wrk-sec > h3 .wrk-count { margin-left: 8px; }
+
+.wrk-newproj { display: block; margin: 6px 8px 0; padding: 8px 0; border: none; background: none; color: var(--muted); font-size: 14px; text-align: left; min-height: 0; }
+.wrk-newproj:hover { color: var(--text); }
+.np-tpls { display: flex; flex-direction: column; gap: 8px; }
+.np-tpl { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; width: 100%; height: auto; min-height: 0; padding: 10px 12px; text-align: left; }
+.np-tpl small { color: var(--muted); font-size: 13px; }
+.np-tpl.on { border-color: var(--accent); }

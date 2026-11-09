@@ -114,9 +114,8 @@ export function WorkHome() {
             <p className="hint pad wrk-clear">{t('밀린 일이 없습니다. 👍')}</p>
           )}
 
-          {work.projects.length > 0 && (
-            <section className="wrk-sec">
-              <h3>{t('프로젝트')}<span className="wrk-count">{work.projects.length}</span></h3>
+          <section className="wrk-sec">
+              <h3>{t('프로젝트')}{work.projects.length > 0 && <span className="wrk-count">{work.projects.length}</span>}</h3>
               {work.projects.map((p) => {
                 const ts = work.byProject.get(p.path) ?? []
                 const open = ts.filter((x) => !x.done && x.state !== 'dropped').length
@@ -131,13 +130,13 @@ export function WorkHome() {
                   </button>
                 )
               })}
+              <button className="wrk-newproj" onClick={() => useWorkUi.setState({ wizard: true })}>+ {t('새 프로젝트')}</button>
             </section>
-          )}
 
           {empty && (
             <div className="wrk-guide">
               <h3>{t('프로젝트 업무를 시작해 보세요')}</h3>
-              <p>{t('위의 + 로 업무를 추가하거나, 노트 맨 위에 프로젝트 속성을 넣고 할 일 줄에 마감·담당자를 적으면 여기에 모입니다.')}</p>
+              <p>{t('위의 + 로 업무를 추가하거나, 아래 "새 프로젝트"로 템플릿에서 시작하세요. 노트 맨 위에 프로젝트 속성을 넣고 할 일 줄에 마감·담당자를 적어도 여기에 모입니다.')}</p>
               <pre>{`---\ntype: project\nstatus: active\n---\n\n- [ ] 견적서 수정 due:2026-11-12 owner:홍길동\n- [ ] 확인 요청 status:waiting due:2026-11-14`}</pre>
             </div>
           )}

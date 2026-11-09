@@ -7,6 +7,7 @@ import { ask } from '../lib/dialog'
 import { usePresence } from '../lib/presence'
 import { Capacitor } from '@capacitor/core'
 import { importFromPicker } from '../lib/importFiles'
+import { useWorkUi } from '../lib/workOps'
 
 interface Item {
   id: string
@@ -65,6 +66,7 @@ export function Palette() {
       { id: 'sync', title: t('동기화'), run: () => void s.sync() },
       { id: 'toggle', title: t('읽기/편집 전환'), run: () => s.setMode(s.mode === 'edit' ? 'read' : 'edit') },
       { id: 'work', title: t('내 업무 열기'), run: () => s.go('work') },
+      { id: 'newproj', title: t('새 프로젝트'), run: () => { s.go('work'); useWorkUi.setState({ wizard: true }) } },
       { id: 'calendar', title: t('캘린더 열기'), run: () => s.go('calendar') },
       { id: 'today', title: t('오늘 일정 보기'), run: () => { useCal.getState().goToday(); s.go(window.matchMedia('(min-width: 900px)').matches ? 'calendar' : 'work') } },
       { id: 'graph', title: t('그래프 보기'), run: () => s.go('graph') },

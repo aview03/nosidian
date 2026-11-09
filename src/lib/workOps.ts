@@ -12,6 +12,8 @@ interface WorkUi {
   closeEditor(): void
   /** 프로젝트 허브에서 보고 있는 프로젝트 노트 경로 */
   hub: string | null
+  /** 새 프로젝트 마법사가 열려 있나 */
+  wizard: boolean
   openHub(path: string): void
 }
 
@@ -20,6 +22,7 @@ export const useWorkUi = create<WorkUi>((set) => ({
   openEditor: (task, project = null) => set({ editor: { task, project } }),
   closeEditor: () => set({ editor: null }),
   hub: null,
+  wizard: false,
   openHub: (path) => {
     set({ hub: path })
     useApp.getState().go('project')
