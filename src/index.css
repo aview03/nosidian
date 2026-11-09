@@ -739,3 +739,34 @@ html.popup-win .ee { max-width: none; max-height: none; height: 100%; border-rad
 
 .hub > .panel-head, .hub > .hub-meta, .hub > .hub-tabs { width: 100%; max-width: 884px; margin-left: auto; margin-right: auto; }
 .hub > .hub-tabs { padding: 0; }
+
+/* ── 내 업무: 구분선 없이 간격으로 묶는다 ──
+   같은 묶음은 가깝게(줄 사이), 다른 묶음은 멀게(섹션 사이). 색은 기한 초과에만 쓴다. 상태는 오른쪽 한 열로 정렬해서 훑어 읽는다. */
+.wrk-inner { padding: 0 20px 96px; max-width: 760px; }
+.wrk-sec { margin-top: 44px; }
+.wrk-sec:first-of-type { margin-top: 12px; }
+.wrk-sec > h3 { margin: 0 8px 12px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.wrk-sec.danger > h3 { color: var(--accent); }
+.wrk-count { background: none; min-width: 0; height: auto; padding: 0; color: var(--muted); font-weight: 500; font-size: 13px; }
+.wrk-sec.danger .wrk-count { background: none; color: var(--accent); }
+.wrk-row { padding: 11px 8px; gap: 12px; align-items: flex-start; }
+.wrk-row input.task { margin-top: 3px; }
+.wrk-main { flex-direction: row; align-items: flex-start; gap: 16px; padding: 0; }
+.wrk-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.wrk-title { font-size: 16px; line-height: 1.4; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.wrk-meta { gap: 2px 12px; font-size: 13px; line-height: 1.4; }
+.wrk-proj { background: none; color: var(--muted); padding: 0; }
+.wrk-why { flex: none; min-width: 64px; text-align: right; white-space: nowrap; font-size: 13px; font-weight: 500; font-style: normal; color: var(--muted); padding-top: 2px; }
+.wrk-why.overdue { color: var(--accent); font-weight: 700; }
+.wrk-why.today { color: var(--text); font-weight: 700; }
+.wrk-why.doing { color: var(--text); font-weight: 600; }
+.wrk-setname { display: block; margin: 0 8px 4px; padding: 6px 0; border: none; background: none; color: var(--muted); font-size: 13px; text-align: left; min-height: 0; }
+.wrk-setname:hover { color: var(--text); }
+.work .quick-add { padding: 0 0 10px; }
+.work .quick-add input { border-color: var(--border); background: var(--bg2); }
+.work .quick-add button { border-color: var(--border); }
+.work .quick-add button.primary { background: var(--text); border-color: var(--text); color: var(--bg); }
+.work .ev-row { min-height: 44px; padding: 0 8px; }
+.wrk-note { display: none; }
+@media (hover: hover) { .wrk-row:hover .wrk-note { display: grid; } }
+.wrk-projrow { padding: 12px 8px; gap: 4px; }

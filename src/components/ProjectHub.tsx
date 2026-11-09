@@ -21,14 +21,17 @@ export function TaskLine({ tk, showProject }: { tk: Task; showProject?: string }
     <div className={`wrk-row${late ? ' late' : ''}${tk.done || ui === 'dropped' ? ' fin' : ''}`}>
       <input type="checkbox" className="task" checked={tk.done} onChange={() => app.toggleTask(tk.path, tk.line)} aria-label={tk.title} />
       <button className="wrk-main" onClick={() => useWorkUi.getState().openEditor(tk)}>
-        <span className="wrk-title">{tk.p === 1 && <b className="wrk-p">!</b>}{tk.title}</span>
-        <span className="wrk-meta">
-          {ui !== 'todo' && !tk.done && <em className={`wrk-why ${ui === 'waiting' ? 'waiting' : ''}`}>{ui === 'doing' ? t('진행 중') : ui === 'waiting' ? t('대기') : t('취소됨')}</em>}
-          {tk.due && <span className={late ? 'wrk-late' : 'wrk-due'}>{tk.due.slice(5)}</span>}
-          {tk.owner.length > 0 && <span className="wrk-owner">{tk.owner.join(', ')}</span>}
-          {showProject && <span className="wrk-proj">{showProject}</span>}
-          {tk.conclusion && <span className="wrk-concl">→ {tk.conclusion}</span>}
+        <span className="wrk-body">
+          <span className="wrk-title">{tk.p === 1 && <b className="wrk-p">!</b>}{tk.title}</span>
+          <span className="wrk-meta">
+            {tk.due && <span className={late ? 'wrk-late' : 'wrk-due'}>{tk.due.slice(5)}</span>}
+            {tk.owner.length > 0 && <span className="wrk-owner">{tk.owner.join(', ')}</span>}
+            {showProject && <span className="wrk-proj">{showProject}</span>}
+            {tk.conclusion && <span className="wrk-concl">→ {tk.conclusion}</span>}
+          </span>
         </span>
+        {ui !== 'todo' && !tk.done && <em className={`wrk-why ${ui}`}>{ui === 'doing' ? t('진행 중') : ui === 'waiting' ? t('대기') : t('취소됨')}</em>}
+        {late && ui === 'todo' && <em className="wrk-why overdue">{t('기한 지남')}</em>}
       </button>
     </div>
   )

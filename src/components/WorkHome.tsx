@@ -44,13 +44,15 @@ function TaskRow({ q, projects }: { q: QueueItem; projects: Map<string, Project>
     <div className={`wrk-row${q.reason === 'overdue' ? ' late' : ''}`}>
       <input type="checkbox" className="task" checked={tk.done} onChange={() => app.toggleTask(tk.path, tk.line)} aria-label={tk.title} />
       <button className="wrk-main" onClick={() => useWorkUi.getState().openEditor(tk)}>
-        <span className="wrk-title">{tk.p === 1 && <b className="wrk-p">!</b>}{tk.title}</span>
-        <span className="wrk-meta">
-          <em className={`wrk-why ${q.reason}`}>{reasonText(q)}</em>
-          {proj && <span className="wrk-proj">{proj.name}</span>}
-          {tk.owner.length > 0 && <span className="wrk-owner">{tk.owner.join(', ')}</span>}
-          {tk.due && q.reason !== 'overdue' && q.reason !== 'today' && <span className="wrk-due">{tk.due.slice(5)}</span>}
+        <span className="wrk-body">
+          <span className="wrk-title">{tk.p === 1 && <b className="wrk-p">!</b>}{tk.title}</span>
+          <span className="wrk-meta">
+            {proj && <span className="wrk-proj">{proj.name}</span>}
+            {tk.owner.length > 0 && <span className="wrk-owner">{tk.owner.join(', ')}</span>}
+            {tk.due && q.reason !== 'overdue' && q.reason !== 'today' && <span className="wrk-due">{tk.due.slice(5)}</span>}
+          </span>
         </span>
+        <em className={`wrk-why ${q.reason}`}>{reasonText(q)}</em>
       </button>
       <button className="icon-btn wrk-note" title={t('노트에서 보기')} onClick={() => app.openNote(tk.path)}><Icon name="note" size={16} /></button>
     </div>
@@ -89,7 +91,7 @@ export function WorkHome() {
             </div>
           ) : (
             work.tasks.length > 0 && (
-              <button className="link-btn wrk-setname" onClick={() => useApp.getState().go('settings')}>{t('설정에서 내 이름을 입력하면 내 담당 업무만 모아 볼 수 있어요 →')}</button>
+              <button className="wrk-setname" onClick={() => useApp.getState().go('settings')}>{t('설정에서 내 이름을 입력하면 내 담당 업무만 모아 볼 수 있어요 →')}</button>
             )
           )}
 
