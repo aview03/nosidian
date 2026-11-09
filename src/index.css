@@ -855,3 +855,15 @@ html.popup-win .ee { max-width: none; max-height: none; height: 100%; border-rad
 .wrk-pmeta { display: flex; flex-wrap: wrap; gap: 2px 14px; align-items: baseline; }
 .wrk-pmeta > * { white-space: nowrap; }
 .wrk-pmeta > .wrk-health { order: 9; flex-basis: 100%; white-space: normal; }
+
+/* 타임라인 */
+.tl { padding-bottom: 24px; }
+.tl-day { margin-top: 28px; }
+.tl-day h3 { margin: 0 8px 6px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.tl-day.past { opacity: 0.55; }
+.tl-day.past:hover, .tl-day.past:focus-within { opacity: 1; }
+.tl-now { position: relative; display: flex; align-items: center; margin: 32px 8px 0; color: var(--accent); font-size: 13px; font-weight: 700; }
+.tl-now::before { content: ''; flex: 1; height: 0; border-top: 1px dashed var(--accent); order: 2; margin-left: 12px; }
+.tl-milestone { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 8px; font-weight: 700; }
+.tl-milestone svg { width: 18px; height: 18px; color: var(--accent); }
+.tl-undated { margin: 36px 8px 0; font-size: 13px; }

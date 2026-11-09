@@ -7,10 +7,11 @@ import { baseName } from '../lib/links'
 import { uiStateOf, type Task, type UiState } from '../lib/work'
 import { moveTask, toggleOrClose, useWorkUi } from '../lib/workOps'
 import { EventRow, useCalMap } from './Calendar'
+import { buildTimeline, groupByDate } from '../lib/timeline'
 import { Icon } from './Icon'
 import { healthLabel, signalText, useHealth, useWork } from './WorkHome'
 
-type Tab = 'tasks' | 'board' | 'docs' | 'schedule'
+type Tab = 'tasks' | 'board' | 'docs' | 'timeline'
 
 const COLS: { key: UiState | 'done'; title: string }[] = [
   { key: 'todo', title: '할 일' },
@@ -130,17 +131,14 @@ export function ProjectHub() {
   ]
   const finished = tasks.filter((x) => x.done || uiStateOf(x) === 'dropped')
   const byDue = (a: Task, b: Task) => (a.due ?? '9999').localeCompare(b.due ?? '9999') || (a.p ?? 9) - (b.p ?? 9)
-  const taskById = new Map(tasks.map((x) => [x.id, x]))
 
   const today = todayYmd()
-  const from = addDays(today, -14)
-  const events: [string, ReturnType<typeof cal.get>][] = []
+  // 타임라인: 이 프로젝트 노트의 일정(지난 60일 ~ 앞으로 1년) + 업무·결정·프로젝트 마감
   const pathSet = new Set(notePaths)
-  for (let i = 0; i < 135; i++) {
-    const d = addDays(from, i)
-    const ev = (cal.get(d) ?? []).filter((e) => pathSet.has(e.path))
-    if (ev.length) events.push([d, ev])
-  }
+  const events: NonNullable<ReturnType<typeof cal.get>> = []
+  for (let i = -60; i < 365; i++) for (const e of cal.get(addDays(today, i)) ?? []) if (pathSet.has(e.path)) events.push(e)
+  const timeline = buildTimeline(project, tasks, events)
+  const grouped = groupByDate(timeline.entries, today)
 
   const docs = notePaths.filter((p) => p !== project.path).sort((a, b) => a.localeCompare(b))
   const statusLabel = project.status
@@ -167,7 +165,7 @@ export function ProjectHub() {
         <button className={tab === 'tasks' ? 'on' : ''} onClick={() => setTab('tasks')}>{t('할 일')}</button>
         <button className={tab === 'board' ? 'on' : ''} onClick={() => setTab('board')}>{t('보드')}</button>
         <button className={tab === 'docs' ? 'on' : ''} onClick={() => setTab('docs')}>{t('문서')}</button>
-        <button className={tab === 'schedule' ? 'on' : ''} onClick={() => setTab('schedule')}>{t('일정')}</button>
+        <button className={tab === 'timeline' ? 'on' : ''} onClick={() => setTab('timeline')}>{t('타임라인')}</button>
       </div>
 
       <div className="wrk-scroll">
@@ -207,19 +205,25 @@ export function ProjectHub() {
             </section>
           )}
 
-          {tab === 'schedule' && (
-            <>
-              {events.length === 0 && <p className="hint pad">{t('이 프로젝트의 일정이 없어요. 업무에 마감일을 넣으면 여기에도 나타나요.')}</p>}
-              {events.map(([d, ev]) => (
-                <section key={d} className={`ag-day${d < today ? ' overdue' : ''}`}>
-                  <h3>{fmtDay(d)}{d === today && <small className="hub-today"> {t('오늘')}</small>}</h3>
-                  {ev!.map((e) => {
-                    const tk = taskById.get(e.id)
-                    return tk ? <TaskLine key={e.id + d} tk={tk} /> : <EventRow key={e.id + d} ev={e} />
-                  })}
-                </section>
+          {tab === 'timeline' && (
+            <div className="tl">
+              {grouped.days.length === 0 && <p className="hint pad">{t('아직 날짜가 있는 항목이 없어요. 업무에 마감일을 넣거나 프로젝트에 마감을 적으면 여기에 나타나요.')}</p>}
+              {grouped.days.map((d, i) => (
+                <div key={d.date}>
+                  {i === grouped.todayIndex && <div className="tl-now"><span>{t('오늘')} · {fmtDay(today)}</span></div>}
+                  <section className={`tl-day${d.date < today ? ' past' : ''}`}>
+                    <h3>{fmtDay(d.date)}</h3>
+                    {d.items.map((e, j) =>
+                      e.type === 'task' ? <TaskLine key={e.task.id} tk={e.task} />
+                      : e.type === 'event' ? <EventRow key={e.event.id + j} ev={e.event} />
+                      : <div key={'m' + j} className="tl-milestone"><Icon name="check" /><span>{t('프로젝트 마감')}</span></div>,
+                    )}
+                  </section>
+                </div>
               ))}
-            </>
+              {grouped.days.length > 0 && grouped.todayIndex === grouped.days.length && <div className="tl-now"><span>{t('오늘')} · {fmtDay(today)}</span></div>}
+              {timeline.undated > 0 && <p className="hint tl-undated">{t('마감일이 없는 열린 일 {n}개는 "할 일" 탭에서 볼 수 있어요.', { n: timeline.undated })}</p>}
+            </div>
           )}
         </div>
       </div>
