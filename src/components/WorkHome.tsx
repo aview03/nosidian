@@ -91,7 +91,7 @@ export function WorkHome() {
             </div>
           ) : (
             work.tasks.length > 0 && (
-              <button className="wrk-setname" onClick={() => useApp.getState().go('settings')}>{t('설정에서 내 이름을 입력하면 내 담당 업무만 모아 볼 수 있어요 →')}</button>
+              <button className="wrk-setname" onClick={() => useApp.getState().go('settings')}>{t('내 이름 설정 →')}</button>
             )
           )}
 

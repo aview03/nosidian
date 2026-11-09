@@ -391,7 +391,7 @@ const dict: Record<string, string> = {
   '오늘 일정': "Today's events",
   '프로젝트': 'Projects',
   '내 것 ({name})': 'Mine ({name})',
-  '설정에서 내 이름을 입력하면 내 담당 업무만 모아 볼 수 있어요 →': 'Enter your name in Settings to see only your tasks →',
+  '내 이름 설정 →': 'Set your name →',
   '밀린 일이 없습니다. 👍': 'Nothing is overdue. 👍',
   '마감 {d}': 'Due {d}',
   '열린 일 {n}/{m}': 'Open {n}/{m}',
