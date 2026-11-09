@@ -102,3 +102,11 @@ export function moveTask(task: Task, to: UiState | 'done'): boolean {
   const ui: UiState = to === 'done' ? 'todo' : to
   return updateTask(task, { title: task.title, done: to === 'done', tokens: tokensForState(ui, base) })
 }
+
+/** 프로젝트 밖(받은 업무 등)에 있는 업무를 프로젝트의 '할 일' 노트로 옮긴다: 새 위치에 먼저 쓰고, 성공하면 원래 줄을 지운다 */
+export function moveToProject(task: Task, projectPath: string): boolean {
+  const tokens = { due: task.due ?? undefined, owner: task.owner.length ? task.owner : undefined, p: task.p ?? undefined, impact: task.impact ?? undefined, conclusion: task.conclusion ?? undefined, status: task.state === 'todo' ? undefined : task.state, side: task.side === 'other' ? ('other' as const) : undefined }
+  const to = addTask({ title: task.title, done: task.done, tokens }, projectPath)
+  if (to === task.path) return false
+  return deleteTask(task)
+}

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useApp } from './app'
 import { setLang } from './i18n'
-import { addTask, deleteTask, moveTask, updateTask } from './workOps'
+import { addTask, deleteTask, moveTask, moveToProject, updateTask } from './workOps'
 import { buildWork, tokensForState } from './work'
 import type { NoteFile } from './types'
 
@@ -79,5 +79,15 @@ describe('업무 연산이 노트를 고친다', () => {
     expect(text('행사/할 일.md')).toContain('- [x] 장소 예약 due:2026-11-06 owner:민수')
     moveTask(find('장소 예약'), 'todo')
     expect(text('행사/할 일.md')).toContain('- [ ] 장소 예약 due:2026-11-06 owner:민수')
+  })
+
+  it('moveToProject: 받은 업무의 줄이 프로젝트 할 일 노트로 옮겨가고 값은 그대로', () => {
+    load(PROJECT, note('행사/할 일.md', '# 할 일\n'), note('받은 업무.md', '# 받은 업무\n\n- [ ] 세금 신고 due:2026-11-16 owner:민수 p:1\n- [ ] 우체국 가기 due:2026-11-17\n'))
+    const task = buildWork(useApp.getState().files).tasks.find((t) => t.title === '세금 신고')!
+    expect(task.project).toBeNull()
+    expect(moveToProject(task, '행사/프로젝트 개요.md')).toBe(true)
+    expect(text('받은 업무.md')).toBe('# 받은 업무\n\n- [ ] 우체국 가기 due:2026-11-17\n')
+    expect(text('행사/할 일.md')).toBe('# 할 일\n- [ ] 세금 신고 due:2026-11-16 owner:민수 p:1\n')
+    expect(buildWork(useApp.getState().files).tasks.find((t) => t.title === '세금 신고')?.project).toBe('행사/프로젝트 개요.md')
   })
 })

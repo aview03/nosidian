@@ -817,3 +817,7 @@ html.popup-win .ee { max-width: none; max-height: none; height: 100%; border-rad
 .hub > .hub-tabs button.on { background: none; color: var(--text); font-weight: 700; border-bottom-color: var(--text); }
 @media (min-width: 900px) { .hub > .hub-tabs { margin-left: 20px; margin-right: 20px; } .board { grid-template-columns: repeat(4, 260px); justify-content: start; } }
 .hub > .hub-tabs { overflow-y: hidden; scrollbar-width: none; } .hub > .hub-tabs::-webkit-scrollbar { display: none; }
+
+.wrk-triage-hint { margin: -4px 8px 8px; font-size: 13px; }
+.wrk-triage { align-items: center; }
+.wrk-moveto { flex: none; max-width: 150px; height: 36px; min-height: 36px; padding: 0 8px; font-size: 13px; color: var(--muted); background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r); }

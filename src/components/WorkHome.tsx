@@ -7,7 +7,41 @@ import { fmtDay, openDay, todayYmd } from '../lib/calendar'
 import { buildQueues, buildWork, parseMe, type Project, type QueueItem, type Queues, type WorkIndex } from '../lib/work'
 import { EventRow, QuickAdd, useCalMap } from './Calendar'
 import { Icon } from './Icon'
-import { useWorkUi } from '../lib/workOps'
+import { moveToProject, useWorkUi } from '../lib/workOps'
+
+/** 정리할 업무: 어느 프로젝트에도 속하지 않은 업무(받은 업무 등). 고르면 그 프로젝트의 할 일 노트로 옮겨 간다 */
+function Triage({ work }: { work: WorkIndex }) {
+  const loose = work.tasks.filter((x) => !x.project && !x.done && x.state !== 'dropped')
+  if (!loose.length) return null
+  return (
+    <section className="wrk-sec">
+      <h3>{t('정리할 업무')}<span className="wrk-count">{loose.length}</span></h3>
+      <p className="hint wrk-triage-hint">{t('프로젝트를 고르면 그 프로젝트의 할 일 노트로 옮겨져요.')}</p>
+      {loose.map((tk) => (
+        <div key={tk.id} className="wrk-row wrk-triage">
+          <button className="wrk-main" onClick={() => useWorkUi.getState().openEditor(tk)}>
+            <span className="wrk-body">
+              <span className="wrk-title">{tk.title}</span>
+              <span className="wrk-meta">{tk.due && <span className="wrk-due">{tk.due.slice(5)}</span>}{tk.owner.length > 0 && <span className="wrk-owner">{tk.owner.join(', ')}</span>}</span>
+            </span>
+          </button>
+          <select
+            className="wrk-moveto"
+            value=""
+            aria-label={t('프로젝트로 옮기기')}
+            onChange={(e) => {
+              const p = work.projects.find((x) => x.path === e.target.value)
+              if (p && moveToProject(tk, p.path)) useApp.getState().say(t('"{name}" 로 옮겼어요', { name: p.name }))
+            }}
+          >
+            <option value="">{t('프로젝트로 옮기기…')}</option>
+            {work.projects.map((p) => <option key={p.path} value={p.path}>{p.name}</option>)}
+          </select>
+        </div>
+      ))}
+    </section>
+  )
+}
 
 export function useWork(): WorkIndex {
   const files = useApp((s) => s.files)
@@ -113,6 +147,8 @@ export function WorkHome() {
           {work.tasks.length > 0 && q.total === 0 && q.doing.length === 0 && q.unowned.length === 0 && (
             <p className="hint pad wrk-clear">{t('밀린 일이 없습니다. 👍')}</p>
           )}
+
+          {work.projects.length > 0 && <Triage work={work} />}
 
           <section className="wrk-sec">
               <h3>{t('프로젝트')}{work.projects.length > 0 && <span className="wrk-count">{work.projects.length}</span>}</h3>
