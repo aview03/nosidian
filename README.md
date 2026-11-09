@@ -1,0 +1,212 @@
+# Nosidian
+
+**메모와 일정을 한곳에서 관리하는 마크다운 노트 앱.** Obsidian 스타일의 노트(링크·백링크·그래프)에 캘린더·위젯·알림을 얹었고,
+데이터는 전부 **일반 `.md` 파일**이며 사용자 본인의 GitHub / Google Drive / OneDrive에 동기화된다. 서버는 없다.
+
+| 플랫폼 | 셸 | 상태 |
+|---|---|---|
+| Windows | Electron (로컬 서버 `localhost:47321`로 `dist` 서빙) | 설치 파일(NSIS) 빌드 가능, 바탕화면 위젯 포함 |
+| Android | Capacitor 8 + 네이티브(Java) 플러그인 | 디버그 APK로 실기기 검증, 홈 화면 위젯·네이티브 알림 포함 |
+| 브라우저 | Vite 개발 서버 | 개발·확인용 (배포 설정 없음) |
+
+> 이 문서는 "지금 무엇이 어떻게 되어 있는가"를 한 번에 파악하기 위한 개요다. 일정/위젯의 세부 규격은 [docs/CALENDAR.md](docs/CALENDAR.md).
+
+---
+
+## 1. 설계 원칙 (이걸 깨는 제안은 구조를 바꿔야 한다)
+
+1. **마크다운이 유일한 진실.** 노트도, 일정도, 날짜 색상도 `.md` 안의 텍스트다. 별도 DB·전용 포맷이 없다. 앱을 지워도 파일은 남는다.
+2. **로컬 우선, 서버 없음.** 모든 데이터는 기기의 IndexedDB(vault마다 하나)에 있고, 동기화는 사용자의 계정(GitHub 저장소 / Drive 폴더 / OneDrive 폴더)으로 직접 한다. 운영 비용·계정 시스템·백엔드가 없다.
+3. **파생 데이터는 저장하지 않고 계산한다.** 링크 인덱스, 태그, 그래프, 캘린더(일정 목록), 날짜 색상은 노트에서 매번 만든다(캐시만 있음).
+4. **UI는 단순하고 평평하게.** 흰색·검정·빨강, 2px 모서리, 얇은 선, 그림자 없음. PC(≥900px)는 3단 레이아웃, 그 미만은 하단 탭.
+5. **비개발자도 쓸 수 있어야 한다.** 마크다운 문법을 몰라도 GUI로 일정을 넣을 수 있고, 결과는 사람이 읽을 수 있는 한 줄로 저장된다.
+
+---
+
+## 2. 기능 전체 목록
+
+### 노트 (1차 기능)
+- **읽기 뷰**: markdown-it 기반. 프론트매터 속성 패널, 콜아웃(`> [!tip]`, 접기 지원), 수식(KaTeX), 다이어그램(Mermaid), 코드 하이라이트(highlight.js), 각주, 표, 체크리스트, `==하이라이트==`, 이미지/노트 임베드(`![[노트#제목]]`).
+- **에디터**: CodeMirror 6 + 라이브 프리뷰(서식이 입력 중 바로 렌더링), `[[` 노트 자동완성, `#태그` 자동완성, 서식 툴바, 실행 취소/다시 실행, 문서 안 찾기.
+- **링크**: `[[노트]]`, `[[노트|별칭]]`, `[[노트#제목]]`, 앵커 이동, 없는 노트 링크(눌러서 생성), 이름 변경 시 다른 노트의 링크 자동 갱신.
+- **백링크 / 링크되지 않은 언급 / 목차**: 우측 패널(PC) 또는 시트(모바일).
+- **그래프**: d3-force. 전체/로컬(깊이 조절), 고립 노트 표시, 이름 필터, 폴더별 색. 노트 우측 패널의 "로컬 그래프 → 크게 보기"와 명령 팔레트에서 연다(최상위 탭이 아님).
+- **검색**: 전체 본문 검색, 연산자 `tag:` `path:` `file:`, 태그 목록, 스니펫·하이라이트.
+- **파일 관리**: 폴더 트리, 북마크(★), 최근 연 노트, 새 노트/폴더, 이름 변경, 삭제, 컨텍스트 메뉴, 노트 링크 복사.
+- **Daily 노트**: `Daily/YYYY-MM-DD.md`(폴더는 설정에서 변경). 오늘의 노트 열기.
+- **명령 팔레트·단축키**: `Ctrl+O` 노트 전환, `Ctrl+P` 명령, `Ctrl+E` 읽기/편집, `Ctrl+F` 문서 찾기, `Ctrl+Shift+F` 검색, `Ctrl+S` 동기화, `Alt+←/→` 이동 기록.
+- **외부 파일 열기**: 탐색기/파일 관리자에서 `.md`를 "연결 프로그램"으로 열기, 공유(Android), 드래그. vault 밖 문서는 열람·저장 가능하고 "가져오기"를 누르면 vault에 사본이 생긴다. 파일/폴더 가져오기도 지원.
+- **다중 vault**: vault마다 별도 IndexedDB + 별도 동기화 연결 + 별도 북마크/최근. 전환·추가·이름 변경·삭제.
+- **동기화**: GitHub(PAT) · Google Drive(OAuth) · OneDrive(OAuth). 이미지는 필요할 때 받아 캐시. 충돌은 노트마다 "내 것 / 원격 것 / 둘 다(원격은 별도 노트로)"를 고른다.
+- **테마·글자 크기·언어**: 라이트/다크/시스템, 14–24px, 한국어·English·中文·日本語·Français·Español(시스템 언어 자동).
+- **예제 vault**: 첫 화면의 "예제 노트로 둘러보기"로 일상 소재(여행 준비) 노트와 오늘 기준 일정 노트를 만든다.
+
+### 일정 관리 (2차 기능) — 자세한 규격은 docs/CALENDAR.md
+- **일정 = 노트의 한 줄**: Daily 노트의 `- [ ] 14:00-15:00 치과`, 다른 노트의 `- [ ] 보고서 @2026-11-20`, 또는 프론트매터 `date`.
+- **캘린더**: 월간 / 주간 / 목록. 모바일은 월간(격자+선택한 날)·주간(7일 세로)·목록이 각각 다른 화면. "오늘" 탭(오늘 일정 + 지난 미완료 + 향후 7일).
+- **일정 편집기(GUI)**: 제목, 날짜, 종일/시작·종료 시각, 며칠에 걸친 일정, 반복(매일/평일/매주+요일 선택/매월/매년, 종료일), 한 문장 요약, 수정·삭제.
+- **빠른 입력(자연어)**: "내일 3시 치과", "금요일 19:00-20:30 저녁", "매주 금요일 7시 스터디", "11월 20일 보고서".
+- **공휴일·음력**: 외부 데이터 없이 계산(설날·추석·부처님오신날, 대체공휴일 일반 규칙). 날짜별 색상.
+- **알림**: PC는 앱/위젯이 열려 있는 동안, Android는 앱이 꺼져 있어도(AlarmManager).
+
+### 위젯 (3·4차 기능)
+- **Windows 바탕화면 위젯**: Electron 별도 창을 바탕화면 창(Progman)의 자식으로 붙여 아이콘 위·일반 창 아래에 둔다. 기본은 **화면을 크게 채우는 반투명 월간 달력**(배경화면이 비치고 일정 글자가 칸마다 전부 보임)이며, 칸을 누르면 칸 옆에 **포스트잇 메모창**(한글 입력이 되도록 별도의 일반 창)이 떠서 한 줄에 일정 하나씩 적어 바로 수정한다. 월간/오늘/목록 보기, 이동·가로세로 크기 조절(끄는 동안은 흐리게 고정했다가 끝나면 한 번에 그림), 트레이 아이콘, 로그인 시 위젯만 시작. 본 창과 같은 DB를 공유하며 실시간 동기화.
+- **Android 홈 화면 위젯**: 월간 달력(일정 점·오늘 강조·달 넘기기) + 일정 목록(30일). 누르면 앱의 해당 날짜로, `+`는 일정 입력으로.
+
+---
+
+## 3. 화면 구성
+
+```
+PC (≥900px)                                          모바일 (<900px)
+┌레일┬─ 왼쪽 사이드바 ─┬──── 본문 ────┬─ 오른쪽 ─┐       ┌──────────────┐
+│캘린│ 파일 트리 /      │ 노트(읽기·편집)│ 백링크   │       │     본문      │
+│메모│ 검색 /           │ 캘린더(월·주·목)│ 목차    │       ├──────────────┤
+│검색│ 다가오는 일정    │ 설정 / 그래프  │ 로컬그래프│       │오늘 캘린더 메모 검색 설정│
+│설정│                  │               │ 선택한 날 │       └──────────────┘
+└───┴─────────────────┴──────────────┴─────────┘
+```
+탭 = `note | files | search | graph | settings | calendar | today` (`src/lib/app.ts`의 `Tab`).
+
+---
+
+## 4. 아키텍처
+
+```
+┌────────────────────────── 렌더러 (React 19 + TypeScript) ──────────────────────────┐
+│ components/  Calendar · EventEditor · NoteView · Editor · Reader · Graph · Search … │
+│                         │ zustand 구독                                              │
+│ lib/app.ts  ── 단일 스토어(상태 + 액션 + 동기화) ──┐                                 │
+│                         │                         ├─ lib/calendar.ts  (일정 파생)    │
+│ lib/links.ts (링크·태그 인덱스)                    ├─ lib/holidays.ts  (공휴일·음력)  │
+│ lib/markdown.ts (렌더)  lib/livepreview.ts (에디터) └─ lib/reminders.ts · nativeCal.ts │
+│                         │                                                           │
+│ lib/db.ts  ── IndexedDB (vault마다 1개: files / assets) + BroadcastChannel          │
+│ lib/sync/  ── Provider 인터페이스: github · gdrive · onedrive                        │
+└──────────┬──────────────────────────────┬───────────────────────────┬───────────────┘
+           │ Electron (electron/)          │ Capacitor (android/)      │ 원격(사용자 계정)
+           │  main.cjs 서버·창·IPC          │  OpenFilePlugin           │  GitHub 저장소
+           │  widget.cjs 위젯 창·트레이     │  CalendarBridgePlugin     │  Google Drive 폴더
+           │  desktopLayer.cjs (koffi)      │  Month/Agenda 위젯·알림   │  OneDrive 폴더
+           │  preload.cjs (contextBridge)   │  SharedPreferences        │
+```
+
+### 데이터 흐름 (한 번 이해하면 거의 전부 설명된다)
+1. 사용자가 노트를 고치면 `setContent` → 메모리(`files`) 즉시 반영 → 400ms 디바운스로 IndexedDB 저장, `dirty=true`.
+2. 메모리 상태가 바뀌면 파생 데이터가 다시 계산된다: 링크 인덱스(`buildIndex`, 짧은 지연 후), 캘린더(`buildCalendar`, 파일 내용이 같으면 파싱 캐시 재사용).
+3. 동기화(`sync`): 원격 목록을 받아 새/변경 파일만 내려받고(6개 병렬), `dirty` 파일을 한 번에 올린다(GitHub는 트리 API로 커밋 1개, 메시지 `Nosidian: sync N notes`). 로컬이 수정 중인데 원격도 바뀌면 `conflict`에 원격본을 보관하고 사용자가 해결한다.
+4. **창 간(PC)**: 위젯 창과 본 창은 같은 origin이라 같은 IndexedDB를 쓴다. 쓴 쪽이 `BroadcastChannel`로 알리면 받은 쪽이 DB를 다시 읽어 합친다(저장 대기 중인 자기 편집은 덮어쓰지 않음). 동기화는 본 창만.
+5. **네이티브(Android)**: 노트 변경 후 1.2초 뒤(백그라운드 진입 시 즉시) 지난 35일~앞으로 120일의 일정 스냅샷과 알림 목록을 `CalendarBridge.setSnapshot`으로 넘긴다 → SharedPreferences 저장 → 위젯 갱신 + AlarmManager 재등록. 위젯은 이 스냅샷만 읽으므로 앱이 꺼져 있어도 그려진다.
+
+### 핵심 데이터 모델
+```ts
+NoteFile { path, content, sha | null, dirty, deleted?, mtime, conflict?: { sha, content } }
+VaultMeta { id, name, remote: GitHub | GDrive | OneDrive | null, bookmarks, recent, lastSync }
+Settings  { theme, fontSize, dailyFolder, startMode, lang, leftOpen, rightOpen,
+            calHolidays, calLunar, remindMin, vaults[], activeVault, ... }   // localStorage('amsidian.settings')
+CalEvent  { date, start?, end?, title, done, kind: 'task'|'note', path, line,
+            span?, repeat?, repeatDays?, until?, inst?, cont?, origDate? }    // 노트에서 파생, 저장 안 함
+```
+삭제는 `deleted` 표식(tombstone) 후 다음 동기화에서 원격 삭제. 이름 변경은 "원본 삭제 + 새 경로 생성"이며 다른 노트의 `[[링크]]`도 같이 고친다.
+
+### 일정 문법 요약
+| 용도 | 예 |
+|---|---|
+| 시간 일정 | `- [ ] 14:00-15:00 치과` (Daily 노트 안) |
+| 다른 노트에서 날짜 지정 | `- [ ] 보고서 @2026-11-20` |
+| 며칠에 걸침 | `- [ ] 부산 출장 end:2026-11-12` |
+| 반복 | `repeat:weekly` · `repeat:weekly:mon,wed,fri` · `until:2026-12-31` |
+| 프론트매터 일정 | `date:`, `end:`, `time:`, `title:`, `color:`, `repeat:`, `until:` |
+| 날짜 색상 | Daily 노트 프론트매터 `color: "#d01010"` |
+
+---
+
+## 5. 코드 지도
+
+```
+app/
+├─ src/
+│  ├─ App.tsx                 레이아웃(PC/모바일 분기), 단축키, 안드로이드 뒤로가기, 딥링크
+│  ├─ lib/
+│  │  ├─ app.ts               ★ 단일 zustand 스토어: 탭/노트/vault/설정/동기화 (≈800줄)
+│  │  ├─ db.ts                IndexedDB(idb) + 창 간 BroadcastChannel
+│  │  ├─ links.ts             프론트매터·링크·태그·제목 파싱, 링크 인덱스
+│  │  ├─ markdown.ts          markdown-it 확장(위키링크·임베드·콜아웃·수식·mermaid)
+│  │  ├─ livepreview.ts       CodeMirror 라이브 프리뷰 확장
+│  │  ├─ findEngine.ts        문서 안 찾기(읽기/편집 공용)
+│  │  ├─ calendar.ts          ★ 일정 파서/펼치기/쓰기/수정/삭제, 자연어 파서, 캘린더 화면 상태
+│  │  ├─ holidays.ts          공휴일·음력(Intl 중국력)
+│  │  ├─ reminders.ts         PC 알림(Web Locks로 한 창만)
+│  │  ├─ nativeCal.ts         Android 브리지(스냅샷·알림 목록 생성)
+│  │  ├─ sync/                Provider 인터페이스 + github/gdrive/onedrive + oauth(PKCE)
+│  │  ├─ importFiles.ts · externalIO.ts   파일 가져오기·외부 문서·데스크톱 브리지 타입
+│  │  ├─ demo*.ts             예제 vault (한/영) + 일정 체험 노트
+│  │  ├─ i18n.ts · locales/   한국어 문장이 곧 키. en/zh/ja/fr/es
+│  │  └─ types.ts · dialog.ts · tx.tsx · noteActions.ts
+│  └─ components/             Calendar, EventEditor, Widget, NoteView, Editor, Reader, Graph,
+│                             Search, FileTree, InfoPanel, Palette, FindBar, Settings, Onboarding, VaultSheet, Dialogs …
+├─ electron/                  main.cjs(서버·창·IPC) · widget.cjs · desktopLayer.cjs · preload.cjs
+├─ android/app/src/main/java/com/amsidian/app/
+│                             MainActivity · OpenFilePlugin · CalendarBridgePlugin · CalStore · Links
+│                             MonthWidgetProvider · AgendaWidgetProvider · Reminders
+├─ docs/CALENDAR.md           일정·위젯 규격, PC/Android 위젯 구현 세부, 시도했다 버린 방식
+└─ deploy.sh                  빌드 → APK → 폰 설치 → 실행 → 스크린샷 (개발 편의)
+```
+규모: TypeScript/CJS 약 8천 줄(번역 제외), 의존성은 React · zustand · CodeMirror 6 · markdown-it · KaTeX · Mermaid · d3-force · idb · js-yaml · Capacitor · Electron · koffi.
+
+---
+
+## 6. 개발 · 빌드
+
+```
+npm run dev                         브라우저 개발 (http://127.0.0.1:5173)
+npm run desktop                     Electron 개발 실행
+npm run dist                        Windows 설치 파일 (release/)
+npm run build && npx cap sync android
+set JAVA_HOME=C:\Program Files\Android\Android Studio\jbr     # JDK 21 + jlink 필요 (IntelliJ JBR은 jlink 없음)
+cd android && gradlew.bat assembleDebug                        # → android/app/build/outputs/apk/debug/app-debug.apk
+```
+- **GitHub 연결**: Fine-grained PAT(대상 저장소 1개, Contents: Read and write)를 첫 화면에 입력. 저장소에 커밋이 1개 이상 있어야 한다.
+- **Google Drive / OneDrive**: 사용자가 OAuth 클라이언트 ID를 직접 넣는다(앱이 공용 ID를 제공하지 않음).
+- 린트 `npm run lint`(oxlint), 타입체크 `npx tsc -b`. **자동화 테스트는 없다**(검증은 실행·스크린샷·CDP 스크립트로 해 왔다).
+- 저장 위치 이름은 옛 이름 그대로 `Amsidian`/`amsidian`(IndexedDB, Electron userData, localStorage 키). 바꾸면 기존 사용자의 데이터가 사라진 것처럼 보이므로 유지한다.
+
+---
+
+## 7. 알려진 한계 · 기술 부채
+
+**제품**
+- 데스크톱 위젯은 진짜 투명 창이 아니다(바탕화면 레이어에서는 투명 창을 쓸 수 없음). 배경화면 이미지를 창 뒤에 맞춰 그려서 투명해 보이게 하며(위치는 화면 캡처로 실측), 배경 채우기 방식·모니터별 배경화면에 제약이 있다(docs/CALENDAR.md).
+- 일정은 노트 안의 한 줄이라 **"이 반복 중 하루만 수정/삭제"(예외 처리)가 없다**. 반복·기간 일정은 시리즈 전체를 바꾼다. 기간+반복 동시 사용 불가.
+- 외부 캘린더(Google/Outlook/ICS) 연동 없음. 참석자·초대·시간대 개념 없음.
+- 공휴일은 임시공휴일·선거일 미포함. 음력은 1·15일에만 표시.
+- 알림: PC는 앱/위젯이 열려 있어야 울린다. Android는 정확 알람이 아니라 절전 모드에서 몇 분 늦을 수 있다. Android 위젯은 읽기+열기 전용이며, 클라우드로 들어온 변경은 앱을 한 번 열어야 위젯에 반영된다.
+- 번역은 노트 기능까지 6개 언어, 캘린더·위젯 문구는 한국어/영어만.
+- 동기화는 파일 단위(마지막 쓰기 + 수동 충돌 해결)이며 줄/문단 단위 병합이 없다. 암호화·E2E 없음(원격 서비스가 평문 `.md`를 본다). 매우 큰 저장소는 일부만 가져온다(GitHub 트리 truncated).
+
+**코드**
+- `lib/app.ts`가 상태·동기화·vault·설정을 한 파일에 모두 담고 있다(분리 후보).
+- 캘린더는 `files`가 바뀔 때마다 전체 일정 맵을 다시 만든다(내용 캐시로 완화). 노트가 수천 개면 측정이 필요하다.
+- 자동화 테스트·CI 없음. 현재 작업 폴더는 git 저장소가 아니다(버전 관리 이력 없음).
+- Android는 디버그 빌드만 검증(릴리스 서명·재부팅 후 알람 재등록 미검증). Windows 바탕화면 위젯은 Win11 24H2에서만 검증.
+
+---
+
+## 8. 개선 아이디어 회의용: 열린 질문
+
+회의에서 다룰 만한 축과, 각 축에서 **구조적으로 이미 정해진 제약**을 함께 적는다.
+
+1. **일정 모델**: 반복 예외("이번 주만 취소"), 알림 시각 사용자 지정(일정별), 할 일(마감일/우선순위) 분리, 일정에 색/카테고리. *제약: 저장은 사람이 읽는 마크다운 한 줄을 유지해야 한다(원칙 1).*
+2. **외부 연동**: ICS 가져오기/내보내기, Google Calendar·Outlook 읽기 전용 구독, 안드로이드 기본 캘린더 공유. *제약: 서버가 없다(원칙 2) — 클라이언트 OAuth만 가능.*
+3. **동기화·협업**: 줄 단위 병합, 충돌 UX, 공유 vault(여러 사람), 동기화 주기·백그라운드 동기화(특히 Android 위젯 최신성), 선택적 암호화.
+4. **지식 관리 쪽 확장**: 템플릿, 주간/월간 리뷰 자동 생성, 태그·속성 기반 쿼리(Dataview 유사), 캘린더와 노트 링크의 결합(그날 만든/수정한 노트 보기), 할 일 모아보기.
+5. **위젯·알림**: iOS 지원 여부(현재 없음), Android 위젯 상호작용(체크 토글), 위젯 크기별 레이아웃, 투명 위젯(Windows) 대안, 정확 알람 권한 도입 여부.
+6. **온보딩·비개발자 UX**: 첫 실행 시 예제 자동 생성 여부, 동기화 연결 마법사(Drive/OneDrive 클라이언트 ID 입력이 가장 큰 허들), GitHub PAT 발급 가이드, 마크다운 모름 사용자를 위한 서식 UI.
+7. **품질·운영**: 자동화 테스트 도입 범위, 성능 측정(노트 수천 개), 앱 스토어 배포(Android 서명·Play 정책, Windows 서명), 크래시/오류 수집(서버 없이 가능한 방법), 접근성.
+8. **차별화 포지션**: 이 앱의 핵심 차별점은 "일정이 노트의 일부(날짜 칸 = 노트)이고 파일이 열려 있다"는 점이다. 이것을 강화할지, 일반 캘린더 앱과의 기능 격차를 메울지.
+
+### 회의 전에 AI에게 같이 주면 좋은 정보
+- 이 README + `docs/CALENDAR.md`
+- 타깃 사용자(현재 가정: 한국어 사용 개인, 메모+일정을 한 앱에서 쓰고 싶은 사람, 비개발자 포함)
+- 비용 제약(현재 운영비 0원: 서버·유료 API 없음)
+- 디자인 원칙(흑백+빨강, 평평한 UI) — Figma 디자인 시스템 파일 "Nosidian Design System"이 있다(Starter 플랜, 변수·컴포넌트 일부 구축).

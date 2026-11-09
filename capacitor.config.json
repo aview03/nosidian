@@ -1,0 +1,7 @@
+{
+  "appId": "com.amsidian.app",
+  "appName": "Nosidian",
+  "webDir": "dist",
+  "android": { "allowMixedContent": false },
+  "server": { "androidScheme": "https" }
+}

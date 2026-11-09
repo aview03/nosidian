@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="w_today">Today</string>
+    <string name="w_allday">All day</string>
+    <string name="w_empty">No upcoming events</string>
+    <string name="w_channel">Event reminders</string>
+    <string name="w_month_desc">Monthly calendar with event dots</string>
+    <string name="w_agenda_desc">Upcoming events for the next 30 days</string>
+    <string name="w_month_name">Nosidian · Month</string>
+    <string name="w_agenda_name">Nosidian · Agenda</string>
+</resources>
