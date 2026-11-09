@@ -37,3 +37,6 @@ android/app/src/main/assets/capacitor.plugins.json
 *.tmp
 __pycache__
 *.pyc
+
+# Phase 2 기획 입력 중 사내 자료(백오피스 설계 문서): 로컬 참고용, 저장소에 올리지 않는다
+docs/phase2/reference/
