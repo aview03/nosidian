@@ -14,19 +14,19 @@ describe.each(['ko', 'en'] as const)('예제 vault (%s): 처음 여는 사람이
   const work = buildWork(filesOf(lang))
   const q = buildQueues(work, today())
 
-  it('프로젝트 하나와 업무 7개', () => {
+  it('프로젝트 하나와 업무 8개', () => {
     expect(work.projects).toHaveLength(1)
-    expect(work.tasks).toHaveLength(7)
+    expect(work.tasks).toHaveLength(8)
   })
 
-  it('기한 초과 1 · 오늘 1 · 이번 주 1 · 대기 1 · 진행 중 1 · 담당자 없음 1', () => {
-    expect([q.overdue.length, q.today.length, q.week.length, q.waiting.length, q.doing.length, q.unowned.length]).toEqual([1, 1, 1, 1, 1, 1])
+  it('기한 초과 1 · 오늘 1 · 이번 주 1 · 대기 1 · 진행 중 1 · 담당자 없음 1 · 결정 1', () => {
+    expect([q.overdue.length, q.today.length, q.week.length, q.waiting.length, q.doing.length, q.unowned.length, q.decisions.length]).toEqual([1, 1, 1, 1, 1, 1, 1])
   })
 
   it('끝난 일은 대기열에 없다 (결론이 적힌 완료 업무)', () => {
     const done = work.tasks.find((t) => t.done)
     expect(done?.conclusion).toBeTruthy()
-    const all = [...q.overdue, ...q.today, ...q.week, ...q.waiting, ...q.doing, ...q.unowned]
+    const all = [...q.overdue, ...q.today, ...q.week, ...q.waiting, ...q.doing, ...q.unowned, ...q.decisions]
     expect(all.some((x) => x.task.done)).toBe(false)
   })
 

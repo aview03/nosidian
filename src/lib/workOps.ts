@@ -7,8 +7,9 @@ import { formatWorkTokens } from './taskTokens'
 
 interface WorkUi {
   /** 업무 편집기: task 가 있으면 수정, 없으면 새 업무(project = 넣을 프로젝트 노트 경로) */
-  editor: null | { task?: Task; project?: string | null }
-  openEditor(task?: Task, project?: string | null): void
+  editor: null | { task?: Task; project?: string | null; closing?: boolean }
+  /** closing: 결정 안건을 닫으려는 경우 — 완료로 미리 체크하고 결론을 묻는다 */
+  openEditor(task?: Task, project?: string | null, closing?: boolean): void
   closeEditor(): void
   /** 프로젝트 허브에서 보고 있는 프로젝트 노트 경로 */
   hub: string | null
@@ -19,7 +20,7 @@ interface WorkUi {
 
 export const useWorkUi = create<WorkUi>((set) => ({
   editor: null,
-  openEditor: (task, project = null) => set({ editor: { task, project } }),
+  openEditor: (task, project = null, closing = false) => set({ editor: { task, project, closing } }),
   closeEditor: () => set({ editor: null }),
   hub: null,
   wizard: false,
@@ -30,6 +31,12 @@ export const useWorkUi = create<WorkUi>((set) => ({
 }))
 
 const say = (m: string) => useApp.getState().say(m)
+
+/** 체크박스를 눌렀을 때: 결정 안건을 닫을 땐 결론을 받아야 하므로 편집기를 열고, 나머지는 그냥 체크한다 */
+export function toggleOrClose(task: Task) {
+  if (task.kind === 'decision' && !task.done) useWorkUi.getState().openEditor(task, null, true)
+  else useApp.getState().toggleTask(task.path, task.line)
+}
 
 /** 업무 한 줄을 수정한다. 노트가 그새 바뀌어 줄을 못 찾으면 false */
 export function updateTask(task: Task, edit: TaskEdit): boolean {
@@ -98,14 +105,14 @@ export function addTask(edit: TaskEdit, projectPath: string | null): string {
 
 /** 보드에서 업무를 다른 칸으로 옮긴다. 'done' 은 완료 체크, 나머지는 status 꼬리표만 바꾼다(다른 값은 그대로) */
 export function moveTask(task: Task, to: UiState | 'done'): boolean {
-  const base = { due: task.due ?? undefined, owner: task.owner.length ? task.owner : undefined, p: task.p ?? undefined, impact: task.impact ?? undefined, conclusion: task.conclusion ?? undefined, proj: task.explicitProj ?? undefined }
+  const base = { kind: task.kind, due: task.due ?? undefined, owner: task.owner.length ? task.owner : undefined, p: task.p ?? undefined, impact: task.impact ?? undefined, conclusion: task.conclusion ?? undefined, proj: task.explicitProj ?? undefined }
   const ui: UiState = to === 'done' ? 'todo' : to
   return updateTask(task, { title: task.title, done: to === 'done', tokens: tokensForState(ui, base) })
 }
 
 /** 프로젝트 밖(받은 업무 등)에 있는 업무를 프로젝트의 '할 일' 노트로 옮긴다: 새 위치에 먼저 쓰고, 성공하면 원래 줄을 지운다 */
 export function moveToProject(task: Task, projectPath: string): boolean {
-  const tokens = { due: task.due ?? undefined, owner: task.owner.length ? task.owner : undefined, p: task.p ?? undefined, impact: task.impact ?? undefined, conclusion: task.conclusion ?? undefined, status: task.state === 'todo' ? undefined : task.state, side: task.side === 'other' ? ('other' as const) : undefined }
+  const tokens = { kind: task.kind, due: task.due ?? undefined, owner: task.owner.length ? task.owner : undefined, p: task.p ?? undefined, impact: task.impact ?? undefined, conclusion: task.conclusion ?? undefined, status: task.state === 'todo' ? undefined : task.state, side: task.side === 'other' ? ('other' as const) : undefined }
   const to = addTask({ title: task.title, done: task.done, tokens }, projectPath)
   if (to === task.path) return false
   return deleteTask(task)

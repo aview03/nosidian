@@ -58,4 +58,13 @@ describe('splitWorkTokens', () => {
     expect(back.rest).toBe('제목')
     expect(back.tokens).toEqual(t)
   })
+
+  it('kind: 결정 안건 꼬리표를 읽고 쓴다(알 수 없는 값은 건드리지 않는다)', () => {
+    expect(splitWorkTokens('정책 정하기 kind:decision due:2026-11-12').tokens.kind).toBe('decision')
+    expect(splitWorkTokens('a kind:결정').tokens.kind).toBe('decision')
+    const u = splitWorkTokens('a kind:foo')
+    expect(u.tokens.kind).toBeUndefined()
+    expect(u.rest).toContain('kind:foo')
+    expect(formatWorkTokens({ kind: 'decision', due: '2026-11-12' })).toBe('kind:decision due:2026-11-12')
+  })
 })

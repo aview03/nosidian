@@ -9,6 +9,8 @@
 
 export type WorkStatus = 'doing' | 'waiting' | 'dropped'
 export type Side = 'me' | 'other'
+/** 줄의 종류: 'decision' 이면 협의·결정 안건(닫을 때 결론이 필수) */
+export type Kind = 'decision'
 
 export interface WorkTokens {
   due?: string // YYYY-MM-DD
@@ -16,6 +18,7 @@ export interface WorkTokens {
   p?: 1 | 2 | 3 // 우선순위 (1 이 가장 높음)
   status?: WorkStatus // 없으면 '할 일'(todo)
   side?: Side // 공이 누구에게 있나
+  kind?: Kind // 안건 종류
   proj?: string // 프로젝트 이름 ([[이름]] 또는 이름)
   impact?: string // 과업·비용에 미치는 영향 한 줄
   conclusion?: string // 닫을 때의 결론 (`=> 결론`)
@@ -28,6 +31,7 @@ const RE = {
   p: /(?:^|\s)p:([123])(?=\s|$)/,
   status: /(?:^|\s)status:(\S+)(?=\s|$)/,
   side: /(?:^|\s)side:(\S+)(?=\s|$)/,
+  kind: /(?:^|\s)kind:(\S+)(?=\s|$)/,
   proj: /(?:^|\s)proj:(?:\[\[([^\]]+)\]\]|(\S+))(?=\s|$)/,
   impact: /(?:^|\s)impact:(?:"([^"]+)"|(\S+))(?=\s|$)/,
   // 결론은 줄 끝까지. 앞에 공백이 있는 `=>` 만 인정한다
@@ -39,6 +43,7 @@ const STATUS_ALIAS: Record<string, WorkStatus> = {
   waiting: 'waiting', 대기: 'waiting', 대기중: 'waiting', 답대기: 'waiting',
   dropped: 'dropped', 취소됨: 'dropped', 취소: 'dropped', 접음: 'dropped', 보류: 'dropped', // 예전 이름(접음)도 계속 읽는다
 }
+const KIND_ALIAS: Record<string, Kind> = { decision: 'decision', 결정: 'decision', 미결: 'decision', 안건: 'decision', issue: 'decision' }
 const SIDE_ALIAS: Record<string, Side> = { me: 'me', 나: 'me', 우리: 'me', other: 'other', 상대: 'other', 상대방: 'other', 고객: 'other' }
 
 /** 줄의 본문(체크박스 뒤)에서 업무 토큰을 떼어 낸다. rest 는 토큰을 뺀 나머지 글(제목·일정 토큰 등). */
@@ -68,6 +73,11 @@ export function splitWorkTokens(text: string): { rest: string; tokens: WorkToken
     if (s) tokens.side = s
     else rest += ` side:${m[1]}`
   })
+  take(RE.kind, (m) => {
+    const k = KIND_ALIAS[m[1].toLowerCase()]
+    if (k) tokens.kind = k
+    else rest += ` kind:${m[1]}`
+  })
   take(RE.proj, (m) => (tokens.proj = (m[1] ?? m[2]).trim()))
   take(RE.impact, (m) => (tokens.impact = (m[1] ?? m[2]).trim()))
   return { rest: rest.replace(/\s+/g, ' ').trim(), tokens, has }
@@ -77,6 +87,7 @@ export function splitWorkTokens(text: string): { rest: string; tokens: WorkToken
 export function formatWorkTokens(t: WorkTokens): string {
   const parts: string[] = []
   if (t.status) parts.push(`status:${t.status}`)
+  if (t.kind) parts.push(`kind:${t.kind}`)
   if (t.side) parts.push(`side:${t.side}`)
   if (t.due) parts.push(`due:${t.due}`)
   if (t.owner?.length) parts.push(t.owner.length === 1 && !/\s/.test(t.owner[0]) ? `owner:${t.owner[0]}` : `owner:"${t.owner.join(', ')}"`)

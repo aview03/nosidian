@@ -12,7 +12,7 @@ import { useWork } from './WorkHome'
 export function TaskEditor() {
   const ed = useWorkUi((s) => s.editor)
   if (!ed) return null
-  return <Form key={ed.task?.id ?? 'new:' + (ed.project ?? '')} task={ed.task} project={ed.project ?? null} />
+  return <Form key={(ed.task?.id ?? 'new:' + (ed.project ?? '')) + (ed.closing ? ':close' : '')} task={ed.task} project={ed.project ?? null} closing={!!ed.closing} />
 }
 
 const STATES: [UiState, string][] = [
@@ -22,7 +22,7 @@ const STATES: [UiState, string][] = [
   ['dropped', '취소됨'],
 ]
 
-function Form({ task, project }: { task?: Task; project: string | null }) {
+function Form({ task, project, closing }: { task?: Task; project: string | null; closing: boolean }) {
   const work = useWork()
   const myName = useApp((s) => s.settings.myName)
   const close = () => useWorkUi.getState().closeEditor()
@@ -30,7 +30,8 @@ function Form({ task, project }: { task?: Task; project: string | null }) {
 
   const [title, setTitle] = useState(task?.title ?? '')
   const [ui, setUi] = useState<UiState>(task ? uiStateOf(task) : 'todo')
-  const [done, setDone] = useState(task?.done ?? false)
+  const [done, setDone] = useState(closing || (task?.done ?? false))
+  const [decision, setDecision] = useState(task?.kind === 'decision')
   const [due, setDue] = useState(task?.due ?? '')
   const [owner, setOwner] = useState(task?.owner.join(', ') ?? '')
   const [p, setP] = useState<0 | 1 | 2 | 3>(task?.p ?? 0)
@@ -55,9 +56,11 @@ function Form({ task, project }: { task?: Task; project: string | null }) {
   const today = todayYmd()
   const projects = work.projects
   const noTitle = !title.trim()
+  // 결정 안건은 결론 한 줄 없이는 닫을 수 없다 ("일을 마쳤다"와 "결론을 냈다"는 다르다)
+  const needConclusion = decision && done && !conclusion.trim()
 
   const save = () => {
-    if (noTitle) return
+    if (noTitle || needConclusion) return
     const ownerList = owner.split(/[,，]/).map((x) => x.trim()).filter(Boolean)
     const curProj = task?.project ?? ''
     const projName = proj ? projects.find((x) => x.path === proj)?.name : undefined
@@ -65,6 +68,7 @@ function Form({ task, project }: { task?: Task; project: string | null }) {
       due: due || undefined,
       owner: ownerList.length ? ownerList : undefined,
       p: p || undefined,
+      kind: decision ? ('decision' as const) : undefined,
       impact: task?.impact,
       conclusion: (done || ui === 'dropped') && conclusion.trim() ? conclusion.trim() : undefined,
       // 프로젝트를 바꿨을 때만 proj: 를 쓴다 (폴더로 이미 소속된 경우는 건드리지 않는다)
@@ -109,13 +113,17 @@ function Form({ task, project }: { task?: Task; project: string | null }) {
             </div>
           </div>
           <label className="ee-check">
+            <input type="checkbox" checked={decision} onChange={(e) => setDecision(e.target.checked)} />
+            <span>{t('결정이 필요한 안건')}</span>
+          </label>
+          <label className="ee-check">
             <input type="checkbox" checked={done} onChange={(e) => setDone(e.target.checked)} />
-            <span>{t('완료')}</span>
+            <span>{decision ? t('결정함 (닫기)') : t('완료')}</span>
           </label>
           {(done || ui === 'dropped') && (
             <label className="ee-field">
-              <span>{t('결론 (한 줄)')}</span>
-              <input value={conclusion} onChange={(e) => setConclusion(e.target.value)} placeholder={t('어떻게 하기로 했나요?')} />
+              <span>{decision && done ? t('결론 (한 줄, 필수)') : t('결론 (한 줄)')}</span>
+              <input value={conclusion} autoFocus={closing} onChange={(e) => setConclusion(e.target.value)} placeholder={t('어떻게 하기로 했나요?')} />
             </label>
           )}
 
@@ -165,7 +173,7 @@ function Form({ task, project }: { task?: Task; project: string | null }) {
           {task && <button className="link-btn" onClick={() => { close(); useApp.getState().openNote(task.path) }}>{t('노트에서 보기')}</button>}
           <span className="grow" />
           <button onClick={close}>{t('취소')}</button>
-          <button className="primary" disabled={noTitle} onClick={save}>{t('저장')}</button>
+          <button className="primary" disabled={noTitle || needConclusion} onClick={save}>{t('저장')}</button>
         </div>
       </div>
     </div>

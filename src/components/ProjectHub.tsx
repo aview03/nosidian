@@ -5,7 +5,7 @@ import { t } from '../lib/i18n'
 import { addDays, fmtDay, todayYmd } from '../lib/calendar'
 import { baseName } from '../lib/links'
 import { uiStateOf, type Task, type UiState } from '../lib/work'
-import { moveTask, useWorkUi } from '../lib/workOps'
+import { moveTask, toggleOrClose, useWorkUi } from '../lib/workOps'
 import { EventRow, useCalMap } from './Calendar'
 import { Icon } from './Icon'
 import { useWork } from './WorkHome'
@@ -46,7 +46,7 @@ function Board({ tasks }: { tasks: Task[] }) {
             {items.map((tk) => (
               <div key={tk.id} className="board-card" draggable onDragStart={(e) => e.dataTransfer.setData('text/plain', tk.id)}>
                 <button className="board-body" onClick={() => useWorkUi.getState().openEditor(tk)}>
-                  <span className="wrk-title">{tk.p === 1 && <b className="wrk-p">!</b>}{tk.title}</span>
+                  <span className="wrk-title">{tk.kind === 'decision' && <b className="wrk-kind">{t('결정')}</b>}{tk.p === 1 && <b className="wrk-p">!</b>}{tk.title}</span>
                   <span className="wrk-meta">
                     {tk.due && <span className={!tk.done && tk.due < todayYmd() ? 'wrk-late' : 'wrk-due'}>{tk.due.slice(5)}</span>}
                     {tk.owner.length > 0 && <span className="wrk-owner">{tk.owner.join(', ')}</span>}
@@ -66,16 +66,15 @@ function Board({ tasks }: { tasks: Task[] }) {
 }
 
 export function TaskLine({ tk, showProject }: { tk: Task; showProject?: string }) {
-  const app = useApp.getState()
   const ui = uiStateOf(tk)
   const today = todayYmd()
   const late = !tk.done && ui !== 'dropped' && !!tk.due && tk.due < today
   return (
     <div className={`wrk-row${late ? ' late' : ''}${tk.done || ui === 'dropped' ? ' fin' : ''}`}>
-      <input type="checkbox" className="task" checked={tk.done} onChange={() => app.toggleTask(tk.path, tk.line)} aria-label={tk.title} />
+      <input type="checkbox" className="task" checked={tk.done} onChange={() => toggleOrClose(tk)} aria-label={tk.title} />
       <button className="wrk-main" onClick={() => useWorkUi.getState().openEditor(tk)}>
         <span className="wrk-body">
-          <span className="wrk-title">{tk.p === 1 && <b className="wrk-p">!</b>}{tk.title}</span>
+          <span className="wrk-title">{tk.kind === 'decision' && <b className="wrk-kind">{t('결정')}</b>}{tk.p === 1 && <b className="wrk-p">!</b>}{tk.title}</span>
           <span className="wrk-meta">
             {tk.due && <span className={late ? 'wrk-late' : 'wrk-due'}>{tk.due.slice(5)}</span>}
             {tk.owner.length > 0 && <span className="wrk-owner">{tk.owner.join(', ')}</span>}
@@ -120,10 +119,13 @@ export function ProjectHub() {
   }
 
   const open = tasks.filter((x) => !x.done && uiStateOf(x) !== 'dropped')
+  const decisions = open.filter((x) => x.kind === 'decision')
+  const rest = open.filter((x) => x.kind !== 'decision')
   const groups: { key: string; title: string; items: Task[] }[] = [
-    { key: 'doing', title: t('진행 중'), items: open.filter((x) => uiStateOf(x) === 'doing') },
-    { key: 'todo', title: t('할 일'), items: open.filter((x) => uiStateOf(x) === 'todo') },
-    { key: 'waiting', title: t('대기'), items: open.filter((x) => uiStateOf(x) === 'waiting') },
+    { key: 'decision', title: t('결정할 일'), items: decisions },
+    { key: 'doing', title: t('진행 중'), items: rest.filter((x) => uiStateOf(x) === 'doing') },
+    { key: 'todo', title: t('할 일'), items: rest.filter((x) => uiStateOf(x) === 'todo') },
+    { key: 'waiting', title: t('대기'), items: rest.filter((x) => uiStateOf(x) === 'waiting') },
   ]
   const finished = tasks.filter((x) => x.done || uiStateOf(x) === 'dropped')
   const byDue = (a: Task, b: Task) => (a.due ?? '9999').localeCompare(b.due ?? '9999') || (a.p ?? 9) - (b.p ?? 9)

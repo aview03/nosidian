@@ -7,7 +7,7 @@ import { fmtDay, openDay, todayYmd } from '../lib/calendar'
 import { buildQueues, buildWork, parseMe, type Project, type QueueItem, type Queues, type WorkIndex } from '../lib/work'
 import { EventRow, QuickAdd, useCalMap } from './Calendar'
 import { Icon } from './Icon'
-import { moveToProject, useWorkUi } from '../lib/workOps'
+import { moveToProject, toggleOrClose, useWorkUi } from '../lib/workOps'
 
 /** 정리할 업무: 어느 프로젝트에도 속하지 않은 업무(받은 업무 등). 고르면 그 프로젝트의 할 일 노트로 옮겨 간다 */
 function Triage({ work }: { work: WorkIndex }) {
@@ -57,12 +57,14 @@ function reasonText(q: QueueItem): string {
     case 'waiting': return n > 0 ? t('대기 · 기한 {n}일 지남', { n }) : t('대기')
     case 'doing': return t('진행 중')
     case 'unowned': return t('담당자 없음')
+    case 'decision': return n > 0 ? t('다시 확인 {n}일 지남', { n }) : n === 0 ? t('오늘 다시 확인') : q.days === undefined ? t('미결') : t('D-{n}', { n: -n })
     default: return ''
   }
 }
 
 const SECTIONS: { key: keyof Omit<Queues, 'total'>; title: string; tone?: 'danger' | 'warn' }[] = [
   { key: 'overdue', title: '기한이 지난 일', tone: 'danger' },
+  { key: 'decisions', title: '결정할 일' },
   { key: 'today', title: '오늘 마감' },
   { key: 'week', title: '이번 주' },
   { key: 'waiting', title: '대기 중인 일', tone: 'warn' },
@@ -76,10 +78,10 @@ function TaskRow({ q, projects }: { q: QueueItem; projects: Map<string, Project>
   const proj = tk.project ? projects.get(tk.project) : undefined
   return (
     <div className={`wrk-row${q.reason === 'overdue' ? ' late' : ''}`}>
-      <input type="checkbox" className="task" checked={tk.done} onChange={() => app.toggleTask(tk.path, tk.line)} aria-label={tk.title} />
+      <input type="checkbox" className="task" checked={tk.done} onChange={() => toggleOrClose(tk)} aria-label={tk.title} />
       <button className="wrk-main" onClick={() => useWorkUi.getState().openEditor(tk)}>
         <span className="wrk-body">
-          <span className="wrk-title">{tk.p === 1 && <b className="wrk-p">!</b>}{tk.title}</span>
+          <span className="wrk-title">{tk.kind === 'decision' && <b className="wrk-kind">{t('결정')}</b>}{tk.p === 1 && <b className="wrk-p">!</b>}{tk.title}</span>
           <span className="wrk-meta">
             {proj && <span className="wrk-proj">{proj.name}</span>}
             {tk.owner.length > 0 && <span className="wrk-owner">{tk.owner.join(', ')}</span>}

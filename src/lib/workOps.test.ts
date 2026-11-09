@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { useApp } from './app'
 import { setLang } from './i18n'
 import { addTask, deleteTask, moveTask, moveToProject, updateTask } from './workOps'
-import { buildWork, tokensForState } from './work'
+import { buildQueues, buildWork, tokensForState } from './work'
 import type { NoteFile } from './types'
 
 const note = (path: string, content: string): NoteFile => ({ path, content, sha: null, dirty: false, mtime: 0 })
@@ -89,5 +89,29 @@ describe('업무 연산이 노트를 고친다', () => {
     expect(text('받은 업무.md')).toBe('# 받은 업무\n\n- [ ] 우체국 가기 due:2026-11-17\n')
     expect(text('행사/할 일.md')).toBe('# 할 일\n- [ ] 세금 신고 due:2026-11-16 owner:민수 p:1\n')
     expect(buildWork(useApp.getState().files).tasks.find((t) => t.title === '세금 신고')?.project).toBe('행사/프로젝트 개요.md')
+  })
+
+  it('결정 안건: 결론 없이는 체크로 닫히지 않고, 결론이 있으면 닫힌다', () => {
+    load(PROJECT, note('행사/할 일.md', '# 할 일\n\n- [ ] 장소 정하기 kind:decision due:2026-11-12\n- [ ] 케이크 kind:decision => 초코로 결정\n'))
+    const app = useApp.getState()
+    app.toggleTask('행사/할 일.md', 2)
+    expect(text('행사/할 일.md')).toContain('- [ ] 장소 정하기') // 그대로
+    app.toggleTask('행사/할 일.md', 3)
+    expect(text('행사/할 일.md')).toContain('- [x] 케이크')
+  })
+
+  it('결정 안건은 결정할 일 대기열에 따로 서고, 닫으면 빠진다 (수정해도 kind 유지)', () => {
+    load(PROJECT, note('행사/할 일.md', '# 할 일\n\n- [ ] 장소 정하기 kind:decision due:2026-11-08 owner:민수\n- [ ] 현수막 due:2026-11-08\n'))
+    const w = buildWork(useApp.getState().files)
+    const q = buildQueues(w, '2026-11-09')
+    expect(q.decisions.map((x) => x.task.title)).toEqual(['장소 정하기'])
+    expect(q.decisions[0].days).toBe(1) // 다시 확인할 날이 하루 지남
+    expect(q.overdue.map((x) => x.task.title)).toEqual(['현수막']) // 겹치지 않는다
+    const t = w.tasks.find((x) => x.title === '장소 정하기')!
+    moveTask(t, 'doing')
+    expect(text('행사/할 일.md')).toContain('- [ ] 장소 정하기 status:doing kind:decision')
+    const t2 = buildWork(useApp.getState().files).tasks.find((x) => x.title === '장소 정하기')!
+    expect(updateTask(t2, { title: t2.title, done: true, tokens: { kind: 'decision', conclusion: '식당으로 결정' } })).toBe(true)
+    expect(buildQueues(buildWork(useApp.getState().files), '2026-11-09').decisions).toHaveLength(0)
   })
 })

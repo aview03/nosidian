@@ -5,7 +5,7 @@
 //    → 토큰도 없고 프로젝트에도 안 속한 평범한 체크리스트(장보기 목록 등)는 업무가 아니다 (대기열이 의미를 잃지 않게)
 //  - 소속: ① 줄의 proj: / 노트의 프론트매터 project:  ② 프로젝트 노트가 있는 폴더 아래  ③ 프로젝트 노트 자신
 import { baseName, dirName, splitFrontmatter } from './links'
-import { formatWorkTokens, splitWorkTokens, type Side, type WorkStatus, type WorkTokens } from './taskTokens'
+import { formatWorkTokens, splitWorkTokens, type Kind, type Side, type WorkStatus, type WorkTokens } from './taskTokens'
 import type { NoteFile } from './types'
 
 export type TaskState = 'todo' | WorkStatus
@@ -21,6 +21,7 @@ export interface Task {
   owner: string[]
   p?: 1 | 2 | 3
   side?: Side
+  kind?: Kind // 'decision' 이면 결정 안건
   impact?: string
   conclusion?: string
   explicitProj?: string // 줄에 적힌 proj
@@ -172,6 +173,7 @@ export function buildWork(files: Record<string, NoteFile>): WorkIndex {
         owner: r.tokens.owner ?? [],
         p: r.tokens.p,
         side: r.tokens.side,
+        kind: r.tokens.kind,
         impact: r.tokens.impact,
         conclusion: r.tokens.conclusion,
         explicitProj: r.tokens.proj,
@@ -209,6 +211,8 @@ export interface Queues {
   waiting: QueueItem[]
   doing: QueueItem[]
   unowned: QueueItem[]
+  /** 열린 결정 안건(결론을 적어야 닫힌다). 다른 대기열과 겹치지 않는다 */
+  decisions: QueueItem[]
   total: number
 }
 
@@ -220,8 +224,12 @@ export function buildQueues(work: WorkIndex, today: string, me: string[] = []): 
   const mine = (t: Task) => !me.length || t.owner.length === 0 || t.owner.some((o) => me.some((m) => o.toLowerCase().includes(m.toLowerCase())))
   const open = work.tasks.filter((t) => !t.done && t.state !== 'dropped' && mine(t))
   const weekEnd = addDaysYmd(today, 7)
-  const q: Queues = { overdue: [], today: [], week: [], waiting: [], doing: [], unowned: [], total: 0 }
+  const q: Queues = { overdue: [], today: [], week: [], waiting: [], doing: [], unowned: [], decisions: [], total: 0 }
   for (const t of open) {
+    if (t.kind === 'decision') {
+      q.decisions.push({ task: t, reason: 'decision', days: t.due ? diffDays(today, t.due) : undefined }) // days>0: 다시 확인할 날이 지남
+      continue
+    }
     if (t.state === 'waiting' || t.side === 'other') {
       q.waiting.push({ task: t, reason: 'waiting', days: t.due ? diffDays(today, t.due) : undefined })
       continue // 상대 차례는 내 기한 초과와 섞지 않는다
@@ -232,8 +240,8 @@ export function buildQueues(work: WorkIndex, today: string, me: string[] = []): 
     else if (t.state === 'doing') q.doing.push({ task: t, reason: 'doing' })
     if (t.owner.length === 0 && (t.due || t.project)) q.unowned.push({ task: t, reason: 'unowned' })
   }
-  for (const k of ['overdue', 'today', 'week', 'waiting', 'doing', 'unowned'] as const) q[k].sort(byDueThenP)
-  q.total = q.overdue.length + q.today.length + q.week.length + q.waiting.length
+  for (const k of ['overdue', 'today', 'week', 'waiting', 'doing', 'unowned', 'decisions'] as const) q[k].sort(byDueThenP)
+  q.total = q.overdue.length + q.today.length + q.week.length + q.waiting.length + q.decisions.length
   return q
 }
 
@@ -294,7 +302,7 @@ export function rewriteTaskLine(line: string, edit: TaskEdit): string | null {
       body = body.replace(x[0], ' ')
     }
   }
-  for (const x of body.matchAll(/(?:^|\s)((?:status|side):\S+)/g)) keep.push(x[1]) // 모르는 값은 지우지 않는다
+  for (const x of body.matchAll(/(?:^|\s)((?:status|side|kind):\S+)/g)) keep.push(x[1]) // 모르는 값은 지우지 않는다
   const title = edit.title.replace(/\s+/g, ' ').trim()
   const parts = [time, title, ...keep, formatWorkTokens(edit.tokens)].filter(Boolean)
   return `${m[1]}[${edit.done ? 'x' : ' '}] ${parts.join(' ')}`

@@ -516,6 +516,10 @@ export const useApp = create<AppState>((set, get) => {
       const lines = f.content.split('\n')
       const l = lines[line]
       if (l === undefined) return
+      if (/\[ \]/.test(l) && /(?:^|\s)kind:(?:decision|결정|미결|안건|issue)(?=\s|$)/i.test(l) && !/(?:^|\s)=>\s*\S/.test(l)) {
+        get().say(t('결정 안건은 결론을 적어야 닫을 수 있어요. 내 업무에서 안건을 눌러 결론을 적어 주세요.'))
+        return
+      }
       lines[line] = /\[ \]/.test(l) ? l.replace('[ ]', '[x]') : l.replace(/\[[xX]\]/, '[ ]')
       get().setContent(path, lines.join('\n'))
     },
