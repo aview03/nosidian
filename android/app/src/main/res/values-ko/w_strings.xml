@@ -8,4 +8,17 @@
     <string name="w_agenda_desc">앞으로 30일의 일정 목록</string>
     <string name="w_month_name">Nosidian · 월간</string>
     <string name="w_agenda_name">Nosidian · 일정 목록</string>
+    <string name="w_pv_month">2026년 11월</string>
+    <string name="w_pv_agenda">오늘 · 11월 9일</string>
+    <string name="w_pv_ev1">아침 산책</string>
+    <string name="w_pv_ev2">점심 약속</string>
+    <string name="w_pv_ev3">요가</string>
+    <string name="w_pv_ev4">팀 회의</string>
+    <string name="w_pv_wd0">일</string>
+    <string name="w_pv_wd1">월</string>
+    <string name="w_pv_wd2">화</string>
+    <string name="w_pv_wd3">수</string>
+    <string name="w_pv_wd4">목</string>
+    <string name="w_pv_wd5">금</string>
+    <string name="w_pv_wd6">토</string>
 </resources>

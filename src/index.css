@@ -897,3 +897,7 @@ html.popup-win .ee { max-width: none; max-height: none; height: 100%; border-rad
 .wrk-hiddenname { font-size: 15px; }
 .head-actions .icon-btn.on { color: var(--accent); }
 .wrk-viewbar, .wrk-viewedit, .wrk-viewres { display: none; }
+
+.name-apply { display: flex; align-items: center; gap: 8px; flex: 1; justify-content: flex-end; }
+.name-apply input.inline { flex: 1; min-width: 0; max-width: 240px; }
+.name-apply button { flex: none; min-height: 36px; padding: 0 14px; }

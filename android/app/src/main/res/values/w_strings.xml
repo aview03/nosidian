@@ -8,4 +8,17 @@
     <string name="w_agenda_desc">Upcoming events for the next 30 days</string>
     <string name="w_month_name">Nosidian · Month</string>
     <string name="w_agenda_name">Nosidian · Agenda</string>
+    <string name="w_pv_month">November 2026</string>
+    <string name="w_pv_agenda">Today · Nov 9</string>
+    <string name="w_pv_ev1">Morning walk</string>
+    <string name="w_pv_ev2">Lunch</string>
+    <string name="w_pv_ev3">Yoga</string>
+    <string name="w_pv_ev4">Team meeting</string>
+    <string name="w_pv_wd0">Sun</string>
+    <string name="w_pv_wd1">Mon</string>
+    <string name="w_pv_wd2">Tue</string>
+    <string name="w_pv_wd3">Wed</string>
+    <string name="w_pv_wd4">Thu</string>
+    <string name="w_pv_wd5">Fri</string>
+    <string name="w_pv_wd6">Sat</string>
 </resources>

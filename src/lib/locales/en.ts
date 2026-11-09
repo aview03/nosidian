@@ -383,6 +383,8 @@ const dict: Record<string, string> = {
   '대기 · 기한 {n}일 지남': 'Waiting · {n} days past due',
   '대기': 'Waiting',
   '보드': 'Board',
+  '적용': 'Apply',
+  '적용됨': 'Applied',
   '새 타일': 'New tile',
   '타일 수정': 'Edit tile',
   '타일 이름': 'Tile name',

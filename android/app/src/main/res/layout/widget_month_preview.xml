@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 위젯 선택 화면의 미리보기(Android 12+). 실제 위젯과 같은 모양의 정적 샘플이다 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:padding="8dp" android:background="@drawable/w_bg">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical">
+        <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:paddingStart="6dp" android:textSize="15sp" android:textStyle="bold" android:textColor="@color/w_text" android:singleLine="true" android:text="@string/w_pv_month"/>
+        <TextView android:layout_width="32dp" android:layout_height="32dp" android:gravity="center" android:text="‹" android:textSize="20sp" android:textColor="@color/w_text"/>
+        <TextView android:layout_width="wrap_content" android:layout_height="32dp" android:gravity="center" android:paddingStart="6dp" android:paddingEnd="6dp" android:text="@string/w_today" android:textSize="12sp" android:textColor="@color/w_accent"/>
+        <TextView android:layout_width="32dp" android:layout_height="32dp" android:gravity="center" android:text="›" android:textSize="20sp" android:textColor="@color/w_text"/>
+        <TextView android:layout_width="32dp" android:layout_height="32dp" android:gravity="center" android:text="+" android:textSize="22sp" android:textColor="@color/w_accent"/>
+    </LinearLayout>
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:textSize="11sp" android:textColor="@color/w_muted" android:text="@string/w_pv_wd0"/>
+            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:textSize="11sp" android:textColor="@color/w_muted" android:text="@string/w_pv_wd1"/>
+            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:textSize="11sp" android:textColor="@color/w_muted" android:text="@string/w_pv_wd2"/>
+            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:textSize="11sp" android:textColor="@color/w_muted" android:text="@string/w_pv_wd3"/>
+            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:textSize="11sp" android:textColor="@color/w_muted" android:text="@string/w_pv_wd4"/>
+            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:textSize="11sp" android:textColor="@color/w_muted" android:text="@string/w_pv_wd5"/>
+            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="center" android:textSize="11sp" android:textColor="@color/w_muted" android:text="@string/w_pv_wd6"/>
+    </LinearLayout>
+    <LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="vertical">
+        <LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="horizontal">
+            <TextView android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:textColor="@color/w_accent" android:text="1"/>
+            <TextView android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:textColor="@color/w_text" android:text="2"/>
+            <TextView android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:textColor="@color/w_text" android:text="3"/>
+            <TextView android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:textColor="@color/w_text" android:text="4"/>
+            <TextView android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:textColor="@color/w_text" android:text="5&#10;•"/>
+            <TextView android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:textColor="@color/w_text" android:text="6"/>
+            <TextView android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:textColor="@color/w_text" android:text="7"/>
+        </LinearLayout>
+        <LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="horizontal">
+            <TextView android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:textColor="@color/w_accent" android:text="8"/>
+            <TextView android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:textColor="@color/w_text" android:background="@drawable/w_cell_today" android:text="9&#10;•"/>
+            <TextView android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:textColor="@color/w_text" android:text="10"/>
+            <TextView android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:textColor="@color/w_text" android:text="11"/>
+            <TextView android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:textColor="@color/w_text" android:text="12&#10;•"/>
+            <TextView android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:textColor="@color/w_text" android:text="13"/>
+            <TextView android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:textColor="@color/w_text" android:text="14"/>
+        </LinearLayout>
+        <LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="horizontal">
+            <TextView android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:textColor="@color/w_accent" android:text="15"/>
+            <TextView android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:textColor="@color/w_text" android:text="16"/>
+            <TextView android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:textColor="@color/w_text" android:text="17"/>
+            <TextView android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:textColor="@color/w_text" android:text="18"/>
+            <TextView android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:textColor="@color/w_text" android:text="19"/>
+            <TextView android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:textColor="@color/w_text" android:text="20&#10;•"/>
+            <TextView android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:textColor="@color/w_text" android:text="21"/>
+        </LinearLayout>
+        <LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="horizontal">
+            <TextView android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:textColor="@color/w_accent" android:text="22"/>
+            <TextView android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:textColor="@color/w_text" android:text="23"/>
+            <TextView android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:textColor="@color/w_text" android:text="24"/>
+            <TextView android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:textColor="@color/w_text" android:text="25"/>
+            <TextView android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:textColor="@color/w_text" android:text="26&#10;•"/>
+            <TextView android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:textColor="@color/w_text" android:text="27"/>
+            <TextView android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:textColor="@color/w_text" android:text="28"/>
+        </LinearLayout>
+        <LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="horizontal">
+            <TextView android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:textColor="@color/w_accent" android:text="29"/>
+            <TextView android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:textColor="@color/w_text" android:text="30"/>
+            <TextView android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:textColor="@color/w_text" android:text=""/>
+            <TextView android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:textColor="@color/w_text" android:text=""/>
+            <TextView android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:textColor="@color/w_text" android:text=""/>
+            <TextView android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:textColor="@color/w_text" android:text=""/>
+            <TextView android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:textSize="12sp" android:lineSpacingMultiplier="0.9" android:textColor="@color/w_text" android:text=""/>
+        </LinearLayout>
+    </LinearLayout>
+</LinearLayout>

@@ -5,7 +5,8 @@ import { CalendarBridge, isAndroid } from '../lib/nativeCal'
 import { t, getLang } from '../lib/i18n'
 import { tx } from '../lib/tx'
 import { LangSelect } from './LangSelect'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { create } from 'zustand'
 import { useApp } from '../lib/app'
 import { confirmAsk } from '../lib/dialog'
 import { SYNC_LABEL, type SyncKind } from '../lib/types'
@@ -22,6 +23,42 @@ function ago(ts: number | null) {
 }
 
 const KINDS = Object.keys(SYNC_LABEL) as SyncKind[]
+
+/** 설정 화면이 열릴 때 "내 이름" 칸으로 바로 가 달라는 요청(내 업무의 "내 이름 설정 →"에서 쓴다) */
+const useFocusName = create<{ want: boolean }>(() => ({ want: false }))
+export function openMyNameSetting() {
+  useFocusName.setState({ want: true })
+  useApp.getState().go('settings')
+}
+
+/** 내 이름: 입력해 두고 "적용"을 눌러야 반영된다. 적용된 값과 같으면 버튼은 꺼져 있다 */
+function MyNameField() {
+  const saved = useApp((x) => x.settings.myName)
+  const [draft, setDraft] = useState(saved)
+  const input = useRef<HTMLInputElement>(null)
+  const want = useFocusName((x) => x.want)
+  useEffect(() => setDraft(saved), [saved])
+  useEffect(() => {
+    if (!want) return
+    useFocusName.setState({ want: false })
+    // 화면이 그려진 뒤 칸이 보이는 곳으로 스크롤하고 입력할 수 있게 한다
+    setTimeout(() => {
+      input.current?.scrollIntoView({ block: 'center' })
+      input.current?.focus()
+      input.current?.select()
+    }, 60)
+  }, [want])
+  const apply = () => useApp.getState().patchSettings({ myName: draft.trim() })
+  const same = draft.trim() === saved.trim()
+  return (
+    <div className="kv"><span>{t('내 이름')}</span>
+      <span className="name-apply">
+        <input ref={input} className="inline" value={draft} placeholder={t('홍길동, 길동')} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && !e.nativeEvent.isComposing && !same && apply()} />
+        <button className="primary" disabled={same} onClick={apply}>{same && saved.trim() ? t('적용됨') : t('적용')}</button>
+      </span>
+    </div>
+  )
+}
 
 export function Settings() {
   const s = useApp((x) => x.settings)
@@ -108,9 +145,7 @@ export function Settings() {
         )}
         <section className="card">
           <h3>{t('업무')}</h3>
-          <div className="kv"><span>{t('내 이름')}</span>
-            <input className="inline" value={s.myName} placeholder={t('홍길동, 길동')} onChange={(e) => app.patchSettings({ myName: e.target.value })} />
-          </div>
+          <MyNameField />
           <p className="hint small">{t('할 일 줄의 owner:이름 이 내 이름과 같은 일만 내 업무에 모아 보여 줍니다. 쉼표로 여러 이름(별명)을 쓸 수 있어요.')}</p>
         </section>
         <section className="card">

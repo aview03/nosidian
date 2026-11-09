@@ -8,6 +8,7 @@ import { addDaysYmd, buildQueues, buildWork, diffDays, parseMe, type Project, ty
 import { EventRow, QuickAdd, useCalMap } from './Calendar'
 import { Icon } from './Icon'
 import { Select } from './Select'
+import { openMyNameSetting } from './Settings'
 import { applyView, readViews, type View } from '../lib/views'
 import { customName, isCustom, LIMIT_CHOICES, moveBefore, moveTile, resolveTiles, setCollapsed, setHidden, setLimit, type BuiltinTile } from '../lib/tiles'
 import { moveToProject, toggleOrClose, useWorkUi } from '../lib/workOps'
@@ -328,7 +329,7 @@ export function WorkHome() {
             </div>
           ) : (
             work.tasks.length > 0 && (
-              <button className="wrk-setname" onClick={() => useApp.getState().go('settings')}>{t('내 이름 설정 →')}</button>
+              <button className="wrk-setname" onClick={openMyNameSetting}>{t('내 이름 설정 →')}</button>
             )
           )}
 

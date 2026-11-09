@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 위젯 선택 화면의 미리보기(Android 12+). 실제 위젯과 같은 모양의 정적 샘플이다 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:padding="8dp" android:background="@drawable/w_bg">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical">
+        <TextView android:layout_width="0dp" android:layout_height="32dp" android:layout_weight="1" android:gravity="center_vertical" android:paddingStart="6dp" android:textSize="15sp" android:textStyle="bold" android:textColor="@color/w_text" android:singleLine="true" android:text="@string/w_pv_agenda"/>
+        <TextView android:layout_width="32dp" android:layout_height="32dp" android:gravity="center" android:text="+" android:textSize="22sp" android:textColor="@color/w_accent"/>
+    </LinearLayout>
+    <LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="vertical">
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical" android:paddingTop="6dp" android:paddingBottom="6dp" android:paddingStart="6dp">
+            <TextView android:layout_width="44dp" android:layout_height="wrap_content" android:textSize="11sp" android:textColor="@color/w_muted" android:text="09:00"/>
+            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:textSize="14sp" android:textColor="@color/w_text" android:text="@string/w_pv_ev1"/>
+        </LinearLayout>
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical" android:paddingTop="6dp" android:paddingBottom="6dp" android:paddingStart="6dp">
+            <TextView android:layout_width="44dp" android:layout_height="wrap_content" android:textSize="11sp" android:textColor="@color/w_muted" android:text="12:30"/>
+            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:textSize="14sp" android:textColor="@color/w_text" android:text="@string/w_pv_ev2"/>
+        </LinearLayout>
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical" android:paddingTop="6dp" android:paddingBottom="6dp" android:paddingStart="6dp">
+            <TextView android:layout_width="44dp" android:layout_height="wrap_content" android:textSize="11sp" android:textColor="@color/w_muted" android:text="15:00"/>
+            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:textSize="14sp" android:textColor="@color/w_text" android:text="@string/w_pv_ev4"/>
+        </LinearLayout>
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical" android:paddingTop="6dp" android:paddingBottom="6dp" android:paddingStart="6dp">
+            <TextView android:layout_width="44dp" android:layout_height="wrap_content" android:textSize="11sp" android:textColor="@color/w_muted" android:text="19:00"/>
+            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:textSize="14sp" android:textColor="@color/w_text" android:text="@string/w_pv_ev3"/>
+        </LinearLayout>
+    </LinearLayout>
+</LinearLayout>
