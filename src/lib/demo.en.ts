@@ -13,6 +13,7 @@ A Markdown notes app for your memos and your schedule in one place. It syncs wit
 > [!tip] Try this
 > - Tap an [[How to Link|internal link]] inside a note to jump to it
 > - Open the **Links** button at the top right to see backlinks, the outline and the note graph
+> - Open the **My Work** tab to see overdue items, what is due today and what you are waiting on (see the [[Projects/Party Planning/Tasks|Party Planning]] example)
 > - Open the **Calendar** tab to see your schedule. A line like \`- [ ] 14:00 Dentist\` in a Daily note is an event
 > - You can type naturally in the event box, e.g. "tomorrow 3pm dentist"
 

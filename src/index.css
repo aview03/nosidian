@@ -669,3 +669,53 @@ html.popup-win .ee { max-width: none; max-height: none; height: 100%; border-rad
 .dn.dn-inline { position: static; width: 100%; height: 100%; max-height: none; box-shadow: none; border: none; }
 .dn.dn-inline .dn-text { min-height: 0; }
 .quick-add .quick-open { width: 100%; min-height: 40px; height: 40px; display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 14px; border-color: var(--text); }
+
+/* 위젯 안의 '일정 추가' 버튼: .widget .quick-add button 규칙(36px 정사각형)보다 구체적으로 지정해야 눌리지 않는다 */
+.widget .quick-add .quick-open { width: 100%; height: 40px; min-height: 40px; padding: 0 12px; flex-direction: row; white-space: nowrap; }
+
+/* ── 내 업무 ── */
+.work { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.wrk-scroll { flex: 1; min-height: 0; overflow-y: auto; }
+.wrk-inner { max-width: 860px; margin: 0 auto; padding: 0 12px 80px; }
+.wrk-scope { margin: 4px 4px 8px; }
+.wrk-setname { margin: 2px 4px 8px; padding: 0; min-height: 28px; font-size: 13px; text-align: left; }
+.wrk-sec { margin-top: 10px; }
+.wrk-sec > h3 { font-size: 13px; color: var(--muted); font-weight: 600; margin: 14px 8px 4px; display: flex; align-items: center; gap: 8px; }
+.wrk-sec.danger > h3 { color: var(--accent); }
+.wrk-count { background: var(--bg3); color: var(--text); border-radius: 10px; min-width: 20px; height: 18px; padding: 0 6px; font-size: 12px; display: inline-grid; place-items: center; font-weight: 600; }
+.wrk-sec.danger .wrk-count { background: var(--accent); color: var(--on-accent); }
+.wrk-row { display: flex; align-items: flex-start; gap: 6px; padding: 6px 8px; border-radius: var(--r); }
+.wrk-row:hover { background: var(--bg2); }
+.wrk-row input.task { margin-top: 4px; flex: none; }
+.wrk-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; border: none; background: none; text-align: left; padding: 2px 0; min-height: 0; }
+.wrk-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; }
+.wrk-p { color: var(--accent); margin-right: 4px; }
+.wrk-meta { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 12.5px; color: var(--muted); }
+.wrk-why { font-style: normal; font-weight: 600; color: var(--text); }
+.wrk-why.overdue { color: var(--accent); }
+.wrk-why.waiting { color: var(--muted); }
+.wrk-proj { background: var(--accent-soft); color: var(--accent); padding: 0 6px; border-radius: var(--r); }
+.wrk-owner::before { content: '@ '; }
+.wrk-projrow { display: flex; flex-direction: column; width: 100%; align-items: flex-start; gap: 2px; border: none; background: none; text-align: left; padding: 8px 8px; border-radius: var(--r); min-height: 44px; }
+.wrk-projrow:hover { background: var(--bg2); }
+.wrk-pname { font-weight: 600; }
+.wrk-pmeta { display: flex; gap: 10px; font-size: 12.5px; color: var(--muted); } .wrk-pmeta em { font-style: normal; color: var(--accent); }
+.wrk-guide { margin: 24px 8px; padding: 14px 16px; background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r); }
+.wrk-guide h3 { margin: 0 0 6px; font-size: 15px; } .wrk-guide p { margin: 0 0 8px; color: var(--muted); font-size: 14px; }
+.wrk-guide pre { margin: 0; padding: 10px 12px; background: var(--code-bg); border-radius: var(--r); font-size: 13px; overflow-x: auto; }
+.wrk-clear { text-align: center; }
+
+.widget .quick-add .quick-open { max-width: 380px; }
+
+/* 작은 위젯(폭 560px 이하): 머리글을 두 줄로 나누고, 칸이 좁아 안 읽히는 음력·시각 접두는 숨긴다 */
+@media (max-width: 560px) {
+  .widget .w-head { flex-wrap: wrap; row-gap: 0; padding-top: 6px; }
+  .widget .w-title { flex: 1 0 100%; }
+  .gm-top { flex-wrap: nowrap; overflow: hidden; }
+  .gm-top b { white-space: nowrap; font-size: 15px; }
+  .gm-top .lunar { display: none; }
+  .gm-top .hol { font-size: 10.5px; }
+  .gm-ev i { display: none; }
+  .gm-cell { padding: 3px 4px; }
+  .gm-ev { font-size: 12px; }
+}

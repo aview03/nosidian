@@ -22,7 +22,7 @@ export function useCalMap() {
 }
 
 // ── 이벤트 한 줄 ──
-function EventRow({ ev, showDate }: { ev: CalEvent; showDate?: boolean }) {
+export function EventRow({ ev, showDate }: { ev: CalEvent; showDate?: boolean }) {
   const app = useApp.getState()
   return (
     <div className={`ev-row${ev.done ? ' done' : ''}`}>

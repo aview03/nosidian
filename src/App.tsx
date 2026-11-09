@@ -12,6 +12,7 @@ import { desktop } from './lib/externalIO'
 import { startNativeBridge } from './lib/nativeCal'
 import { pruneAllDaily, useCal } from './lib/calendar'
 import { EventEditor } from './components/EventEditor'
+import { WorkHome } from './components/WorkHome'
 import { CalendarMain, CalendarMobile, CalendarSide, DayPanel, TodayView } from './components/Calendar'
 import { NoteView } from './components/NoteView'
 import { Settings } from './components/Settings'
@@ -183,7 +184,7 @@ export default function App() {
   if (!hasVault) return (<Fragment key={lang}><Onboarding /><Dialogs /></Fragment>)
 
   const nav: { id: Tab; icon: string; label: string }[] = [
-    { id: 'today', icon: 'sun', label: t('오늘') },
+    { id: 'work', icon: 'tasks', label: t('내 업무') },
     { id: 'calendar', icon: 'calendar', label: t('캘린더') },
     { id: 'files', icon: 'note', label: t('메모') },
     { id: 'search', icon: 'search', label: t('검색') },
@@ -191,7 +192,7 @@ export default function App() {
   ]
 
   if (wide) {
-    const mainTab = tab === 'graph' || tab === 'settings' || tab === 'calendar' ? tab : 'note'
+    const mainTab = tab === 'today' ? 'work' : tab === 'graph' || tab === 'settings' || tab === 'calendar' || tab === 'work' ? tab : 'note'
     // 이미 열려 있는 탭을 다시 누르면 사이드바를 접고, 접혀 있으면 그 탭으로 연다
     const pickLeft = (t: 'files' | 'search') => {
       const app = useApp.getState()
@@ -203,6 +204,7 @@ export default function App() {
     return (
       <div className="layout wide" key={lang}>
         <nav className="rail">
+          <button className={mainTab === 'work' ? 'on' : ''} onClick={() => useApp.getState().go('work')} title={t('내 업무')}><Icon name="tasks" /></button>
           <button className={mainTab === 'calendar' ? 'on' : ''} onClick={() => useApp.getState().go('calendar')} title={t('캘린더')}><Icon name="calendar" /></button>
           <button className={leftOpen && leftTab === 'files' && mainTab === 'note' ? 'on' : ''} onClick={() => pickLeft('files')} title={t('메모')}><Icon name="note" /></button>
           <button className={leftOpen && railActive('search') ? 'on' : ''} onClick={() => pickLeft('search')} title={t('검색 (Ctrl+Shift+F)')}><Icon name="search" /></button>
@@ -221,7 +223,7 @@ export default function App() {
         )}
         <main className="main">
           <div className={`view${mainTab === 'calendar' ? ' cal-split' : ''}`} key={`${activeVault}:${mainTab}`}>
-            {mainTab === 'graph' ? <Graph /> : mainTab === 'settings' ? <Settings /> : mainTab === 'calendar' ? (<><CalendarMain /><DayPanel /></>) : <NoteView wide />}
+            {mainTab === 'graph' ? <Graph /> : mainTab === 'settings' ? <Settings /> : mainTab === 'work' ? <WorkHome /> : mainTab === 'calendar' ? (<><CalendarMain /><DayPanel /></>) : <NoteView wide />}
           </div>
         </main>
         <Palette />
@@ -238,6 +240,7 @@ export default function App() {
       <main className="main">
         <div className="view" key={`${activeVault}:${tab}`}>
           {tab === 'note' && <NoteView wide={false} />}
+          {tab === 'work' && <WorkHome />}
           {tab === 'today' && <TodayView />}
           {tab === 'calendar' && <CalendarMobile />}
           {tab === 'files' && (<><FileTree /><div className="fab-sync"><SyncBtn cls="fab" /></div></>)}

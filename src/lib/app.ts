@@ -17,11 +17,10 @@ export interface ExternalDoc {
   hideBanner?: boolean // 안내 배너를 무시함
 }
 
-export type Tab = 'note' | 'files' | 'search' | 'graph' | 'settings' | 'calendar' | 'today'
+export type Tab = 'note' | 'files' | 'search' | 'graph' | 'settings' | 'calendar' | 'today' | 'work'
 
-/** 앱을 켰을 때의 첫 화면(홈): PC 는 캘린더, 모바일은 오늘. 뒤로가기의 종착지이기도 하다 */
-export const homeTab = (): Tab =>
-  typeof window !== 'undefined' && window.matchMedia('(min-width: 900px)').matches ? 'calendar' : 'today'
+/** 앱을 켰을 때의 첫 화면(홈): PC·모바일 모두 내 업무. 안드로이드 뒤로가기의 종착지이기도 하다 */
+export const homeTab = (): Tab => 'work'
 
 const SETTINGS_KEY = 'amsidian.settings'
 function loadSettings(): Settings {
@@ -409,7 +408,7 @@ export const useApp = create<AppState>((set, get) => {
       const s = get()
       const f = s.current ? s.files[s.current] : null
       const shown = !!s.external || (!!f && !f.deleted)
-      const visible = s.tab === 'note' || (s.tab !== 'graph' && s.tab !== 'settings' && s.tab !== 'calendar' && s.tab !== 'today' && window.matchMedia('(min-width: 900px)').matches)
+      const visible = s.tab === 'note' || (s.tab !== 'graph' && s.tab !== 'settings' && s.tab !== 'calendar' && s.tab !== 'today' && s.tab !== 'work' && window.matchMedia('(min-width: 900px)').matches)
       if (!shown || !visible) return
       set({ findOpen: true, findFocus: s.findFocus + 1 })
     },

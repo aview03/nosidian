@@ -8,6 +8,7 @@ import { splitFrontmatter, baseName } from './links'
 import { t, getLang } from './i18n'
 import type { NoteFile } from './types'
 import { desktop } from './externalIO'
+import { splitWorkTokens } from './taskTokens'
 
 export interface CalEvent {
   id: string
@@ -102,8 +103,10 @@ function parseFile(f: NoteFile): CalEvent[] {
     if (fence) return
     const m = TASK.exec(raw)
     if (!m) return
-    let text = m[2].trim()
-    let date = daily
+    // 업무 토큰(due/owner/p/status/side/proj/=>)은 제목이 아니다. due 는 날짜가 따로 없을 때 일정 날짜로 쓴다
+    const wt = splitWorkTokens(m[2].trim())
+    let text = wt.rest
+    let date = daily ?? wt.tokens.due ?? null
     const at = AT_DATE.exec(text)
     if (at) {
       date = at[1]

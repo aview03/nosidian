@@ -107,6 +107,13 @@ export function Settings() {
           </section>
         )}
         <section className="card">
+          <h3>{t('업무')}</h3>
+          <div className="kv"><span>{t('내 이름')}</span>
+            <input className="inline" value={s.myName} placeholder={t('홍길동, 길동')} onChange={(e) => app.patchSettings({ myName: e.target.value })} />
+          </div>
+          <p className="hint small">{t('할 일 줄의 owner:이름 이 내 이름과 같은 일만 내 업무에 모아 보여 줍니다. 쉼표로 여러 이름(별명)을 쓸 수 있어요.')}</p>
+        </section>
+        <section className="card">
           <h3>{t('캘린더')}</h3>
           <div className="kv"><span>{t('공휴일 표시')}</span>
             <div className="seg">
