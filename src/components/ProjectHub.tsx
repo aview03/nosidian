@@ -8,6 +8,8 @@ import { uiStateOf, type Task, type UiState } from '../lib/work'
 import { moveTask, toggleOrClose, useWorkUi } from '../lib/workOps'
 import { EventRow, useCalMap } from './Calendar'
 import { buildTimeline, groupByDate } from '../lib/timeline'
+import { ask } from '../lib/dialog'
+import { templateFromProject } from '../lib/projectTemplates'
 import { Icon } from './Icon'
 import { healthLabel, signalText, useHealth, useWork } from './WorkHome'
 
@@ -111,6 +113,17 @@ export function ProjectHub() {
 
   const goBack = () => useApp.getState().go('work')
 
+  // 이 프로젝트의 문서·할 일을 틀로 만들어 vault 의 Templates/ 에 저장한다(새 프로젝트에서 고를 수 있다)
+  const saveAsTemplate = async () => {
+    if (!project) return
+    const name = await ask(t('템플릿으로 저장'), project.name, t('이 프로젝트의 문서와 할 일이 템플릿이 돼요. 완료 표시·결론·상태는 지워지고, 마감일은 프로젝트 마감 기준으로 바뀌어요.'), t('저장'))
+    if (!name?.trim()) return
+    const app = useApp.getState()
+    const out = templateFromProject(project, app.files, name, Object.keys(app.files).filter((p) => !app.files[p].deleted))
+    for (const [p, c] of Object.entries(out.files)) app.createNote(p, c, false)
+    app.say(t('"{name}" 템플릿으로 저장했어요. 새 프로젝트에서 고를 수 있어요.', { name: out.name }))
+  }
+
   if (!project) {
     return (
       <div className="work">
@@ -160,6 +173,7 @@ export function ProjectHub() {
         {project.health && <span className="hub-health">{t('판단')}: {project.health}</span>}
         {healthMap.get(project.path) && <span className={`wrk-health ${healthMap.get(project.path)!.level}`} title={healthMap.get(project.path)!.signals.map(signalText).join(' · ')}>{t('점검')}: {healthLabel(healthMap.get(project.path)!)}</span>}
         <span>{t('열린 일 {n}/{m}', { n: open.length, m: tasks.length })}</span>
+        <button className="wrk-viewedit hub-savetpl" onClick={() => void saveAsTemplate()}>{t('템플릿으로 저장')}</button>
       </div>
       <div className="seg wide hub-tabs">
         <button className={tab === 'tasks' ? 'on' : ''} onClick={() => setTab('tasks')}>{t('할 일')}</button>

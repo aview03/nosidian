@@ -901,3 +901,7 @@ html.popup-win .ee { max-width: none; max-height: none; height: 100%; border-rad
 .name-apply { display: flex; align-items: center; gap: 8px; flex: 1; justify-content: flex-end; }
 .name-apply input.inline { flex: 1; min-width: 0; max-width: 240px; }
 .name-apply button { flex: none; min-height: 36px; padding: 0 14px; }
+
+.np-mine { margin-left: 8px; padding: 1px 6px; border: 1px solid var(--muted); border-radius: var(--r); color: var(--muted); font-size: 11px; font-style: normal; font-weight: 600; vertical-align: 1px; }
+.hub-meta { align-items: center; }
+.hub-savetpl { margin-left: auto; }

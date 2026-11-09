@@ -4,7 +4,7 @@ import { useApp } from '../lib/app'
 import { t } from '../lib/i18n'
 import { todayYmd } from '../lib/calendar'
 import { parseMe } from '../lib/work'
-import { builtinTemplates, planProject } from '../lib/projectTemplates'
+import { builtinTemplates, planProject, vaultTemplates } from '../lib/projectTemplates'
 import { useWorkUi } from '../lib/workOps'
 import { Icon } from './Icon'
 
@@ -17,7 +17,8 @@ export function NewProject() {
 function Wizard() {
   const close = () => useWorkUi.setState({ wizard: false })
   const myName = useApp((s) => s.settings.myName)
-  const templates = useMemo(() => builtinTemplates(), [])
+  const files = useApp((x) => x.files)
+  const templates = useMemo(() => [...builtinTemplates(), ...vaultTemplates(files)], [files])
   const [tpl, setTpl] = useState(templates[0].id)
   const [name, setName] = useState('')
   const [due, setDue] = useState('')
@@ -32,7 +33,7 @@ function Wizard() {
   }, [])
 
   const chosen = templates.find((x) => x.id === tpl) ?? templates[0]
-  const needsDue = chosen.id !== 'general'
+  const needsDue = chosen.mine ? /\{\{due/.test(JSON.stringify(chosen.files)) : chosen.id !== 'general'
   const noName = !name.trim()
 
   const create = () => {
@@ -63,7 +64,7 @@ function Wizard() {
             <div className="np-tpls">
               {templates.map((x) => (
                 <button key={x.id} className={`np-tpl${tpl === x.id ? ' on' : ''}`} onClick={() => setTpl(x.id)}>
-                  <b>{x.name}</b>
+                  <b>{x.name}{x.mine && <em className="np-mine">{t('내 템플릿')}</em>}</b>
                   <small>{x.desc}</small>
                 </button>
               ))}

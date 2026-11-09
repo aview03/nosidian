@@ -5,6 +5,7 @@
 //    → 토큰도 없고 프로젝트에도 안 속한 평범한 체크리스트(장보기 목록 등)는 업무가 아니다 (대기열이 의미를 잃지 않게)
 //  - 소속: ① 줄의 proj: / 노트의 프론트매터 project:  ② 프로젝트 노트가 있는 폴더 아래  ③ 프로젝트 노트 자신
 import { baseName, dirName, splitFrontmatter } from './links'
+import { isTemplatePath } from './templatePaths'
 import { formatWorkTokens, splitWorkTokens, type Kind, type Side, type WorkStatus, type WorkTokens } from './taskTokens'
 import type { NoteFile } from './types'
 
@@ -117,7 +118,7 @@ function firstHeading(content: string): string | null {
 }
 
 export function buildWork(files: Record<string, NoteFile>): WorkIndex {
-  const live = Object.values(files).filter((f) => !f.deleted && /\.md$/i.test(f.path))
+  const live = Object.values(files).filter((f) => !f.deleted && /\.md$/i.test(f.path) && !isTemplatePath(f.path)) // Templates/ 안은 틀이라 업무가 아니다
   const seen = new Set<string>()
 
   // 1) 프로젝트
