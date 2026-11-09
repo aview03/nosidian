@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useApp } from './app'
 import { setLang } from './i18n'
-import { addTask, deleteTask, updateTask } from './workOps'
+import { addTask, deleteTask, moveTask, updateTask } from './workOps'
 import { buildWork, tokensForState } from './work'
 import type { NoteFile } from './types'
 
@@ -67,5 +67,17 @@ describe('업무 연산이 노트를 고친다', () => {
     expect(text('받은 업무.md')).toBe('# 받은 업무\n\n- [ ] 세금 신고 due:2026-11-16\n- [ ] 우체국 가기\n')
     // 프로젝트 밖이지만 꼬리표가 있는 것만 업무로 센다
     expect(buildWork(useApp.getState().files).tasks.map((t) => t.title)).toEqual(['세금 신고'])
+  })
+
+  it('moveTask: 칸을 옮기면 status 만 바뀌고 나머지는 그대로 (대기는 side:other 도)', () => {
+    const find = (title: string) => buildWork(useApp.getState().files).tasks.find((t) => t.title === title)!
+    moveTask(find('장소 예약'), 'doing')
+    expect(text('행사/할 일.md')).toContain('- [ ] 장소 예약 status:doing due:2026-11-06 owner:민수')
+    moveTask(find('장소 예약'), 'waiting')
+    expect(text('행사/할 일.md')).toContain('- [ ] 장소 예약 status:waiting side:other due:2026-11-06 owner:민수')
+    moveTask(find('장소 예약'), 'done')
+    expect(text('행사/할 일.md')).toContain('- [x] 장소 예약 due:2026-11-06 owner:민수')
+    moveTask(find('장소 예약'), 'todo')
+    expect(text('행사/할 일.md')).toContain('- [ ] 장소 예약 due:2026-11-06 owner:민수')
   })
 })

@@ -4,13 +4,66 @@ import { useApp } from '../lib/app'
 import { t } from '../lib/i18n'
 import { addDays, fmtDay, todayYmd } from '../lib/calendar'
 import { baseName } from '../lib/links'
-import { uiStateOf, type Task } from '../lib/work'
-import { useWorkUi } from '../lib/workOps'
+import { uiStateOf, type Task, type UiState } from '../lib/work'
+import { moveTask, useWorkUi } from '../lib/workOps'
 import { EventRow, useCalMap } from './Calendar'
 import { Icon } from './Icon'
 import { useWork } from './WorkHome'
 
-type Tab = 'tasks' | 'docs' | 'schedule'
+type Tab = 'tasks' | 'board' | 'docs' | 'schedule'
+
+const COLS: { key: UiState | 'done'; title: string }[] = [
+  { key: 'todo', title: '할 일' },
+  { key: 'doing', title: '진행 중' },
+  { key: 'waiting', title: '대기' },
+  { key: 'done', title: '완료' },
+]
+const colOf = (tk: Task): UiState | 'done' => (tk.done ? 'done' : uiStateOf(tk))
+
+/** 칸반 보드: 카드를 끌어 놓거나 ‹ › 로 옮기면 그 줄의 status 가 바뀐다 */
+function Board({ tasks }: { tasks: Task[] }) {
+  const [over, setOver] = useState<string | null>(null)
+  const shown = tasks.filter((x) => uiStateOf(x) !== 'dropped')
+  const byDue = (a: Task, b: Task) => (a.due ?? '9999').localeCompare(b.due ?? '9999') || (a.p ?? 9) - (b.p ?? 9)
+  return (
+    <div className="board">
+      {COLS.map((c, ci) => {
+        const items = shown.filter((x) => colOf(x) === c.key).sort(byDue)
+        return (
+          <section
+            key={c.key}
+            className={`board-col${over === c.key ? ' over' : ''}`}
+            onDragOver={(e) => { e.preventDefault(); setOver(c.key) }}
+            onDragLeave={() => setOver((o) => (o === c.key ? null : o))}
+            onDrop={(e) => {
+              e.preventDefault()
+              setOver(null)
+              const tk = shown.find((x) => x.id === e.dataTransfer.getData('text/plain'))
+              if (tk && colOf(tk) !== c.key) moveTask(tk, c.key)
+            }}
+          >
+            <h3>{t(c.title)}<span className="wrk-count">{items.length}</span></h3>
+            {items.map((tk) => (
+              <div key={tk.id} className="board-card" draggable onDragStart={(e) => e.dataTransfer.setData('text/plain', tk.id)}>
+                <button className="board-body" onClick={() => useWorkUi.getState().openEditor(tk)}>
+                  <span className="wrk-title">{tk.p === 1 && <b className="wrk-p">!</b>}{tk.title}</span>
+                  <span className="wrk-meta">
+                    {tk.due && <span className={!tk.done && tk.due < todayYmd() ? 'wrk-late' : 'wrk-due'}>{tk.due.slice(5)}</span>}
+                    {tk.owner.length > 0 && <span className="wrk-owner">{tk.owner.join(', ')}</span>}
+                  </span>
+                </button>
+                <span className="board-move">
+                  <button disabled={ci === 0} aria-label={t('이전 칸으로')} onClick={() => moveTask(tk, COLS[ci - 1].key)}>‹</button>
+                  <button disabled={ci === COLS.length - 1} aria-label={t('다음 칸으로')} onClick={() => moveTask(tk, COLS[ci + 1].key)}>›</button>
+                </span>
+              </div>
+            ))}
+          </section>
+        )
+      })}
+    </div>
+  )
+}
 
 export function TaskLine({ tk, showProject }: { tk: Task; showProject?: string }) {
   const app = useApp.getState()
@@ -108,12 +161,13 @@ export function ProjectHub() {
       </div>
       <div className="seg wide hub-tabs">
         <button className={tab === 'tasks' ? 'on' : ''} onClick={() => setTab('tasks')}>{t('할 일')}</button>
+        <button className={tab === 'board' ? 'on' : ''} onClick={() => setTab('board')}>{t('보드')}</button>
         <button className={tab === 'docs' ? 'on' : ''} onClick={() => setTab('docs')}>{t('문서')} {docs.length}</button>
         <button className={tab === 'schedule' ? 'on' : ''} onClick={() => setTab('schedule')}>{t('일정')}</button>
       </div>
 
       <div className="wrk-scroll">
-        <div className="wrk-inner">
+        <div className={`wrk-inner${tab === 'board' ? ' wide' : ''}`}>
           {tab === 'tasks' && (
             <>
               {groups.map((g) =>
@@ -133,6 +187,8 @@ export function ProjectHub() {
               )}
             </>
           )}
+
+          {tab === 'board' && <Board tasks={tasks} />}
 
           {tab === 'docs' && (
             <section className="wrk-sec">

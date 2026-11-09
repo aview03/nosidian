@@ -779,3 +779,22 @@ html.popup-win .ee { max-width: none; max-height: none; height: 100%; border-rad
   .wrk-foot .quick-add { padding: 8px 12px; }
   .wrk-inner { padding-bottom: 24px; }
 }
+
+/* PC: 본문을 가운데가 아니라 왼쪽에 둔다(설정 화면처럼) */
+.wrk-inner { margin-left: 0; margin-right: 0; }
+.hub > .panel-head, .hub > .hub-meta, .hub > .hub-tabs { margin-left: 0; margin-right: 0; }
+.wrk-inner.wide { max-width: none; }
+.work .quick-add { max-width: 760px; }
+
+/* 칸반 보드 */
+.board { display: grid; grid-template-columns: repeat(4, minmax(220px, 1fr)); gap: 20px; align-items: start; overflow-x: auto; padding-bottom: 12px; }
+.board-col { min-height: 160px; padding: 8px 8px 12px; border-radius: var(--r); transition: background .12s; }
+.board-col.over { background: var(--bg2); }
+.board-col > h3 { margin: 0 4px 12px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.board-card { display: flex; align-items: flex-start; gap: 4px; padding: 12px; margin-bottom: 10px; background: var(--bg2); border-radius: var(--r); cursor: grab; }
+.board-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; text-align: left; padding: 0; border: none; background: none; min-height: 0; height: auto; }
+.board-move { display: flex; flex-direction: column; gap: 2px; }
+.board-move button { width: 28px; height: 28px; min-height: 28px; padding: 0; border: none; background: none; color: var(--muted); font-size: 18px; line-height: 1; }
+.board-move button:disabled { opacity: .25; }
+@media (max-width: 899px) { .board { grid-template-columns: repeat(4, 78vw); scroll-snap-type: x mandatory; gap: 12px; } .board-col { scroll-snap-align: start; } }
+.board-col > h3 .wrk-count, .wrk-sec > h3 .wrk-count { margin-left: 8px; }

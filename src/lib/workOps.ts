@@ -2,7 +2,7 @@
 import { create } from 'zustand'
 import { useApp } from './app'
 import { t } from './i18n'
-import { buildWork, findTaskLine, rewriteTaskLine, type Task, type TaskEdit } from './work'
+import { buildWork, findTaskLine, rewriteTaskLine, tokensForState, type Task, type TaskEdit, type UiState } from './work'
 import { formatWorkTokens } from './taskTokens'
 
 interface WorkUi {
@@ -91,4 +91,11 @@ export function addTask(edit: TaskEdit, projectPath: string | null): string {
     app.createNote(path, header + line + '\n', false)
   }
   return path
+}
+
+/** 보드에서 업무를 다른 칸으로 옮긴다. 'done' 은 완료 체크, 나머지는 status 꼬리표만 바꾼다(다른 값은 그대로) */
+export function moveTask(task: Task, to: UiState | 'done'): boolean {
+  const base = { due: task.due ?? undefined, owner: task.owner.length ? task.owner : undefined, p: task.p ?? undefined, impact: task.impact ?? undefined, conclusion: task.conclusion ?? undefined, proj: task.explicitProj ?? undefined }
+  const ui: UiState = to === 'done' ? 'todo' : to
+  return updateTask(task, { title: task.title, done: to === 'done', tokens: tokensForState(ui, base) })
 }
