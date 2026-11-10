@@ -9,6 +9,8 @@ import { allFolders, cleanName, dirOf, listDir, newMemoPath, planDelete, planMov
 import { renameNoteDialog } from '../lib/noteActions'
 import { checkMove, dailyOf, isProjectsRoot, newNoteIn, overviewNote, placeMessage, projectsWithoutOverview, strayInDaily } from '../lib/folderRules'
 import { useWorkUi } from '../lib/workOps'
+import { desktop } from '../lib/externalIO'
+import { useAiThread } from '../lib/aiThread'
 import { getLang } from '../lib/i18n'
 import { importFromPicker } from '../lib/importFiles'
 import { Icon } from './Icon'
@@ -334,6 +336,7 @@ export function MemoTab({ sync }: { sync?: ReactNode }) {
               )}
             </h2>
             <div className="head-actions">
+              {!desktop() && <button className="icon-btn" onClick={() => useAiThread.getState().toggle()} aria-label={t('AI')}><Icon name="spark" /></button>}
               <button className="icon-btn" onClick={() => app.openDaily()} aria-label={t('오늘의 노트')}><Icon name="calendar" /></button>
               <button className="icon-btn" onClick={() => openNewFolder()} aria-label={t('새 폴더')}><Icon name="folder" /></button>
               <button className="icon-btn" onClick={() => void importFromPicker()} aria-label={t('md 파일 가져오기')}><Icon name="import" /></button>

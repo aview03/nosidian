@@ -259,11 +259,16 @@ describe('AI 스레드: 보관과 패널 상태', () => {
     useAiThread.getState().setWidth(444.4)
     expect(localStorage.getItem('nosidian.ai.width')).toBe('444')
   })
-  it('CLI 가 없는 환경(안드로이드·웹)에서는 아무것도 하지 않는다', async () => {
+  it('CLI 가 없는 환경(안드로이드·웹)에서는 Claude Code 대신 연결한 모델로 답한다(연결이 없으면 안내 오류)', async () => {
     ;(window as unknown as { amsidianDesktop: unknown }).amsidianDesktop = undefined
-    expect(startAiThread()).toBeUndefined()
+    expect(startAiThread()).toBeUndefined() // Claude 이벤트 구독은 없다
+    localStorage.removeItem('nosidian.llm')
     await useAiThread.getState().send('q')
-    expect(useAiThread.getState().messages).toEqual([])
+    const m = useAiThread.getState().messages
+    expect(m.map((x) => x.role)).toEqual(['user', 'ai'])
+    expect(m[0].engine).toBe('ollama') // 저장된 엔진이 claude 여도 폰에서는 연결한 모델 경로
+    expect(m[1]).toMatchObject({ status: 'error' })
+    expect(useAiThread.getState().running).toBe(false)
   })
 })
 
@@ -414,5 +419,21 @@ describe('로컬 모델(Ollama) 엔진', () => {
     turnMock.mockResolvedValueOnce({ text: '답', toolCalls: [] })
     await useAiThread.getState().send('q')
     await vi.waitFor(() => expect(useAiThread.getState().messages[1]?.status).toBe('done'))
+  })
+})
+
+import { currentEngine } from './aiThread'
+
+describe('폰·웹: Claude Code 가 없으면 항상 연결한 모델로', () => {
+  it('currentEngine: claude 브리지가 있을 때만 claude 를 쓴다', () => {
+    const w = window as never as { amsidianDesktop?: unknown }
+    const old = w.amsidianDesktop
+    w.amsidianDesktop = undefined
+    expect(currentEngine('claude')).toBe('ollama')
+    expect(currentEngine('ollama')).toBe('ollama')
+    w.amsidianDesktop = { claude: {} }
+    expect(currentEngine('claude')).toBe('claude')
+    expect(currentEngine('ollama')).toBe('ollama')
+    w.amsidianDesktop = old
   })
 })

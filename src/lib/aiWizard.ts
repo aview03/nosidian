@@ -16,12 +16,12 @@ export function aiSummary(engine: EngineChoice, claude: ClaudeStatus | null, cfg
   if (engine === 'claude') {
     if (claude?.found && claude.loggedIn) return { connected: true, title: t('내 Claude 계정으로 연결됨'), sub: claude.version ? `Claude Code ${claude.version}` : 'Claude Code' }
     // 로컬 모델이 준비돼 있으면 그쪽 설명으로
-    if (cfg && cfg.model && supportsTools(cfg.kind)) return { connected: false, title: t('아직 연결 안 됨'), sub: t('{name} 설정은 있어요. 연결을 바꿔 주세요.', { name: providerOf(cfg.kind).label.split(' ')[0] }) }
+    if (cfg && cfg.model && supportsTools(cfg.kind)) return { connected: false, title: t('아직 연결 안 됨'), sub: t('{name} 설정은 있어요. 연결을 바꿔 주세요.', { name: (cfg.kind === 'custom' ? t('내 서버') : providerOf(cfg.kind).label.split(' ')[0]) }) }
     return { connected: false, title: t('아직 연결 안 됨'), sub: t('AI를 연결하면 노트에 대해 묻고 정리를 맡길 수 있어요') }
   }
   if (cfg && cfg.model && supportsTools(cfg.kind)) {
     const local = cfg.kind === 'ollama' || cfg.kind === 'custom'
-    return { connected: true, title: local ? t('내 컴퓨터의 AI로 연결됨') : t('API 키로 연결됨'), sub: `${providerOf(cfg.kind).label.split(' ')[0]} · ${cfg.model}` }
+    return { connected: true, title: local ? t('내 컴퓨터의 AI로 연결됨') : t('API 키로 연결됨'), sub: `${(cfg.kind === 'custom' ? t('내 서버') : providerOf(cfg.kind).label.split(' ')[0])} · ${cfg.model}` }
   }
   return { connected: false, title: t('아직 연결 안 됨'), sub: t('AI를 연결하면 노트에 대해 묻고 정리를 맡길 수 있어요') }
 }

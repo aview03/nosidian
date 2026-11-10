@@ -230,26 +230,22 @@ function NotesGroup() {
 
 /** AI: 자주 쓰는 것(앱 안 AI·자동 문서 관리)을 위에, 직접 연결·외부 연결은 "고급"으로 접는다 */
 function AiGroup() {
-  if (!desktop()) {
-    return (
-      <section className="card">
-        <h3>{t('AI')}</h3>
-        <p className="hint">{t('AI는 PC 앱에서 쓸 수 있어요. 휴대폰에서는 PC가 정리해 둔 노트를 그대로 볼 수 있어요.')}</p>
-      </section>
-    )
-  }
   return (
     <>
       <AiWizard />
-      <AutoCard />
-      <details className="more adv-card">
-        <summary>{t('고급: 연결 직접 설정 (서버 주소·모델·키)')}</summary>
-        <LlmCard />
-      </details>
-      <details className="more adv-card">
-        <summary>{t('고급: 다른 앱의 AI가 내 노트를 쓰게 하기 (MCP)')}</summary>
-        <McpCard />
-      </details>
+      {desktop() && (
+        <>
+          <AutoCard />
+          <details className="more adv-card">
+            <summary>{t('고급: 연결 직접 설정 (서버 주소·모델·키)')}</summary>
+            <LlmCard />
+          </details>
+          <details className="more adv-card">
+            <summary>{t('고급: 다른 앱의 AI가 내 노트를 쓰게 하기 (MCP)')}</summary>
+            <McpCard />
+          </details>
+        </>
+      )}
     </>
   )
 }

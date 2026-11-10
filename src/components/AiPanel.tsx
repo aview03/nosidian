@@ -6,7 +6,7 @@ import { t } from '../lib/i18n'
 import { desktop, type ClaudeStatus } from '../lib/externalIO'
 import { baseName } from '../lib/links'
 import { linkifyPaths, PRESETS, readiness, toolLabel } from '../lib/aiAssistant'
-import { localEngine, useAiThread, type Engine, type Msg, type Step } from '../lib/aiThread'
+import { currentEngine, localEngine, useAiThread, type Engine, type Msg, type Step } from '../lib/aiThread'
 import { isStale } from '../lib/proposals'
 import { useProposals } from '../lib/proposalStore'
 import { useAutomation } from '../lib/automation'
@@ -149,13 +149,13 @@ function AiMsg({ m, last }: { m: Msg; last: boolean }) {
 
 export function AiPanel() {
   const autoNew = useAutomation((s) => (s.settings.mode === 'off' ? 0 : autoInboxCount(s.st)))
-  const pc = !!desktop()
+  const mobile = !desktop() // 폰·웹: Claude Code 가 없어서 연결한 모델로만 답하는 전체 화면 시트
   const claude = desktop()?.claude
   const open = useAiThread((s) => s.open)
   const wide = useAiThread((s) => s.wide)
   const width = useAiThread((s) => s.width)
   const mode = useAiThread((s) => s.mode)
-  const engine = useAiThread((s) => s.engine)
+  const engine = currentEngine(useAiThread((s) => s.engine))
   const withNote = useAiThread((s) => s.withNote)
   const messages = useAiThread((s) => s.messages)
   const running = useAiThread((s) => s.running)
@@ -170,26 +170,27 @@ export function AiPanel() {
   const box = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
-    if (!open || !pc) return
+    if (!open) return
     useAiThread.getState().ensure()
     useProposals.getState().ensure()
     void claude?.detect().then(setStatus)
     setLocal(localEngine()) // 설정에서 모델을 바꿨을 수 있다
     setTimeout(() => box.current?.focus(), 50)
-  }, [open, pc, claude, vault])
+  }, [open, claude, vault])
 
   useEffect(() => {
     const el = scroller.current
     if (el && stick.current) el.scrollTop = el.scrollHeight
   }, [messages, open])
 
-  if (!pc || !open) return null
+  if (!open) return null
   const ready = engine === 'ollama' ? (local.ready ? 'ok' : 'noLocal') : claude ? readiness(status) : 'notFound'
   const canSend = ready === 'ok' && !running && draft.trim().length > 0
   const noteName = current ? baseName(current) : ''
   // Claude 를 쓸 수 없을 때, 로컬 모델이 준비되어 있으면 바로 바꾸게 한다
   const switchBtn = local.ready ? <button className="btn-link" onClick={() => useAiThread.getState().setEngine('ollama')}>{t('로컬 모델로 전환')}</button> : null
   const panelWidth = wide ? Math.min(Math.round(width * 1.7), Math.round(window.innerWidth * 0.7)) : width
+  const goSettings = () => { useAiThread.getState().setOpen(false); useApp.getState().go('settings') }
 
   const send = () => canSend && void useAiThread.getState().send(draft)
   const startResize = (e: React.PointerEvent) => {
@@ -206,17 +207,18 @@ export function AiPanel() {
   }
 
   return (
-    <aside className="ai-dock" style={{ width: panelWidth }} aria-label={t('AI')}>
-      <div className="ai-resize" onPointerDown={startResize} role="separator" aria-orientation="vertical" aria-label={t('패널 폭 조절')} />
+    <aside className={`ai-dock${mobile ? ' ai-sheet' : ''}`} style={mobile ? undefined : { width: panelWidth }} aria-label={t('AI')}>
+      {!mobile && <div className="ai-resize" onPointerDown={startResize} role="separator" aria-orientation="vertical" aria-label={t('패널 폭 조절')} />}
       <header className="ai-head">
+        {mobile && <button className="icon-btn" onClick={() => useAiThread.getState().setOpen(false)} aria-label={t('닫기')}><Icon name="back" size={20} /></button>}
         <h3>{t('AI')}</h3>
         <span className="grow" />
         {pending > 0 && <button className="ai-pending" onClick={() => useProposals.getState().setOpen(true)} title={t('승인을 기다리는 변경 제안 보기')}>{t('제안 {n}', { n: pending })}</button>}
         <button className="icon-btn" disabled={running || messages.length === 0} onClick={() => useAiThread.getState().clear()} title={t('새 채팅')} aria-label={t('새 채팅')}><Icon name="plus" size={18} /></button>
-        <button className={`icon-btn${wide ? ' on' : ''}`} onClick={() => useAiThread.getState().setWide(!wide)} title={t('넓게 보기')} aria-label={t('넓게 보기')}><Icon name="expand" size={18} /></button>
-        <button className="icon-btn" onClick={() => useAiThread.getState().setOpen(false)} title={t('닫기')} aria-label={t('닫기')}><Icon name="close" size={18} /></button>
+        {!mobile && <button className={`icon-btn${wide ? ' on' : ''}`} onClick={() => useAiThread.getState().setWide(!wide)} title={t('넓게 보기')} aria-label={t('넓게 보기')}><Icon name="expand" size={18} /></button>}
+        {!mobile && <button className="icon-btn" onClick={() => useAiThread.getState().setOpen(false)} title={t('닫기')} aria-label={t('닫기')}><Icon name="close" size={18} /></button>}
       </header>
-      {autoNew > 0 && (
+      {autoNew > 0 && !mobile && (
         <button className="ai-auto" onClick={() => { useApp.getState().go('settings') }}>
           {t('AI 문서 관리: 확인할 문제 {n}건 — 설정에서 보기', { n: autoNew })}
         </button>
@@ -243,11 +245,17 @@ export function AiPanel() {
         {messages.map((m, i) => (m.role === 'user' ? <UserMsg key={m.id} m={m} /> : <AiMsg key={m.id} m={m} last={i === messages.length - 1} />))}
       </div>
 
+      {mobile && ready === 'noLocal' && (
+        <p className="hint small ai-note ai-warn">
+          {t('AI를 연결하면 이 휴대폰에서도 노트에 대해 물어볼 수 있어요.')}
+          <button className="btn-link" onClick={goSettings}>{t('AI 연결하기')}</button>
+        </p>
+      )}
       {ready === 'unknown' && <p className="hint small ai-note">{t('Claude Code CLI 를 확인하는 중…')}</p>}
       {ready === 'notFound' && <p className="hint small ai-note ai-warn">{t('이 PC 에서 Claude Code CLI(claude)를 찾지 못했어요. 설치한 뒤 터미널에서 claude 로 로그인하면 쓸 수 있어요.')}{switchBtn}</p>}
       {ready === 'onlyCmd' && <p className="hint small ai-note ai-warn">{t('npm 으로 설치한 Claude Code(claude.cmd)는 아직 지원하지 않아요. 공식 설치 프로그램(claude.exe)으로 설치해 주세요.')}{switchBtn}</p>}
       {ready === 'notLoggedIn' && <p className="hint small ai-note ai-warn">{t('Claude 에 로그인되어 있지 않아요. 터미널에서 claude auth login 을 실행한 뒤 다시 열어 주세요.')}{switchBtn}</p>}
-      {ready === 'noLocal' && (
+      {!mobile && ready === 'noLocal' && (
         <p className="hint small ai-note ai-warn">
           {local.problem === 'noTools' ? t('저장된 AI 연결은 아직 도구 호출을 지원하지 않아요. Ollama 나 OpenAI 호환 모델을 고르세요.') : local.problem === 'noModel' ? t('AI 연결에서 모델을 골라 저장해 주세요.') : t('설정 > AI 연결에서 Ollama 같은 모델을 저장하면 API 키 없이 로컬 모델로 답할 수 있어요.')}
           <button className="btn-link" onClick={() => useApp.getState().go('settings')}>{t('설정 열기')}</button>
@@ -275,7 +283,7 @@ export function AiPanel() {
             e.currentTarget.style.height = Math.min(e.currentTarget.scrollHeight, 180) + 'px'
           }}
           onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+            if (!mobile && e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
               e.preventDefault()
               send()
             }
@@ -287,6 +295,7 @@ export function AiPanel() {
             <button className={mode === 'edit' ? 'on' : ''} onClick={() => useAiThread.getState().setMode('edit')} title={t('노트 변경을 제안해요(승인해야 반영돼요)')}>{t('변경 제안')}</button>
           </div>
           <span className="grow" />
+          {mobile ? <span className="ai-model" title={local.label}>{local.label}</span> : (
           <Select<Engine>
             className="ai-engine-sel"
             value={engine}
@@ -296,6 +305,7 @@ export function AiPanel() {
             onChange={(v) => useAiThread.getState().setEngine(v)}
             options={[{ value: 'claude', label: 'Claude · PC', hint: t('Anthropic 으로 전송') }, { value: 'ollama', label: local.label || t('로컬 모델 (설정 필요)'), hint: local.ready ? (local.cloud ? t('클라우드로 전송') : t('내 기기에서만 처리')) : t('설정 필요') }]}
           />
+          )}
           {running ? (
             <button className="ai-send stop" onClick={() => useAiThread.getState().cancel()} aria-label={t('중지')} title={t('중지')}>■</button>
           ) : (

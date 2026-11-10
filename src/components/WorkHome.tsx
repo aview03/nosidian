@@ -9,7 +9,9 @@ import { EventRow, QuickAdd, useCalMap } from './Calendar'
 import { Icon } from './Icon'
 import { Select } from './Select'
 import { TileAdder, TileArranger } from './TileArranger'
+import { desktop } from '../lib/externalIO'
 import { Orb } from './Orb'
+import { useAiThread } from '../lib/aiThread'
 import { ProposalBanner } from './ProposalReview'
 import { openMyNameSetting } from './Settings'
 import { applyView, readViews, type View } from '../lib/views'
@@ -285,6 +287,7 @@ export function WorkHome() {
       <div className="panel-head">
         <h2>{t('내 업무')}<small>{fmtDay(today)}</small></h2>
         <div className="head-actions">
+          {!desktop() && !editing && <button className="icon-btn" onClick={() => useAiThread.getState().toggle()} title={t('AI')} aria-label={t('AI')}><Icon name="spark" /></button>}
           {editing ? (
             <button className="primary head-done" onClick={finishEditing}>{t('완료')}</button> // 설정 버튼이 있던 자리(헤더 오른쪽 끝)에서 끝낸다
           ) : (

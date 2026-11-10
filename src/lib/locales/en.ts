@@ -1053,5 +1053,11 @@ const dict: Record<string, string> = {
   '테스트 질문을 보내는 중… (몇 초 걸려요)': "Sending a test question… (takes a few seconds)",
   'Claude Code를 설치하고 터미널에서 claude 로 로그인해 주세요.': "Install Claude Code and sign in with claude in a terminal.",
   '고급: 연결 직접 설정 (서버 주소·모델·키)': "Advanced: set the connection manually (server · model · key)",
+  'AI를 연결하면 이 휴대폰에서도 노트에 대해 물어볼 수 있어요.': "Connect AI to ask about your notes on this phone too.",
+  '내 컴퓨터·서버의 AI에 연결': "Connect to AI on my computer or server",
+  '같은 와이파이의 PC나 서버에서 돌아가는 AI를 써요': "Use AI running on a PC or server on the same Wi-Fi",
+  'PC에서 AI를 켜 두고, 같은 와이파이의 PC 주소를 적어 주세요. Ollama는 OLLAMA_HOST=0.0.0.0 으로 열어 두어야 해요.': "Keep AI running on your PC and enter its address on the same Wi-Fi. Ollama must be opened with OLLAMA_HOST=0.0.0.0.",
+  '키는 이 휴대폰에만 저장돼요(암호화되지 않아요). AI를 쓰면 노트 내용이 해당 업체로 전송돼요.': "The key stays on this phone (not encrypted). When you use AI, note content is sent to that provider.",
+  '내 서버': 'My server',
 }
 export default dict

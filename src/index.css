@@ -1375,3 +1375,14 @@ input.inline.wide { width: 100%; box-sizing: border-box; height: 42px; }
 .hub-pop button { width: 100%; text-align: left; }
 .hub-meta-in { max-width: none; margin: 0; padding-left: 16px; }
 @media (min-width: 900px) { .hub-meta-in { padding-left: 20px; } }
+
+/* ── 폰: AI 는 전체 화면 시트 ─────────────────── */
+.ai-dock.ai-sheet { position: fixed; inset: 0; z-index: 45; width: auto; max-width: none; border-left: none; background: var(--bg); padding-top: var(--safe-t); animation: sheet-in .3s var(--ease); }
+.ai-sheet .ai-head { padding: 8px 12px 8px 8px; gap: 6px; }
+.ai-sheet .ai-head h3 { font-size: 17px; }
+.ai-sheet .ai-head .icon-btn { width: 40px; height: 40px; min-height: 40px; }
+.ai-sheet .ai-thread { padding: 4px 14px 16px; }
+.ai-sheet .ai-composer { margin: 0 10px calc(10px + var(--safe-b)); }
+.ai-sheet .ai-q { font-size: 16px; min-height: 44px; }
+.ai-sheet .ai-model { font-size: 12.5px; color: var(--muted); max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ai-sheet .ai-send { width: 44px; height: 44px; }

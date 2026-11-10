@@ -22,6 +22,9 @@ import { changedPaths } from './autoTriggers'
 
 export type Engine = 'claude' | 'ollama'
 
+/** 실제로 쓰는 엔진: Claude Code 는 PC 앱에만 있으므로, 없는 기기(폰·웹)는 항상 연결한 모델(ollama 경로)로 답한다 */
+export const currentEngine = (e: Engine): Engine => (desktop()?.claude ? e : 'ollama')
+
 export interface LocalEngine {
   ready: boolean
   /** 화면에 보일 이름(예: "Ollama · qwen3.5:4b") */
@@ -35,7 +38,7 @@ export interface LocalEngine {
 /** 설정 > AI 연결에 저장된 모델로 앱 안 AI 를 돌릴 수 있는지 */
 export function localEngine(cfg: LlmConfig | null = loadLlmConfig()): LocalEngine {
   if (!cfg) return { ready: false, label: '', cloud: false, problem: 'noConfig' }
-  const name = cfg.kind === 'ollama' ? 'Ollama' : cfg.kind === 'custom' ? providerOf('custom').label.split(' ')[0] : providerOf(cfg.kind).label
+  const name = cfg.kind === 'ollama' ? 'Ollama' : cfg.kind === 'custom' ? t('내 서버') : providerOf(cfg.kind).label
   let cloud = true
   try {
     cloud = !isPrivateHost(new URL(cfg.baseUrl).hostname)
@@ -285,7 +288,7 @@ export const useAiThread = create<AiThread>((set, get) => {
 
     send: async (question, opts) => {
       const claude = desktop()?.claude
-      const engine = get().engine
+      const engine = currentEngine(get().engine)
       const q = question.trim()
       if (!q || get().running) return
       if (engine === 'claude' && !claude) return
@@ -339,7 +342,7 @@ export const useAiThread = create<AiThread>((set, get) => {
       await get().send('정리 계획대로 변경 제안 만들기', { prompt: planApplyPrompt(m.text), mode: 'edit', withNote: false, fix: 'apply' })
     },
     cancel: () => {
-      if (get().engine === 'ollama') abortLocal?.abort()
+      if (currentEngine(get().engine) === 'ollama') abortLocal?.abort()
       else void desktop()?.claude?.cancel()
     },
     clear: () => {

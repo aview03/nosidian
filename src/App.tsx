@@ -176,6 +176,7 @@ export default function App() {
       if (app.vaultSheet) return app.setVaultSheet(false)
       if (app.palette) return app.setPalette(null)
       if (app.sheet) return app.setSheet(null)
+      if (useAiThread.getState().open && !desktop()) return useAiThread.getState().setOpen(false) // 폰: AI 시트가 열려 있으면 먼저 닫는다
       if (app.tab === 'note' && app.back()) return
       if (app.tab === 'files' && memoBack()) return // 메모 탭: 선택 해제 → 위 폴더로
       if (app.tab !== homeTab()) return app.go(homeTab()) // 홈(PC: 캘린더 / 모바일: 오늘)으로 한 번 돌아간 뒤 종료
@@ -288,6 +289,7 @@ export default function App() {
           ))}
         </nav>
       )}
+      <AiPanel />
       <Palette />
       <EventEditor />
         <TaskEditor />

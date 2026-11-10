@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { t } from '../lib/i18n'
 import { desktop, type ClaudeStatus } from '../lib/externalIO'
 import { readiness } from '../lib/aiAssistant'
-import { useAiThread } from '../lib/aiThread'
+import { currentEngine, useAiThread } from '../lib/aiThread'
 import { loadLlmConfig, providerOf, saveLlmConfig, type LlmConfig, type ProviderKind } from '../lib/llm'
 import { chatTurn, keyStoreStatus, listModels, storeKey } from '../lib/llmNet'
 import { startAnalysis } from '../lib/autoRunner'
@@ -15,18 +15,19 @@ import { Select } from './Select'
 type Step = 'home' | 'pick' | WizardWay | 'done'
 type Check = { kind: 'idle' } | { kind: 'busy'; text?: string } | { kind: 'ok'; text: string } | { kind: 'err'; text: string }
 
+const claudeless = () => !desktop()?.claude
 const TEST_Q = 'Reply with the single word OK.'
 /** 연결 확인용 질문 하나. 생각(think)은 꺼서 짧은 답이 비지 않게 한다 */
 const ping = async (cfg: LlmConfig) => (await chatTurn(cfg, [{ role: 'user', content: TEST_Q }], { think: false, maxTokens: 64, temperature: 0, timeoutMs: 120_000 })).text
 
 export function AiWizard() {
   const claude = desktop()?.claude
-  const engine = useAiThread((s) => s.engine)
+  const mobile = !claude // 폰·웹: Claude Code 가 없으므로 내 컴퓨터/서버·API 키만
+  const engine = currentEngine(useAiThread((s) => s.engine))
   const [step, setStep] = useState<Step>('home')
   const [cs, setCs] = useState<ClaudeStatus | null>(null)
   const [cfg, setCfg] = useState<LlmConfig | null>(loadLlmConfig())
   useEffect(() => { void claude?.detect().then(setCs) }, [claude])
-  if (!claude) return null
   const sum = aiSummary(engine, cs, cfg)
 
   const finish = (e: 'claude' | 'ollama') => {
@@ -51,13 +52,15 @@ export function AiWizard() {
       {step === 'pick' && (
         <>
           <p className="aiw-q">{t('AI를 어떻게 연결할까요?')}</p>
-          <button className="aiw-way" onClick={() => setStep('claude')}>
-            <b>{t('내 구독 계정으로')}</b>
-            <small>{t('Claude 계정이 있다면 가장 쉬워요')}</small>
-          </button>
+          {!mobile && (
+            <button className="aiw-way" onClick={() => setStep('claude')}>
+              <b>{t('내 구독 계정으로')}</b>
+              <small>{t('Claude 계정이 있다면 가장 쉬워요')}</small>
+            </button>
+          )}
           <button className="aiw-way" onClick={() => setStep('local')}>
-            <b>{t('내 컴퓨터에서 돌리기')}</b>
-            <small>{t('무료이고 문서가 밖으로 나가지 않아요')}</small>
+            <b>{mobile ? t('내 컴퓨터·서버의 AI에 연결') : t('내 컴퓨터에서 돌리기')}</b>
+            <small>{mobile ? t('같은 와이파이의 PC나 서버에서 돌아가는 AI를 써요') : t('무료이고 문서가 밖으로 나가지 않아요')}</small>
           </button>
           <button className="aiw-way" onClick={() => setStep('key')}>
             <b>{t('API 키로 연결')}</b>
@@ -66,8 +69,8 @@ export function AiWizard() {
           <button className="link-btn" onClick={() => setStep('home')}>{t('취소')}</button>
         </>
       )}
-      {step === 'claude' && <ClaudeStep cs={cs} refresh={() => void claude.detect().then(setCs)} onBack={() => setStep('pick')} onDone={() => finish('claude')} />}
-      {step === 'local' && <LocalStep onBack={() => setStep('pick')} onDone={() => finish('ollama')} />}
+      {step === 'claude' && !mobile && <ClaudeStep cs={cs} refresh={() => void claude.detect().then(setCs)} onBack={() => setStep('pick')} onDone={() => finish('claude')} />}
+      {step === 'local' && <LocalStep mobile={mobile} onBack={() => setStep('pick')} onDone={() => finish('ollama')} />}
       {step === 'key' && <KeyStep onBack={() => setStep('pick')} onDone={() => finish('ollama')} />}
       {step === 'done' && (
         <>
@@ -115,15 +118,16 @@ function ClaudeStep({ cs, refresh, onBack, onDone }: { cs: ClaudeStatus | null; 
 }
 
 /** 내 컴퓨터에서 돌리는 AI(Ollama · LM Studio) */
-function LocalStep({ onBack, onDone }: { onBack(): void; onDone(): void }) {
+function LocalStep({ mobile, onBack, onDone }: { mobile: boolean; onBack(): void; onDone(): void }) {
   const saved = loadLlmConfig()
   const [kind, setKind] = useState<ProviderKind>(saved && LOCAL_PROVIDERS.some((p) => p.kind === saved.kind) ? saved.kind : 'ollama')
-  const [url, setUrl] = useState(saved && saved.kind === kind ? saved.baseUrl : LOCAL_PROVIDERS.find((p) => p.kind === kind)!.url)
+  // 폰에서는 localhost 가 이 폰 자신이라 쓸 수 없다 — PC·서버의 주소를 직접 입력한다
+  const [url, setUrl] = useState(saved && saved.kind === kind ? saved.baseUrl : mobile ? '' : LOCAL_PROVIDERS.find((p) => p.kind === kind)!.url)
   const [models, setModels] = useState<string[]>([])
   const [model, setModel] = useState('')
   const [c, setC] = useState<Check>({ kind: 'idle' })
   const base: LlmConfig = { kind, baseUrl: url.trim(), model }
-  const pickKind = (k: ProviderKind) => { setKind(k); setUrl(LOCAL_PROVIDERS.find((p) => p.kind === k)!.url); setModels([]); setModel(''); setC({ kind: 'idle' }) }
+  const pickKind = (k: ProviderKind) => { setKind(k); setUrl(mobile ? '' : LOCAL_PROVIDERS.find((p) => p.kind === k)!.url); setModels([]); setModel(''); setC({ kind: 'idle' }) }
   const find = async () => {
     setC({ kind: 'busy' })
     try {
@@ -153,13 +157,21 @@ function LocalStep({ onBack, onDone }: { onBack(): void; onDone(): void }) {
       <div className="seg wide">
         {LOCAL_PROVIDERS.map((p) => <button key={p.kind} className={kind === p.kind ? 'on' : ''} onClick={() => pickKind(p.kind)}>{p.label}</button>)}
       </div>
-      <button className="big" disabled={c.kind === 'busy'} onClick={() => void find()}>{models.length ? t('다시 찾기') : t('AI 찾기')}</button>
+      {mobile && (
+        <>
+          <input className="inline wide" value={url} placeholder={kind === 'ollama' ? 'http://192.168.0.10:11434' : 'http://192.168.0.10:1234/v1'} inputMode="url" autoCapitalize="off" autoCorrect="off" onChange={(e) => { setUrl(e.target.value); setModels([]) }} aria-label={t('서버 주소')} />
+          <p className="hint small">{t('PC에서 AI를 켜 두고, 같은 와이파이의 PC 주소를 적어 주세요. Ollama는 OLLAMA_HOST=0.0.0.0 으로 열어 두어야 해요.')}</p>
+        </>
+      )}
+      <button className="big" disabled={c.kind === 'busy' || (mobile && !url.trim())} onClick={() => void find()}>{models.length ? t('다시 찾기') : t('AI 찾기')}</button>
       {models.length > 0 && (
         <div className="kv"><span>{t('모델')}</span><Select<string> value={model} title={t('모델')} onChange={setModel} options={models.map((m) => ({ value: m, label: m }))} /></div>
       )}
       <CheckLine c={c} />
       {models.length > 0 && <button className="primary big" disabled={!model || c.kind === 'busy'} onClick={() => void connect()}>{t('테스트하고 연결')}</button>}
-      <details className="more"><summary>{t('서버 주소')}</summary><input className="inline wide" value={url} onChange={(e) => { setUrl(e.target.value); setModels([]) }} aria-label={t('서버 주소')} /></details>
+      {!mobile && (
+        <details className="more"><summary>{t('서버 주소')}</summary><input className="inline wide" value={url} onChange={(e) => { setUrl(e.target.value); setModels([]) }} aria-label={t('서버 주소')} /></details>
+      )}
       <button className="link-btn" onClick={onBack}>{t('← 다른 방법')}</button>
     </>
   )
@@ -217,7 +229,7 @@ function KeyStep({ onBack, onDone }: { onBack(): void; onDone(): void }) {
       )}
       <CheckLine c={c} />
       {models.length > 0 && <button className="primary big" disabled={!model || c.kind === 'busy'} onClick={() => void connect()}>{t('테스트하고 연결')}</button>}
-      <p className="hint small">{t('키는 이 PC에만 저장돼요. AI를 쓰면 노트 내용이 해당 업체로 전송돼요.')}</p>
+      <p className="hint small">{claudeless() ? t('키는 이 휴대폰에만 저장돼요(암호화되지 않아요). AI를 쓰면 노트 내용이 해당 업체로 전송돼요.') : t('키는 이 PC에만 저장돼요. AI를 쓰면 노트 내용이 해당 업체로 전송돼요.')}</p>
       <button className="link-btn" onClick={onBack}>{t('← 다른 방법')}</button>
     </>
   )
