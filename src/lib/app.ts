@@ -3,7 +3,7 @@ import { store as db, onDbChange } from './db'
 import { buildIndex, baseName, dirName, type LinkIndex } from './links'
 import { DEFAULT_SETTINGS, DEFAULT_VAULT_ID, SYNC_LABEL, defaultVaultName, type CloudCfg, type NoteFile, type RemoteCfg, type Settings, type VaultMeta } from './types'
 import { createProvider, isNote, bytesToB64, type Provider, type RemoteEntry } from './sync'
-import { uploadPath, uploadProblem } from './attachments'
+import { MAX_MOVE_BYTES, formatSize, uploadPath, uploadProblem } from './attachments'
 import { resumeWebAuth } from './sync/oauth'
 import { demoNotes } from './demo'
 import { t, setLang, resolveLang, getLang } from './i18n'
@@ -897,6 +897,33 @@ export async function uploadOthers(list: File[], dir: string): Promise<{ done: s
     }
   }
   return { done, failed }
+}
+
+/**
+ * 파일 하나의 이름을 바꾸거나 다른 폴더로 옮긴다(저장소에는 이동 기능이 없어 내려받아 새 경로로 올리고 원본을 지운다).
+ * 새 경로에 올리는 것이 먼저라서, 중간에 실패해도 파일을 잃지 않는다(최악의 경우 사본이 남는다).
+ */
+export async function moveOther(path: string, newPath: string): Promise<void> {
+  const { settings, assets, files } = useApp.getState()
+  if (!settings.remote) throw new Error(t('저장소에 연결돼 있지 않아요'))
+  const a = assets[path]
+  if (!a) throw new Error(t('목록에 없는 파일이에요'))
+  if (newPath === path) return
+  const lower = newPath.toLowerCase()
+  if ([...Object.keys(assets), ...Object.keys(files)].some((p) => p.toLowerCase() === lower)) throw new Error(t('같은 이름의 파일이 이미 있어요'))
+  if (a.size != null && a.size > MAX_MOVE_BYTES) throw new Error(t('파일이 커서({size}) 이름 바꾸기·이동을 지원하지 않아요', { size: formatSize(a.size) }))
+  const prov = providerOf(settings.remote)
+  const b64 = await fetchOther(path)
+  const revs = await prov.push([{ path: newPath, content: '', b64 }, { path, content: null }], t('파일 이동: {name}', { name: newPath }))
+  const rev = revs.get(newPath) ?? null
+  useApp.setState((s) => {
+    const next = { ...s.assets }
+    delete next[path]
+    next[newPath] = { sha: rev, size: a.size }
+    return { assets: next }
+  })
+  void db.delAsset(path)
+  void db.putAsset({ path: newPath, sha: rev, ...(a.size != null ? { size: a.size } : {}) })
 }
 
 /** 올린 파일(노트가 아닌 파일) 하나를 저장소에서 지운다. 다른 기기에서도 다음 동기화 때 사라진다 */

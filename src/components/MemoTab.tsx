@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type PointerEvent as RPointerEvent, type R
 import { create } from 'zustand'
 import { useApp } from '../lib/app'
 import { t } from '../lib/i18n'
-import { ask, confirmAsk } from '../lib/dialog'
+import { ask, choose, confirmAsk } from '../lib/dialog'
 import { allFolders, cleanName, dirOf, listDir, newMemoPath, planDelete, planMove, planRenameFolder, projectsIn, protectedFolder, untitledCleanup, type MemoNote } from '../lib/folderOps'
 import { renameNoteDialog } from '../lib/noteActions'
 import { checkMove, dailyOf, isProjectsRoot, newNoteIn, overviewNote, placeMessage, projectsWithoutOverview, strayInDaily } from '../lib/folderRules'
@@ -14,8 +14,8 @@ import { useAiThread } from '../lib/aiThread'
 import { getLang } from '../lib/i18n'
 import { importFromPicker } from '../lib/importFiles'
 import { Capacitor } from '@capacitor/core'
-import { deleteOther, fetchOther, uploadOthers } from '../lib/app'
-import { formatSize, gate, gateMessage, handOver, othersIn, type OtherFile } from '../lib/attachments'
+import { deleteOther, fetchOther, moveOther, uploadOthers } from '../lib/app'
+import { formatSize, gate, gateMessage, handOver, othersIn, renamedPath, uploadPath, type OtherFile } from '../lib/attachments'
 import { Icon } from './Icon'
 import { openNewFolder } from './NewNote'
 import { useActiveVault } from './VaultSheet'
@@ -181,6 +181,8 @@ export function MemoTab({ sync }: { sync?: ReactNode }) {
   const sel = useMemoUi((s) => s.sel)
   const vault = useActiveVault()
   const [moving, setMoving] = useState(false)
+  /** 폴더를 고르는 중인 파일(이동) */
+  const [movingFile, setMovingFile] = useState<OtherFile | null>(null)
   /** 끌어 옮기는 중: 손가락 위치와 지금 올라가 있는 목적지(폴더 행 또는 위로) */
   const [dragging, setDragging] = useState<{ x: number; y: number; over: string | null } | null>(null)
   const pointer = useRef({ x: 0, y: 0 })
@@ -359,6 +361,28 @@ export function MemoTab({ sync }: { sync?: ReactNode }) {
       setBusyFile(null)
     }
   }
+  /** 파일의 더보기: 이름 바꾸기 · 폴더로 이동 · 삭제 */
+  const fileMenu = async (f: OtherFile) => {
+    if (busyFile) return
+    const pick = await choose(f.name, '', [{ value: 'rename', label: t('이름 바꾸기') }, { value: 'move', label: t('폴더로 이동') }, { value: 'delete', label: t('삭제') }])
+    if (pick === 'delete') return removeFile(f)
+    if (pick === 'move') return setMovingFile(f)
+    if (pick !== 'rename') return
+    const input = await ask(t('이름 바꾸기'), f.name, undefined, t('바꾸기'))
+    const np = input ? renamedPath(f.path, input) : null
+    if (np && np !== f.path) await runMove(f, np)
+  }
+  const runMove = async (f: OtherFile, to: string) => {
+    setBusyFile(f.path)
+    try {
+      await moveOther(f.path, to)
+      app.say(t('옮겼어요: {name}', { name: to }))
+    } catch (e) {
+      app.say(e instanceof Error ? e.message : String(e))
+    } finally {
+      setBusyFile(null)
+    }
+  }
   const fileRow = (f: OtherFile) => (
     <button key={'f:' + f.path} className="memo-row memo-file" disabled={!!sel} onClick={() => void getFile(f)}>
       <span className="memo-ico"><Icon name="import" size={20} /></span>
@@ -367,7 +391,7 @@ export function MemoTab({ sync }: { sync?: ReactNode }) {
         <span className="memo-snip">{busyFile === f.path ? t('받는 중…') : t('눌러서 받기')}</span>
       </span>
       <span className="memo-date">{formatSize(f.size)}</span>
-      {hasRemote && <span className="memo-chip danger" role="button" tabIndex={0} onClick={(e) => { e.stopPropagation(); void removeFile(f) }}>{t('삭제')}</span>}
+      {hasRemote && <span className="memo-chip danger" role="button" tabIndex={0} aria-label={t('더보기')} onClick={(e) => { e.stopPropagation(); void fileMenu(f) }}>⋯</span>}
     </button>
   )
   const noteRow = (n: MemoNote) => (
@@ -487,6 +511,19 @@ export function MemoTab({ sync }: { sync?: ReactNode }) {
         </div>
       )}
 
+      {movingFile && (
+        <MoveSheet
+          current={dirOf(movingFile.path)}
+          folders={[]}
+          count={1}
+          onPick={(dest) => {
+            const f = movingFile
+            setMovingFile(null)
+            void runMove(f, uploadPath(dest, f.name, new Set([...Object.keys(assets), ...Object.keys(files)])))
+          }}
+          onClose={() => setMovingFile(null)}
+        />
+      )}
       {moving && <MoveSheet current={dir} folders={picked.folders} count={sel?.size ?? 0} onPick={moveTo} onClose={() => setMoving(false)} />}
     </div>
   )
@@ -495,7 +532,9 @@ export function MemoTab({ sync }: { sync?: ReactNode }) {
 /** 어느 폴더로 옮길지 고르는 시트 */
 function MoveSheet({ current, folders, count, onPick, onClose }: { current: string; folders: string[]; count: number; onPick(dest: string): void; onClose(): void }) {
   const files = useApp((s) => s.files)
-  const list = allFolders(files)
+  const assets = useApp((s) => s.assets)
+  // 노트가 없고 파일만 든 폴더도 목적지로 고를 수 있다
+  const list = [...new Set([...allFolders(files), ...Object.keys(assets).flatMap((p) => p.split('/').slice(0, -1).map((_, i, a) => a.slice(0, i + 1).join('/')))])].sort((a, b) => a.localeCompare(b, 'ko'))
   const invalid = (d: string) => folders.some((f) => d === f || d.startsWith(f + '/'))
   const newFolder = async () => {
     const n = await ask(t('새 폴더 이름'), '', current ? t('"{dir}" 안에 만들어요', { dir: current }) : undefined, t('만들고 옮기기'))

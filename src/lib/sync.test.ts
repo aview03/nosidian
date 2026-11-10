@@ -169,3 +169,31 @@ describe('파일 삭제(deleteOther)', () => {
     await deleteOther('never.zip') // 목록에 없으면 아무 일도 하지 않는다
   })
 })
+
+describe('파일 이름 바꾸기·이동(moveOther)', () => {
+  it('새 경로에 올리고 원본을 지운다. 같은 이름·큰 파일은 거절하고, 실패하면 원본이 그대로 남는다', async () => {
+    const { uploadOthers, moveOther } = await import('./app')
+    ;(await import('./i18n')).setLang('ko')
+    await uploadOthers([new File([new Uint8Array([7, 8])], 'a.zip'), new File([new Uint8Array([1])], 'b.zip')], '')
+    // readBase64 는 가짜가 빈 문자열이라, 가져온 내용 대신 흐름(경로·삭제)만 본다
+    await moveOther('a.zip', 'proj/a2.zip')
+    expect(remote.files.has('a.zip')).toBe(false)
+    expect(remote.files.has('proj/a2.zip')).toBe(true)
+    const st = useApp.getState()
+    expect(st.assets['a.zip']).toBeUndefined()
+    expect(st.assets['proj/a2.zip']?.size).toBe(2)
+    await expect(moveOther('b.zip', 'PROJ/A2.zip')).rejects.toThrow('같은 이름')
+    await expect(moveOther('nope.zip', 'x.zip')).rejects.toThrow('목록에 없는')
+    useApp.setState((s) => ({ assets: { ...s.assets, 'huge.bin': { sha: 'h', size: 99 * 1024 * 1024 } } }))
+    await expect(moveOther('huge.bin', 'h2.bin')).rejects.toThrow('이름 바꾸기·이동을 지원하지 않아요')
+    const orig = fake.push
+    fake.push = async () => { throw new SyncError('fail', 500) }
+    try {
+      await expect(moveOther('b.zip', 'c.zip')).rejects.toThrow('fail')
+    } finally {
+      fake.push = orig
+    }
+    expect(remote.files.has('b.zip')).toBe(true)
+    expect(useApp.getState().assets['b.zip']).toBeDefined()
+  })
+})

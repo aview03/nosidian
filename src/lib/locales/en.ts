@@ -1139,5 +1139,12 @@ const dict: Record<string, string> = {
   '지웠어요: {name}': "Deleted: {name}",
   '지우지 못했어요: {why}': "Could not delete: {why}",
   '파일 삭제: {name}': "Delete file: {name}",
+  '폴더로 이동': "Move to folder",
+  '바꾸기': "Rename",
+  '옮겼어요: {name}': "Moved: {name}",
+  '목록에 없는 파일이에요': "This file is not in the list",
+  '같은 이름의 파일이 이미 있어요': "A file with that name already exists",
+  '파일이 커서({size}) 이름 바꾸기·이동을 지원하지 않아요': "The file is too large ({size}) to rename or move",
+  '파일 이동: {name}': "Move file: {name}",
 }
 export default dict

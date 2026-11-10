@@ -101,3 +101,14 @@ describe('GitHub 업로드: 바이너리는 base64 blob 으로', () => {
     vi.unstubAllGlobals()
   })
 })
+
+import { renamedPath } from './attachments'
+describe('이름 바꾸기 경로', () => {
+  it('같은 폴더에서 이름만 바꾼다. 금지 문자는 공백으로, 빈 이름·숨김은 거절', () => {
+    expect(renamedPath('proj/a.zip', 'b.zip')).toBe('proj/b.zip')
+    expect(renamedPath('a.zip', '  새 이름.zip ')).toBe('새 이름.zip')
+    expect(renamedPath('proj/a.zip', 'x/y:z.zip')).toBe('proj/x y z.zip')
+    expect(renamedPath('a.zip', '   ')).toBeNull()
+    expect(renamedPath('a.zip', '.hidden')).toBeNull()
+  })
+})

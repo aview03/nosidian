@@ -10,6 +10,8 @@ import { isOther } from './sync/types'
 export const LARGE_BYTES = 10 * 1024 * 1024
 /** 한 파일의 올리기 상한(바이트). base64 로 한 번에 올리므로 메모리·API 한도 때문에 제한한다 */
 export const MAX_UPLOAD_BYTES = 25 * 1024 * 1024
+/** 이름 바꾸기·이동은 내려받아 다시 올리므로 같은 상한을 쓴다 */
+export const MAX_MOVE_BYTES = MAX_UPLOAD_BYTES
 /** 이보다 크면 폰에서는 받지 않는다(메모리 한계: base64 로 한 번에 받는다) */
 export const MAX_PHONE_BYTES = 50 * 1024 * 1024
 
@@ -126,4 +128,12 @@ export function uploadPath(dir: string, name: string, taken: Set<string>): strin
   let p = prefix + clean
   for (let n = 2; lower.has(p.toLowerCase()); n++) p = `${prefix}${stem} (${n})${ext}`
   return p
+}
+
+/** 파일 이름 바꾸기: 같은 폴더의 새 경로. 이름이 비었거나 금지 문자만이면 null */
+export function renamedPath(path: string, input: string): string | null {
+  const name = input.replace(/[\\/:*?"<>|]/g, ' ').replace(/\s+/g, ' ').trim()
+  if (!name || name.startsWith('.')) return null
+  const slash = path.lastIndexOf('/')
+  return (slash < 0 ? '' : path.slice(0, slash + 1)) + name
 }
