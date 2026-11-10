@@ -9,7 +9,8 @@
 |---|---|
 | 규칙 노트 해석(`lib/docrules.ts`), 프로젝트별 적용, 역할 판정 | MCP 서버 · LLM 연결(Ollama 등) |
 | 점검(`lib/doclint.ts`): 역할 충돌·위치 불일치, 하나뿐이어야 하는 역할, 필수 제목·status, 끊어진 링크, 고아, 진입 문서에서 접근 불가, 중복 후보 | 문서 생명주기(초안→검토→확정→폐기) |
-| **AI 쓰기 정책 엔진**(`lib/docpolicy.ts`): 생성·수정·삭제·이동·이름 바꾸기를 allow / require_approval / deny 로 판정, 반영 직전 재검증 | 이 엔진을 부르는 AI 도구(MCP·LLM) — 아직 어디에도 연결 안 됨 |
+| **AI 쓰기 정책 엔진**(`lib/docpolicy.ts`): 생성·수정·삭제·이동·이름 바꾸기를 allow / require_approval / deny 로 판정, 반영 직전 재검증 | 앱 안 LLM 기능(질문·요약·변경 제안 만들기) — 정책 엔진을 아직 부르지 않음 |
+| **MCP 서버로 외부 AI 연결**(v1.23.0, [MCP.md](MCP.md)): `propose_change` 가 이 엔진·제안 흐름을 그대로 거침 | |
 | **변경 제안 검토·승인**(`lib/proposals.ts`·`proposalStore.ts`, `ProposalReview.tsx`): 승인 대기 제안 보관, 전후 차이 보기, 승인 시 반영 직전 재검증 | |
 | 프로젝트 허브 "문서 점검" 탭, **"문서" 탭 Human View**(먼저 읽어야 할 문서·보조 문서·확인할 것) | 규칙을 고치는 폼 화면(규칙 노트를 일반 편집기로 고친다) |
 | 규칙 켜기/끄기, 프로젝트 적용 버튼(속성 `docs:` 를 대신 써 줌) | `append-only` 점검(해석만 함 — 변경 전후 비교가 필요) |
@@ -84,7 +85,7 @@ draft, review, final, archived
 - 비용: 이름 뿌리·제목으로 먼저 거르고, 그 후보에만 본문 유사도를 계산한다(전체 쌍 비교 안 함). 기준값(`DUP`)은 초기 실험값 — 실제 노트로 돌려 보며 조정한다.
 
 ## AI 쓰기 정책 엔진 (`lib/docpolicy.ts`)
-AI 가 Nosidian 의 도구로 문서를 쓰려 할 때 부를 **순수 함수** `checkAiWrite(요청, 규칙, 프로젝트들, 파일들)`. 파일을 고치지 않고 판정만 돌려준다. **아직 어떤 AI 에도 연결되어 있지 않다**(MCP·LLM 은 다음 단계). 사람이 직접 하는 편집·동기화에는 쓰지 않는다.
+AI 가 Nosidian 의 도구로 문서를 쓰려 할 때 부를 **순수 함수** `checkAiWrite(요청, 규칙, 프로젝트들, 파일들)`. 파일을 고치지 않고 판정만 돌려준다. **MCP 서버([MCP.md](MCP.md))가 이 엔진을 부른다**(앱 안 LLM 기능은 아직 없음). 사람이 직접 하는 편집·동기화에는 쓰지 않는다.
 
 - **판정 셋**: `allow`(바로 반영, 삭제는 `effect: archive` = 지우지 않고 `_보관/` 으로) · `require_approval`(승인 대기 — **허가가 아니다**) · `deny`(거절). 이유(`reason`)와 값(`text`)을 함께 준다.
 - **모든 쓰기**: `create` · `modify` · `delete` · `move`(이름 바꾸기 포함). `move` 는 출발지·도착지를 모두 검사한다.
@@ -106,7 +107,7 @@ AI 가 Nosidian 의 도구로 문서를 쓰려 할 때 부를 **순수 함수** 
 
 ## 변경 제안 검토·승인
 정책 엔진이 `require_approval` 로 돌린 쓰기를 사람이 검토하고 반영하는 흐름이다.
-- **제출**: AI 도구가 `proposalStore.submit(요청, 제안자, 설명)` 을 부른다 → `triage`(= 정책 판정 + 반영 계획) 결과가 `allow` 면 바로 반영, `require_approval` 이면 **제안으로 보관**, `deny` 면 아무것도 하지 않는다. (아직 부르는 AI 도구가 없다 — 개발 중에는 localStorage `nosidian.dev=1` 로 콘솔의 `window.__proposals` 에서 직접 넣어 본다.)
+- **제출**: AI 도구가 `proposalStore.submit(요청, 제안자, 설명)` 을 부른다 → `triage`(= 정책 판정 + 반영 계획) 결과가 `allow` 면 바로 반영, `require_approval` 이면 **제안으로 보관**, `deny` 면 아무것도 하지 않는다. (부르는 쪽은 [MCP 서버](MCP.md)의 `propose_change` 다. 개발 중에는 localStorage `nosidian.dev=1` 로 콘솔의 `window.__proposals` 에서 직접 넣어 볼 수도 있다.)
 - **보관**: vault 노트가 아니라 **기기(localStorage, vault 별)** 에 둔다 — 아직 승인되지 않은 임시 값이고 팀 동기화 대상이 아니다. 처리된 제안은 최근 20건만 남긴다.
 - **검토 화면**: 내 업무 위쪽에 "AI 의 변경 제안 N건이 승인을 기다려요 · 검토" 줄이 생기고, 누르면 제안마다 종류·경로·제안자·이유와 **전후 차이**(바뀐 줄 ±2줄, 새 문서는 전체)를 보여 준다. 이동은 `출발 → 도착`, 삭제는 "보관함으로 옮겨요". 읽은 뒤 문서가 바뀌었으면 승인 버튼이 꺼진다.
 - **승인 = 재검증 요청**: 승인하면 `resolveForApply` 로 판정을 **처음부터 다시** 한다. 통과하면 계획(`FileOp`: create·set·rename·delete)대로 쓰고 `applied`, 그새 문서가 바뀌었거나(`stale`) 규칙이 막으면(`readOnly` 등) 반영하지 않고 `failed` + 이유를 남긴다. 거절은 `rejected`.
@@ -121,7 +122,8 @@ AI 가 Nosidian 의 도구로 문서를 쓰려 할 때 부를 **순수 함수** 
 | `src/lib/docrules.ts` | 규칙 해석·형식화(`parseRules`·`parseRoleLine`·`formatRoleLine`), 프로젝트별 프로필 선택(`profileFor`), 처음 만드는 노트(`rulesNoteTemplate`), 속성 한 줄 수정(`setFmKey`), AI 보호 경로(`isProtectedPath`) |
 | `src/lib/doclint.ts` | 점검(`lintProject`) — 순수 함수. 종류·대상·값만 돌려주고 문장은 화면이 만든다 |
 | `src/lib/docpolicy.ts` | AI 쓰기 정책 판정(`checkAiWrite`·`resolveForApply`·`contentHash`·`projectOf`) — 순수 함수 |
-| `src/components/DocCheck.tsx` | **변경 제안 검토·승인**(`lib/proposals.ts`·`proposalStore.ts`, `ProposalReview.tsx`): 승인 대기 제안 보관, 전후 차이 보기, 승인 시 반영 직전 재검증 | |
+| `src/components/DocCheck.tsx` | **MCP 서버로 외부 AI 연결**(v1.23.0, [MCP.md](MCP.md)): `propose_change` 가 이 엔진·제안 흐름을 그대로 거침 | |
+| **변경 제안 검토·승인**(`lib/proposals.ts`·`proposalStore.ts`, `ProposalReview.tsx`): 승인 대기 제안 보관, 전후 차이 보기, 승인 시 반영 직전 재검증 | |
 | 프로젝트 허브 "문서 점검" 탭, 점검 결과 훅(`useProjectLint`) |
 | `src/lib/proposals.ts` · `proposalStore.ts` | 변경 제안: 트리아지·승인 재검증·반영 계획(순수) / 보관·반영 실행(저장소) |
 | `src/components/ProposalReview.tsx` | 내 업무 배너 + 검토 화면(전후 차이·승인·거절) |

@@ -42,7 +42,22 @@ export interface WidgetApi {
   openNote(path: string): void
   openApp(): void
 }
+export interface McpStatus {
+  enabled: boolean
+  running: boolean
+  port: number
+  token: string
+  error: string | null
+  stdioPath: string
+}
+export interface McpApi {
+  get(): Promise<McpStatus>
+  set(patch: { enabled?: boolean; regenerate?: boolean }): Promise<McpStatus>
+  reply(id: string, result: { ok: unknown } | { error: string }): Promise<void>
+  onCall(cb: (call: { id: string; tool: string; args: unknown; client: string }) => void): () => void
+}
 export interface DesktopApi {
+  mcp?: McpApi
   widget?: WidgetApi
   takeOpenNotes?(): Promise<string[]>
   onOpenNote?(cb: () => void): () => void

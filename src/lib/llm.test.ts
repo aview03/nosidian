@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildChat, buildListModels, describeFailure, isPrivateHost, LlmError, loadLlmConfig, parseChat, parseModels, saveLlmConfig, validateConfig, type LlmConfig } from './llm'
+import { buildChat, buildListModels, describeFailure, forRequest, isPrivateHost, LlmError, loadLlmConfig, parseChat, parseModels, saveLlmConfig, validateConfig, type LlmConfig } from './llm'
 
 const cfg = (o: Partial<LlmConfig> = {}): LlmConfig => ({ kind: 'ollama', baseUrl: 'http://localhost:11434', model: 'llama3', ...o })
 const MSGS = [{ role: 'system' as const, content: '규칙을 지켜' }, { role: 'user' as const, content: '안녕' }, { role: 'assistant' as const, content: '네' }, { role: 'user' as const, content: '요약해' }]
@@ -101,5 +101,27 @@ describe('기기 저장', () => {
     saveLlmConfig(cfg())
     saveLlmConfig(null)
     expect(loadLlmConfig()).toBeNull()
+  })
+})
+
+describe('보안 저장소의 키(keyStored)', () => {
+  it('키 입력 없이도 클라우드 설정이 유효하고, 요청에는 자리표시자만 들어간다(화면은 키를 모른다)', () => {
+    const c: LlmConfig = { kind: 'openai', baseUrl: 'https://api.openai.com/v1', model: 'gpt', keyStored: true }
+    expect(validateConfig(c)).toEqual([])
+    const r = buildChat(forRequest(c), MSGS)
+    expect(r.headers.Authorization).toBe('Bearer {{KEY}}')
+    const a = buildListModels(forRequest({ ...c, kind: 'anthropic', baseUrl: 'https://api.anthropic.com' }))
+    expect(a.headers['x-api-key']).toBe('{{KEY}}')
+    expect(forRequest({ ...c, kind: 'gemini', baseUrl: 'https://g.example' }) .apiKey).toBe('{{KEY}}')
+  })
+  it('keyStored 가 아니면 설정 그대로', () => {
+    const c = cfg({ kind: 'openai', baseUrl: 'https://api.openai.com/v1', model: 'g', apiKey: 'sk-1' })
+    expect(forRequest(c)).toBe(c)
+  })
+  it('저장·불러오기에서 keyStored 는 유지되고 평문 키는 없다', () => {
+    saveLlmConfig({ kind: 'openai', baseUrl: 'https://api.openai.com/v1', model: 'g', keyStored: true })
+    expect(loadLlmConfig()).toEqual({ kind: 'openai', baseUrl: 'https://api.openai.com/v1', model: 'g', keyStored: true })
+    expect(localStorage.getItem('nosidian.llm')).not.toContain('apiKey')
+    saveLlmConfig(null)
   })
 })

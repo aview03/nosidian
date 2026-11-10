@@ -10,6 +10,8 @@ import { Graph } from './components/Graph'
 import { startReminders } from './lib/reminders'
 import { desktop } from './lib/externalIO'
 import { startNativeBridge } from './lib/nativeCal'
+import { startMcpBridge } from './lib/mcpBridge'
+import { migrateLlmKey } from './lib/llmNet'
 import { pruneAllDaily, useCal } from './lib/calendar'
 import { EventEditor } from './components/EventEditor'
 import { WorkHome } from './components/WorkHome'
@@ -84,6 +86,8 @@ export default function App() {
   useEffect(() => (ready ? startReminders() : undefined), [ready])
   // 안드로이드: 홈 화면 위젯·알림용 데이터를 네이티브로 넘기고, 위젯/알림에서 들어온 딥링크로 그 날을 연다
   useEffect(() => (ready ? startNativeBridge() : undefined), [ready])
+  useEffect(() => (ready ? startMcpBridge() : undefined), [ready])
+  useEffect(() => void (ready && migrateLlmKey()), [ready])
   // 이미 쌓여 있던 빈 Daily 노트를 vault 마다 한 번만 자동 정리한다 (이후에 생긴 것은 일정을 지울 때 정리됨 / 수동 정리 명령)
   const activeVaultId = useApp((s) => s.settings.activeVault)
   useEffect(() => {

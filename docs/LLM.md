@@ -16,7 +16,7 @@
 |---|---|
 | `src/lib/llm.ts` | 순수 함수: 제공자별 요청 만들기(`buildChat`·`buildListModels`)·응답 읽기(`parseChat`·`parseModels`)·설정 검증(`validateConfig`)·주소 규칙(`isPrivateHost`)·기기 저장(`loadLlmConfig`) |
 | `src/lib/llmNet.ts` | 실제 전송: PC 는 메인 프로세스 IPC, Android 는 Capacitor 네이티브 HTTP, 그 밖은 fetch. `listModels`(연결 확인 겸용)·`chat`(한 번, 스트리밍 없음) |
-| `electron/llm.cjs` | 메인 프로세스 대행(`llm:request`): 주소·헤더·크기·시간 상한을 **다시 검사** |
+| `electron/llm.cjs` | 메인 프로세스 대행(`llm:request`): 주소·헤더·크기·시간 상한을 **다시 검사**, API 키 보관소(`createKeyStore`)·자리표시자 치환(`injectKey`) |
 | `src/components/LlmSettings.tsx` | 설정 > "AI 연결" 카드(제공자·주소·모델·키·연결 시험·저장) |
 
 ## 왜 메인 프로세스·네이티브 HTTP 로 보내나
@@ -26,7 +26,10 @@
 ## 안전 규칙
 - **주소**: https 는 어디든, http 는 `localhost`·사설 IPv4(10/172.16-31/192.168)·링크로컬·Tailscale(100.64/10)·`*.local` 만. 공개 인터넷으로 http 는 금지(키·글이 평문으로 나가므로). 화면(`validateConfig`)과 메인 프로세스(`check`) 두 곳에서 검사하고, 둘의 규칙이 어긋나지 않는지 테스트(`electronLlm.test.ts`)가 비교한다.
 - **메인 프로세스 대행의 상한**: 허용 헤더만(`content-type`·`authorization`·`x-api-key`·`anthropic-version`·`x-goog-api-key`), GET·POST 만, 리다이렉트는 따라가지 않음, 시간 2분·응답 8MB 상한.
-- **API 키**: 이 기기(localStorage `nosidian.llm`)에만 둔다. vault·동기화·GitHub 로 나가지 않는다. 운영체제 보안 저장소(Electron safeStorage·Android Keystore)는 아니다 — 후속 과제.
+- **API 키**
+  - **PC**: 운영체제 자격증명 보호(Windows DPAPI, Electron `safeStorage`)로 **암호화**해 사용자 데이터 폴더(`llm-key.bin`)에 둔다. 키는 **메인 프로세스에서만** 복호화된다 — 화면(렌더러)은 저장·삭제·"있는지"만 알고 키를 읽는 API 가 없다. 요청 헤더에는 자리표시자 `{{KEY}}` 만 넣고, 메인 프로세스가 허용 헤더(`authorization`·`x-api-key`·`x-goog-api-key`)에만 실제 키로 바꿔 보낸다. 키가 없으면 요청 자체를 보내지 않고, 오류 메시지에 키가 섞이지 않는다. 예전에 평문(localStorage)으로 저장한 키는 앱 시작 때 보안 저장소로 **자동 이전**하고 평문은 지운다(이전 실패 시 기존 저장을 그대로 둔다).
+  - **Android**: 아직 평문 localStorage 에 둔다(vault·동기화에는 안 들어감). Keystore 기반 보관 + 네이티브 요청에 키 주입은 네이티브 플러그인이 필요한 후속 과제다.
+  - 어느 쪽이든 vault·동기화·GitHub 로는 나가지 않는다.
 - **Gemini 키는 주소가 아니라 헤더**(`x-goog-api-key`)로 보낸다(로그·기록에 남지 않게).
 - 문서 내용이 선택한 서버로 전송된다는 안내를 설정 화면에 표시한다.
 
@@ -34,4 +37,4 @@
 PC 에서 `OLLAMA_HOST=0.0.0.0:11434` 로 Ollama 를 실행하고, Windows 방화벽에서 같은 사설망만 허용한다. 11434 포트를 인터넷에 직접 열지 않는다(인증이 없다). 밖에서는 Tailscale 같은 VPN 을 쓴다. PC 가 꺼져 있으면 폰에서도 쓸 수 없다.
 
 ## 아직 없는 것
-스트리밍 응답 · 도구 호출(function calling) 지원 판별 · 앱 안 AI 기능(질문·요약·변경 제안 만들기) · 연결 여러 개 저장 · 키 암호화 저장 · 클라우드 3종의 실서버 시험.
+스트리밍 응답 · 도구 호출(function calling) 지원 판별 · 앱 안 AI 기능(질문·요약·변경 제안 만들기) · 연결 여러 개 저장 · Android 키 보안 저장(Keystore) · 클라우드 3종의 실서버 시험.

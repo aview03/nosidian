@@ -13,9 +13,17 @@ export interface LlmConfig {
   /** 서버 주소. 예) http://192.168.0.10:11434 · https://api.openai.com/v1 */
   baseUrl: string
   model: string
-  /** 클라우드 API 키(없어도 되는 서버도 있다) */
+  /** 클라우드 API 키(없어도 되는 서버도 있다). PC 는 보안 저장소로 옮기므로 보통 비어 있다 */
   apiKey?: string
+  /** 키가 운영체제 보안 저장소(메인 프로세스)에 있다. 화면은 키를 모르고, 요청에는 자리표시자만 넣는다 */
+  keyStored?: boolean
 }
+
+/** 요청 헤더에 넣는 키 자리표시자. 메인 프로세스가 보안 저장소의 실제 키로 바꿔 보낸다 */
+export const KEY_PLACEHOLDER = '{{KEY}}'
+
+/** 요청을 만들 때 쓸 설정: 키가 보안 저장소에 있으면 자리표시자를 쓴다 */
+export const forRequest = (cfg: LlmConfig): LlmConfig => (cfg.keyStored ? { ...cfg, apiKey: KEY_PLACEHOLDER } : cfg)
 
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant'
@@ -71,7 +79,7 @@ export function validateConfig(cfg: LlmConfig, opts: { needModel?: boolean } = {
   if (!u) out.push('url')
   else if (u.protocol === 'http:' && !isPrivateHost(u.hostname)) out.push('httpPublic')
   if (opts.needModel !== false && !cfg.model.trim()) out.push('model')
-  if (providerOf(cfg.kind).needsKey && !cfg.apiKey?.trim()) out.push('key')
+  if (providerOf(cfg.kind).needsKey && !cfg.apiKey?.trim() && !cfg.keyStored) out.push('key')
   return out
 }
 
@@ -191,7 +199,7 @@ export function loadLlmConfig(): LlmConfig | null {
     if (!raw) return null
     const v = JSON.parse(raw) as Partial<LlmConfig>
     if (!v || !PROVIDERS.some((p) => p.kind === v.kind)) return null
-    return { kind: v.kind!, baseUrl: String(v.baseUrl ?? ''), model: String(v.model ?? ''), apiKey: v.apiKey ? String(v.apiKey) : undefined }
+    return { kind: v.kind!, baseUrl: String(v.baseUrl ?? ''), model: String(v.model ?? ''), apiKey: v.apiKey ? String(v.apiKey) : undefined, ...(v.keyStored ? { keyStored: true } : {}) }
   } catch {
     return null
   }

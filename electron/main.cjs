@@ -1,7 +1,7 @@
 // Windows(데스크톱) 셸: 빌드된 dist 를 고정 포트의 로컬 서버로 서빙하고 창에 띄운다.
 // 고정 origin(http://localhost:47321) 덕분에 노트(IndexedDB)·설정이 실행할 때마다 유지되고,
 // OAuth 리디렉션(/oauth)도 이 서버가 받는다.
-const { app, BrowserWindow, Menu, shell, ipcMain } = require('electron')
+const { app, BrowserWindow, Menu, shell, ipcMain, safeStorage } = require('electron')
 const http = require('http')
 const fs = require('fs')
 const path = require('path')
@@ -136,7 +136,8 @@ if (!app.requestSingleInstanceLock()) {
   app.quit()
 } else {
   queueFiles(process.argv)
-  require('./llm.cjs').registerLlm(ipcMain)
+  require('./llm.cjs').registerLlm(ipcMain, { file: path.join(app.getPath('userData'), 'llm-key.bin'), safeStorage })
+  require('./mcpHost.cjs').register({ ipcMain, app, getWindow: () => win })
   ipcMain.handle('open-file:take', () => pendingFiles.splice(0))
   // 열어 본 문서를 원본 위치에 저장 (마크다운/텍스트 확장자의 절대 경로만)
   ipcMain.handle('open-file:save', (_e, p, content) => {

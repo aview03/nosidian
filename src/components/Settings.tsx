@@ -6,6 +6,7 @@ import { t, getLang } from '../lib/i18n'
 import { tx } from '../lib/tx'
 import { LangSelect } from './LangSelect'
 import { LlmCard } from './LlmSettings'
+import { McpCard } from './McpSettings'
 import { useEffect, useRef, useState } from 'react'
 import { create } from 'zustand'
 import { useApp } from '../lib/app'
@@ -150,6 +151,7 @@ export function Settings() {
           <p className="hint small">{t('할 일 줄의 owner:이름 이 내 이름과 같은 일만 내 업무에 모아 보여 줍니다. 쉼표로 여러 이름(별명)을 쓸 수 있어요.')}</p>
         </section>
         <LlmCard />
+        <McpCard />
         <section className="card">
           <h3>{t('캘린더')}</h3>
           <div className="kv"><span>{t('공휴일 표시')}</span>

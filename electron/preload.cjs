@@ -4,6 +4,23 @@ const { contextBridge, ipcRenderer, webUtils } = require('electron')
 contextBridge.exposeInMainWorld('amsidianDesktop', {
   /** AI 서버(Ollama 등) 요청을 메인 프로세스가 대신 보낸다(CORS 회피, 주소 규칙은 메인에서 다시 검사) */
   llmRequest: (req) => ipcRenderer.invoke('llm:request', req),
+  /** AI 서버 API 키 보관(운영체제 보안 저장소). 키는 메인 프로세스에서만 읽힌다 — 렌더러는 저장·삭제·있는지만 안다 */
+  llmKey: {
+    status: () => ipcRenderer.invoke('llm:key:status'),
+    set: (key) => ipcRenderer.invoke('llm:key:set', key),
+    clear: () => ipcRenderer.invoke('llm:key:clear'),
+  },
+  /** 외부 AI 연결(MCP): 설정 조회·변경, 도구 호출 수신·응답. 문서 데이터는 렌더러가 처리한다 */
+  mcp: {
+    get: () => ipcRenderer.invoke('mcp:get'),
+    set: (patch) => ipcRenderer.invoke('mcp:set', patch),
+    reply: (id, result) => ipcRenderer.invoke('mcp:reply', id, result),
+    onCall: (cb) => {
+      const h = (_e, call) => cb(call)
+      ipcRenderer.on('mcp:call', h)
+      return () => ipcRenderer.removeListener('mcp:call', h)
+    },
+  },
   /** 탐색기에서 "연결 프로그램"으로 열었거나 실행 인자로 받은 파일들 (읽은 뒤 비워진다) */
   takeFiles: () => ipcRenderer.invoke('open-file:take'),
   /** 열어 본 문서를 원본 파일에 저장 */

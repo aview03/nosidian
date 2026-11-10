@@ -55,7 +55,9 @@ interface ProposalStore {
   ensure(): void
   setOpen(open: boolean): void
   /** AI 도구가 쓰기를 요청한다: 허용이면 바로 반영, 승인 대기면 제안으로 보관, 거절이면 아무것도 안 한다 */
-  submit(req: AiRequest, by: string, summary?: string): Triage
+  submit(req: AiRequest, by: string, summary?: string): Triage & { id?: string }
+  /** 제안 하나(현재 vault) */
+  find(id: string): Proposal | undefined
   approve(id: string): void
   reject(id: string): void
 }
@@ -87,8 +89,13 @@ export const useProposals = create<ProposalStore>((set, get) => {
         const id = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`
         save([...get().items, newProposal(req, r.verdict, by, summary, Date.now(), id)])
         useApp.getState().say(t('{by} 의 변경 제안이 승인을 기다리고 있어요', { by }))
+        return { ...r, id }
       }
       return r
+    },
+    find: (id) => {
+      get().ensure()
+      return get().items.find((p) => p.id === id)
     },
     approve: (id) => {
       get().ensure()

@@ -4,6 +4,8 @@
 // 열어 두는 범위를 좁게 유지한다(렌더러가 뚫려도 아무 곳이나 못 부르게):
 //  - 주소: https 이거나, http 면 사설망·내 기기 주소만. (src/lib/llm.ts 의 isPrivateHost 와 같은 규칙 — 여기서 다시 검사한다)
 //  - 헤더: 허용 목록만. 리다이렉트는 따라가지 않고, 시간(2분)·응답 크기(8MB)에 상한이 있다.
+const fs = require('fs')
+const KEY_MARK = '{{KEY}}'
 const ALLOWED_HEADERS = new Set(['content-type', 'authorization', 'x-api-key', 'anthropic-version', 'x-goog-api-key'])
 const MAX_BYTES = 8 * 1024 * 1024
 const TIMEOUT_MS = 120_000
@@ -16,6 +18,56 @@ function isPrivateHost(host) {
   const a = Number(m[1])
   const b = Number(m[2])
   return a === 127 || a === 10 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 169 && b === 254) || (a === 100 && b >= 64 && b <= 127)
+}
+
+/**
+ * API 키 보관소: 운영체제 자격증명 보호(Windows DPAPI 등, Electron safeStorage)로 암호화해 파일에 둔다.
+ * 키는 메인 프로세스 안에서만 복호화되고, 렌더러는 읽을 수 없다(저장·삭제·있는지 여부만 안다).
+ */
+function createKeyStore({ file, safeStorage }) {
+  const available = () => {
+    try {
+      return !!safeStorage && safeStorage.isEncryptionAvailable()
+    } catch {
+      return false
+    }
+  }
+  return {
+    available,
+    has: () => fs.existsSync(file),
+    set(key) {
+      if (!available()) throw new Error('이 PC 에서는 보안 저장소를 쓸 수 없습니다')
+      if (typeof key !== 'string' || !key.trim() || key.length > 2000) throw new Error('잘못된 키입니다')
+      fs.writeFileSync(file, safeStorage.encryptString(key.trim()), { mode: 0o600 })
+    },
+    get() {
+      try {
+        return safeStorage.decryptString(fs.readFileSync(file))
+      } catch {
+        return null
+      }
+    },
+    clear() {
+      try {
+        fs.unlinkSync(file)
+      } catch {
+        /* 없으면 그만 */
+      }
+    },
+  }
+}
+
+/** 요청 헤더의 {{KEY}} 자리를 실제 키로 바꾼다(허용 헤더만). 자리표시자가 있는데 키가 없으면 null */
+function injectKey(headers, key) {
+  const out = {}
+  for (const [k, v] of Object.entries(headers || {})) {
+    if (typeof v !== 'string' || !ALLOWED_HEADERS.has(k.toLowerCase())) continue
+    if (v.includes(KEY_MARK)) {
+      if (!key) return null
+      out[k] = v.split(KEY_MARK).join(key)
+    } else out[k] = v
+  }
+  return out
 }
 
 /** 요청이 허용되는 모양인지. 문제가 있으면 이유 문장, 괜찮으면 null */
@@ -34,11 +86,11 @@ function check(req) {
   return null
 }
 
-async function request(req) {
+async function request(req, keys) {
   const bad = check(req)
   if (bad) return { status: 0, text: '', error: bad }
-  const headers = {}
-  for (const [k, v] of Object.entries(req.headers || {})) if (ALLOWED_HEADERS.has(k.toLowerCase()) && typeof v === 'string') headers[k] = v
+  const headers = injectKey(req.headers, keys ? keys.get() : null)
+  if (!headers) return { status: 0, text: '', error: '저장된 API 키를 읽을 수 없어요. 설정에서 다시 저장해 주세요' }
   const ac = new AbortController()
   const timer = setTimeout(() => ac.abort(), TIMEOUT_MS)
   try {
@@ -65,8 +117,15 @@ async function request(req) {
   }
 }
 
-function registerLlm(ipcMain) {
-  ipcMain.handle('llm:request', (_e, req) => request(req))
+function registerLlm(ipcMain, opts) {
+  const keys = opts && opts.file ? createKeyStore(opts) : null
+  ipcMain.handle('llm:request', (_e, req) => request(req, keys))
+  ipcMain.handle('llm:key:status', () => ({ available: !!keys && keys.available(), has: !!keys && keys.has() }))
+  ipcMain.handle('llm:key:set', (_e, key) => {
+    if (!keys) throw new Error('보안 저장소를 쓸 수 없습니다')
+    keys.set(key)
+  })
+  ipcMain.handle('llm:key:clear', () => keys && keys.clear())
 }
 
-module.exports = { registerLlm, check, request, isPrivateHost }
+module.exports = { registerLlm, check, request, isPrivateHost, createKeyStore, injectKey, KEY_MARK }
