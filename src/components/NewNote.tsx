@@ -5,6 +5,8 @@ import { useApp } from '../lib/app'
 import { t } from '../lib/i18n'
 import { Icon } from './Icon'
 import { Select } from './Select'
+import { dailyOf, isProjectsRoot, newFolderIn, newNoteIn, placeMessage } from '../lib/folderRules'
+import { useWorkUi } from '../lib/workOps'
 
 interface NewNoteUi {
   mode: null | 'note' | 'folder'
@@ -42,6 +44,8 @@ export function NewNote() {
   return <Dialog mode={mode} />
 }
 
+const isProjectsRootDir = isProjectsRoot
+
 function Dialog({ mode }: { mode: 'note' | 'folder' }) {
   const close = () => useNewNote.setState({ mode: null })
   const files = useApp((s) => s.files)
@@ -64,9 +68,22 @@ function Dialog({ mode }: { mode: 'note' | 'folder' }) {
   const clean_ = clean(name.replace(/\//g, ' '))
   const where = (dir ? dir + '/' : '') + clean_
 
+  // 앱이 쓰는 폴더의 규칙: 날짜 폴더는 오늘 노트로, 프로젝트 폴더 바로 아래는 새 프로젝트 마법사로
+  const ctx = { daily: dailyOf(useApp.getState().settings.dailyFolder) }
+  const redirect = mode === 'note' ? newNoteIn(dir, ctx) : isProjectsRootDir(dir) ? 'wizard' : null
+  const blocked = mode === 'folder' && !redirect ? newFolderIn(dir, ctx) : null
+
   const create = () => {
-    if (!clean_) return
     const app = useApp.getState()
+    if (redirect === 'today') {
+      close()
+      return app.openDaily()
+    }
+    if (redirect === 'wizard') {
+      close()
+      return useWorkUi.setState({ wizard: true })
+    }
+    if (!clean_ || blocked) return
     if (mode === 'note') app.createNote(where)
     else {
       // 빈 폴더는 저장되지 않으므로(Git·동기화), 첫 노트와 함께 만든다
@@ -84,21 +101,26 @@ function Dialog({ mode }: { mode: 'note' | 'folder' }) {
           <button className="icon-btn" onClick={close} aria-label={t('닫기')}><Icon name="close" /></button>
         </div>
         <div className="ee-body">
+          {!redirect && (
           <label className="ee-field">
             <span>{mode === 'note' ? t('노트 이름') : t('폴더 이름')}</span>
             <input ref={ref} value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && !e.nativeEvent.isComposing && create()} placeholder={mode === 'note' ? t('예) 회의 메모') : t('예) 프로젝트')} />
           </label>
+          )}
           <div className="ee-field">
             <span>{mode === 'note' ? t('저장할 폴더') : t('만들 위치')}</span>
             <Select value={dir} options={options} onChange={setDir} title={mode === 'note' ? t('저장할 폴더') : t('만들 위치')} ariaLabel={t('폴더')} />
           </div>
-          {mode === 'folder' && <p className="hint small te-note">{t('폴더에는 첫 노트가 함께 만들어져요. (빈 폴더는 저장되지 않아요)')}</p>}
-          {clean_ && <p className="hint small te-note">{mode === 'note' ? t('{path} 로 저장돼요', { path: where + '.md' }) : t('{path}/ 폴더가 만들어져요', { path: where })}</p>}
+          {redirect === 'today' && <p className="hint small te-note">{t('이 폴더에는 날짜 노트만 만들 수 있어요. 오늘 노트를 열어요.')}</p>}
+          {redirect === 'wizard' && <p className="hint small te-note">{t('프로젝트 폴더 아래에는 새 프로젝트로 만들어요. 템플릿을 고르면 개요 노트까지 함께 만들어져요.')}</p>}
+          {blocked && <p className="hint small te-note warn">{placeMessage(blocked, dir)}</p>}
+          {mode === 'folder' && !redirect && !blocked && <p className="hint small te-note">{t('폴더에는 첫 노트가 함께 만들어져요. (빈 폴더는 저장되지 않아요)')}</p>}
+          {clean_ && !redirect && !blocked && <p className="hint small te-note">{mode === 'note' ? t('{path} 로 저장돼요', { path: where + '.md' }) : t('{path}/ 폴더가 만들어져요', { path: where })}</p>}
         </div>
         <div className="ee-foot">
           <span className="grow" />
           <button onClick={close}>{t('취소')}</button>
-          <button className="primary" disabled={!clean_} onClick={create}>{t('만들기')}</button>
+          <button className="primary" disabled={!redirect && (!clean_ || !!blocked)} onClick={create}>{redirect === 'today' ? t('오늘 노트 열기') : redirect === 'wizard' ? t('새 프로젝트 만들기') : t('만들기')}</button>
         </div>
       </div>
     </div>

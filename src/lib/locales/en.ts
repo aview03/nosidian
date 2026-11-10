@@ -995,5 +995,17 @@ const dict: Record<string, string> = {
   '프로젝트 {p}개를 포함해 노트 {n}개가 모두 지워져요. 되돌릴 수 없고, 동기화하면 원격에서도 삭제돼요.': 'All {n} notes, including {p} project(s), will be deleted. This cannot be undone and is removed remotely on next sync.',
   '프로젝트가 들어 있는 폴더예요. 정말 삭제할까요?': 'This folder contains a project. Delete it for real?',
   '다른 보관함으로 전환': 'Switch to another vault',
+  '"{name}" 폴더에는 날짜 이름(YYYY-MM-DD)의 노트만 둘 수 있어요.': '"{name}" can only hold notes named by date (YYYY-MM-DD).',
+  '"{name}" 폴더 안에는 폴더를 만들 수 없어요.': "You can't create folders inside \"{name}\".",
+  '"{name}" 폴더 바로 아래에는 노트를 둘 수 없어요. 프로젝트 폴더 안에 두거나 새 프로젝트로 만들어 주세요.': "Notes can't go directly in \"{name}\". Put them inside a project folder or create a new project.",
+  '"{name}" 폴더 아래에는 새 프로젝트로 만들어야 해요.': 'Create a new project instead of a plain folder under "{name}".',
+  '이 폴더에는 날짜 노트만 만들 수 있어요. 오늘 노트를 열어요.': "Only date notes can be created here. Opening today's note.",
+  '프로젝트 폴더 아래에는 새 프로젝트로 만들어요. 템플릿을 고르면 개요 노트까지 함께 만들어져요.': 'Under the projects folder, create a new project. Pick a template and the overview note is created too.',
+  '오늘 노트 열기': "Open today's note",
+  '날짜 이름이 아닌 노트 {n}개가 "{name}" 폴더에 있어요': '{n} notes in "{name}" are not named by date',
+  '옮기기': 'Move',
+  '프로젝트 개요 노트가 없어요': 'No project overview note',
+  '개요 만들기': 'Create overview',
+  '프로젝트 개요 노트를 만들었어요': 'Project overview note created',
 }
 export default dict

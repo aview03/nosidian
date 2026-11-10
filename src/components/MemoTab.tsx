@@ -7,6 +7,9 @@ import { t } from '../lib/i18n'
 import { ask, confirmAsk } from '../lib/dialog'
 import { allFolders, cleanName, dirOf, listDir, newMemoPath, planDelete, planMove, planRenameFolder, projectsIn, protectedFolder, untitledCleanup, type MemoNote } from '../lib/folderOps'
 import { renameNoteDialog } from '../lib/noteActions'
+import { checkMove, dailyOf, isProjectsRoot, newNoteIn, overviewNote, placeMessage, projectsWithoutOverview, strayInDaily } from '../lib/folderRules'
+import { useWorkUi } from '../lib/workOps'
+import { getLang } from '../lib/i18n'
 import { importFromPicker } from '../lib/importFiles'
 import { Icon } from './Icon'
 import { openNewFolder } from './NewNote'
@@ -82,6 +85,7 @@ export function MemoTab({ sync }: { sync?: ReactNode }) {
   const vault = useActiveVault()
   const [moving, setMoving] = useState(false)
   const app = useApp.getState()
+  const daily = dailyOf(useApp((s) => s.settings.dailyFolder))
 
   // 폴더가 사라졌으면(안의 노트를 모두 옮기거나 지움) 위로 올라간다
   const { folders, notes } = listDir(files, dir)
@@ -109,6 +113,10 @@ export function MemoTab({ sync }: { sync?: ReactNode }) {
   const one = sel?.size === 1
 
   const write = () => {
+    // 날짜 노트 폴더에서는 오늘 노트로, 프로젝트 폴더 바로 아래에서는 새 프로젝트로 — 자유 이름의 노트를 만들지 않는다
+    const rule = newNoteIn(dir, { daily })
+    if (rule === 'today') return app.openDaily()
+    if (rule === 'wizard') return void useWorkUi.setState({ wizard: true })
     const p = newMemoPath(files, dir)
     app.createNote(p, '', true) // 이름은 나중에 첫 줄로 정해진다
   }
@@ -150,6 +158,8 @@ export function MemoTab({ sync }: { sync?: ReactNode }) {
   }
   const moveTo = (dest: string) => {
     if (guarded()) return setMoving(false)
+    const bad = checkMove(picked.notes, picked.folders, dest, { daily })
+    if (bad) return app.say(placeMessage(bad, dest))
     const plan = planMove(useApp.getState().files, picked.notes, picked.folders, dest)
     if (plan.error === 'intoSelf') return app.say(t('폴더를 자기 안으로는 옮길 수 없어요'))
     if (plan.moves.length) app.moveNotes(plan.moves)
@@ -158,6 +168,13 @@ export function MemoTab({ sync }: { sync?: ReactNode }) {
   }
 
   const crumbs = dir ? dir.split('/') : []
+  // 날짜 노트 폴더에 날짜 이름이 아닌 노트가 있으면(동기화·가져오기) 정리하도록 안내한다
+  const stray = (!dir || dir === daily) ? strayInDaily(files, { daily }) : []
+  const noOverview = isProjectsRoot(dir) ? new Set(projectsWithoutOverview(files, dir)) : null
+  const cleanStray = () => {
+    useMemoUi.setState({ dir: daily, sel: new Set(stray.map((p) => key('n', p))) })
+    setMoving(true)
+  }
   const root = !dir
   const marked = root ? bookmarks.filter((p) => files[p] && !files[p].deleted) : []
   const noteRow = (n: MemoNote) => (
@@ -203,6 +220,12 @@ export function MemoTab({ sync }: { sync?: ReactNode }) {
       </div>
 
       <div className="memo-scroll">
+        {stray.length > 0 && !sel && (
+          <div className="memo-warn">
+            <span>{t('날짜 이름이 아닌 노트 {n}개가 "{name}" 폴더에 있어요', { n: stray.length, name: daily })}</span>
+            <button onClick={cleanStray}>{t('옮기기')}</button>
+          </div>
+        )}
         {marked.length > 0 && !sel && (
           <section>
             <h3 className="memo-sec">{t('★ 북마크')}</h3>
@@ -219,7 +242,8 @@ export function MemoTab({ sync }: { sync?: ReactNode }) {
             {folders.map((f) => (
               <Row key={'d:' + f.path} k={f.path} selecting={!!sel} selected={!!sel?.has(key('d', f.path))} onOpen={() => useMemoUi.setState({ dir: f.path })} onSelect={() => begin(key('d', f.path))}>
                 <span className="memo-ico"><Icon name="folder" size={20} /></span>
-                <span className="memo-main"><b className="memo-title">{f.name}</b></span>
+                <span className="memo-main"><b className="memo-title">{f.name}</b>{noOverview?.has(f.path) && <span className="memo-snip warn">{t('프로젝트 개요 노트가 없어요')}</span>}</span>
+                {noOverview?.has(f.path) && !sel && <span className="memo-chip" role="button" onClick={(e) => { e.stopPropagation(); const o = overviewNote(f.path, getLang() === 'ko'); app.createNote(o.path, o.content, false); app.say(t('프로젝트 개요 노트를 만들었어요')) }}>{t('개요 만들기')}</span>}
                 <span className="memo-date">{f.count}</span>
                 {!sel && <span className="memo-chev"><Icon name="chevron" size={14} /></span>}
               </Row>

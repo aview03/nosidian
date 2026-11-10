@@ -2,12 +2,18 @@ import { t } from './i18n'
 import { useApp } from './app'
 import { baseName } from './links'
 import { ask, confirmAsk } from './dialog'
+import { checkNotePath, dailyOf, placeMessage } from './folderRules'
 
 /** 노트 메뉴(점 3개 / 길게 누르기 / 우클릭)가 함께 쓰는 동작 */
 export async function renameNoteDialog(path: string) {
   const dir = path.includes('/') ? path.slice(0, path.lastIndexOf('/') + 1) : ''
   const n = await ask(t('이름 바꾸기'), dir + baseName(path), t('다른 노트의 [[링크]]도 함께 갱신됩니다'), t('변경'))
-  if (n?.trim()) useApp.getState().renameNote(path, n.trim())
+  if (!n?.trim()) return
+  const app = useApp.getState()
+  const target = n.trim().endsWith('.md') ? n.trim() : n.trim() + '.md'
+  const err = checkNotePath(target, { daily: dailyOf(app.settings.dailyFolder) })
+  if (err) return app.say(placeMessage(err, target.includes('/') ? target.slice(0, target.lastIndexOf('/')) : ''))
+  app.renameNote(path, n.trim())
 }
 
 export async function deleteNoteDialog(path: string) {

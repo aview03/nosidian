@@ -175,3 +175,55 @@ describe('앱이 쓰는 폴더 보호', () => {
     expect(projectsIn(files, '프로젝트/C')).toBe(0)
   })
 })
+
+import { checkMove, checkNotePath, isDateNote, newFolderIn, newNoteIn, overviewNote, projectsWithoutOverview, strayInDaily } from './folderRules'
+
+describe('날짜 노트·프로젝트 폴더 규칙', () => {
+  const ctx = { daily: '할 일' }
+  it('날짜 노트 폴더에서 새 노트는 오늘 노트로, 프로젝트 폴더 바로 아래는 마법사로', () => {
+    expect(newNoteIn('할 일', ctx)).toBe('today')
+    expect(newNoteIn('프로젝트', ctx)).toBe('wizard')
+    expect(newNoteIn('Projects', ctx)).toBe('wizard')
+    expect(newNoteIn('프로젝트/행사 준비', ctx)).toBeNull()
+    expect(newNoteIn('', ctx)).toBeNull()
+    expect(newNoteIn('할 일', { daily: '' })).toBeNull() // 날짜 노트가 맨 위에 있는 설정이면 규칙 없음
+  })
+  it('새 폴더: 날짜 노트 폴더(하위 포함)와 프로젝트 폴더 바로 아래는 막는다', () => {
+    expect(newFolderIn('할 일', ctx)).toBe('dailyNoFolders')
+    expect(newFolderIn('할 일/2025', ctx)).toBe('dailyNoFolders')
+    expect(newFolderIn('프로젝트', ctx)).toBe('projectsRootFolder')
+    expect(newFolderIn('프로젝트/행사 준비', ctx)).toBeNull()
+  })
+  it('날짜 이름 판정', () => {
+    expect(isDateNote('할 일/2026-11-10.md')).toBe(true)
+    expect(isDateNote('2026-11-10')).toBe(true)
+    expect(isDateNote('할 일/ㅋㅁ낭ㅎㅁ.md')).toBe(false)
+    expect(isDateNote('할 일/2026-11-10 메모.md')).toBe(false)
+  })
+  it('이름 바꾸기·이동: 날짜 폴더에는 날짜 이름만, 프로젝트 폴더 바로 아래에는 노트 금지', () => {
+    expect(checkNotePath('할 일/2026-11-10.md', ctx)).toBeNull()
+    expect(checkNotePath('할 일/아무말.md', ctx)).toBe('dailyOnlyDate')
+    expect(checkNotePath('프로젝트/메모.md', ctx)).toBe('projectsRootNote')
+    expect(checkNotePath('프로젝트/행사 준비/메모.md', ctx)).toBeNull()
+    expect(checkNotePath('일상/아무말.md', ctx)).toBeNull()
+    expect(checkMove(['일상/아무말.md'], [], '할 일', ctx)).toBe('dailyOnlyDate')
+    expect(checkMove(['일상/2026-11-10.md'], [], '할 일', ctx)).toBeNull()
+    expect(checkMove([], ['일상'], '할 일', ctx)).toBe('dailyNoFolders')
+    expect(checkMove(['일상/a.md'], [], '프로젝트', ctx)).toBe('projectsRootNote')
+    expect(checkMove(['a.md'], [], '', ctx)).toBeNull()
+  })
+  it('날짜 폴더 안의 날짜 아닌 노트(하위 폴더 포함)를 찾는다', () => {
+    const files = vault([f('할 일/2026-11-10.md'), f('할 일/ㅋㅁ낭.md'), f('할 일/옛날/2020-01-01.md'), f('일상/x.md')])
+    expect(strayInDaily(files, ctx)).toEqual(['할 일/ㅋㅁ낭.md', '할 일/옛날/2020-01-01.md'])
+    expect(strayInDaily(files, { daily: '' })).toEqual([])
+  })
+  it('프로젝트 노트가 없는 프로젝트 폴더를 찾고, 개요 노트를 만들어 준다', () => {
+    const files = vault([f('프로젝트/A/프로젝트 개요.md', '---\ntype: project\n---\n'), f('프로젝트/B/메모.md', '# 메모'), f('프로젝트/메모.md', 'x')])
+    expect(projectsWithoutOverview(files, '프로젝트')).toEqual(['프로젝트/B'])
+    const o = overviewNote('프로젝트/B', true)
+    expect(o.path).toBe('프로젝트/B/프로젝트 개요.md')
+    expect(o.content).toContain('type: project')
+    expect(overviewNote('Projects/B', false).path).toBe('Projects/B/Project Overview.md')
+    expect(projectsWithoutOverview(vault([f('프로젝트/B/프로젝트 개요.md', o.content)]), '프로젝트')).toEqual([])
+  })
+})

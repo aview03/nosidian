@@ -1324,3 +1324,9 @@ details.adv-card[open] > summary { margin-bottom: 8px; }
 .vault-now span { font-size: 13px; color: var(--muted); }
 .vault-more { display: flex; gap: 4px; margin-top: 6px; }
 .vault-more .btn-link { padding: 6px 10px 6px 0; }
+.memo-warn { display: flex; align-items: center; gap: 10px; margin: 8px 12px; padding: 10px 12px; border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border)); background: color-mix(in srgb, var(--accent) 8%, var(--bg)); border-radius: var(--r); font-size: 13.5px; line-height: 1.45; }
+.memo-warn span { flex: 1; min-width: 0; }
+.memo-warn button { flex: none; min-height: 34px; padding: 0 14px; font-weight: 600; }
+.memo-snip.warn { color: var(--accent); }
+.memo-chip { flex: none; padding: 5px 11px; border: 1px solid var(--accent); color: var(--accent); border-radius: var(--r); font-size: 12.5px; font-weight: 600; }
+.te-note.warn { color: var(--accent); }
