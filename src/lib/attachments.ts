@@ -8,6 +8,8 @@ import { isOther } from './sync/types'
 
 /** 이보다 크면 받기 전에 한 번 더 확인한다 */
 export const LARGE_BYTES = 10 * 1024 * 1024
+/** 한 파일의 올리기 상한(바이트). base64 로 한 번에 올리므로 메모리·API 한도 때문에 제한한다 */
+export const MAX_UPLOAD_BYTES = 25 * 1024 * 1024
 /** 이보다 크면 폰에서는 받지 않는다(메모리 한계: base64 로 한 번에 받는다) */
 export const MAX_PHONE_BYTES = 50 * 1024 * 1024
 
@@ -102,4 +104,26 @@ export async function handOver(path: string, b64: string): Promise<void> {
   a.click()
   a.remove()
   setTimeout(() => URL.revokeObjectURL(a.href), 4000)
+}
+
+/** 올릴 수 없는 파일이면 이유(문장), 올려도 되면 null */
+export function uploadProblem(name: string, size: number): string | null {
+  if (/\.md$/i.test(name)) return t('노트(.md)는 "가져오기"로 넣어 주세요')
+  if (name.startsWith('.')) return t('숨김 파일({name})은 올릴 수 없어요', { name })
+  if (size === 0) return t('빈 파일({name})은 올릴 수 없어요', { name })
+  if (size > MAX_UPLOAD_BYTES) return t('{name}은(는) 너무 커요(최대 {max})', { name, max: formatSize(MAX_UPLOAD_BYTES) })
+  return null
+}
+
+/** 올릴 경로: 폴더 + 파일 이름. 같은 이름이 있으면 "이름 (2).확장자" */
+export function uploadPath(dir: string, name: string, taken: Set<string>): string {
+  const clean = name.replace(/[\\/:*?"<>|]/g, '_').trim() || 'file'
+  const dot = clean.lastIndexOf('.')
+  const stem = dot > 0 ? clean.slice(0, dot) : clean
+  const ext = dot > 0 ? clean.slice(dot) : ''
+  const prefix = dir ? dir + '/' : ''
+  const lower = new Set([...taken].map((p) => p.toLowerCase()))
+  let p = prefix + clean
+  for (let n = 2; lower.has(p.toLowerCase()); n++) p = `${prefix}${stem} (${n})${ext}`
+  return p
 }

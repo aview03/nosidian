@@ -132,3 +132,27 @@ describe('동기화: 노트가 아닌 파일', () => {
     expect(Object.keys(useApp.getState().assets)).toEqual(['tools/main.py'])
   })
 })
+
+describe('파일 올리기(uploadOthers)', () => {
+  it('바이너리를 base64 로 올리고 목록에 더하며, 같은 이름은 번호를 붙이고 노트(.md)는 거절한다', async () => {
+    const { uploadOthers } = await import('./app')
+    const pushed: { path: string; b64?: string }[] = []
+    const orig = fake.push
+    fake.push = async (changes, m) => {
+      pushed.push(...changes.map((c) => ({ path: c.path, b64: c.b64 })))
+      return orig(changes, m)
+    }
+    try {
+      const f = (name: string, bytes: number[]) => new File([new Uint8Array(bytes)], name)
+      const r1 = await uploadOthers([f('r.docx', [1, 2, 3]), f('x.md', [1])], 'proj')
+      expect(r1.done).toEqual(['proj/r.docx'])
+      expect(r1.failed.map((x) => x.name)).toEqual(['x.md'])
+      expect(pushed[0]).toEqual({ path: 'proj/r.docx', b64: 'AQID' })
+      expect(useApp.getState().assets['proj/r.docx']?.size).toBe(3)
+      const r2 = await uploadOthers([f('r.docx', [9])], 'proj')
+      expect(r2.done).toEqual(['proj/r (2).docx'])
+    } finally {
+      fake.push = orig
+    }
+  })
+})

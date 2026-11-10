@@ -2,7 +2,8 @@ import { create } from 'zustand'
 import { store as db, onDbChange } from './db'
 import { buildIndex, baseName, dirName, type LinkIndex } from './links'
 import { DEFAULT_SETTINGS, DEFAULT_VAULT_ID, SYNC_LABEL, defaultVaultName, type CloudCfg, type NoteFile, type RemoteCfg, type Settings, type VaultMeta } from './types'
-import { createProvider, isNote, type Provider, type RemoteEntry } from './sync'
+import { createProvider, isNote, bytesToB64, type Provider, type RemoteEntry } from './sync'
+import { uploadPath, uploadProblem } from './attachments'
 import { resumeWebAuth } from './sync/oauth'
 import { demoNotes } from './demo'
 import { t, setLang, resolveLang, getLang } from './i18n'
@@ -865,6 +866,39 @@ export const useApp = create<AppState>((set, get) => {
 
 // ── 자산(이미지) ──
 const assetUrls = new Map<string, Promise<string | null>>()
+/**
+ * 파일들을 vault 저장소의 dir 폴더에 올린다(노트가 아닌 파일). 하나씩 올려서 실패한 것만 따로 알린다.
+ * 반환: 올린 경로들과 실패(이름·이유)
+ */
+export async function uploadOthers(list: File[], dir: string): Promise<{ done: string[]; failed: { name: string; why: string }[] }> {
+  const { settings } = useApp.getState()
+  if (!settings.remote) throw new Error(t('저장소에 연결돼 있지 않아요'))
+  const prov = providerOf(settings.remote)
+  const done: string[] = []
+  const failed: { name: string; why: string }[] = []
+  for (const f of list) {
+    const why = uploadProblem(f.name, f.size)
+    if (why) {
+      failed.push({ name: f.name, why })
+      continue
+    }
+    try {
+      const st = useApp.getState()
+      const path = uploadPath(dir, f.name, new Set([...Object.keys(st.assets), ...Object.keys(st.files)]))
+      const b64 = bytesToB64(await f.arrayBuffer())
+      const revs = await prov.push([{ path, content: '', b64 }], t('파일 추가: {name}', { name: path.split('/').pop()! }))
+      const rev = revs.get(path) ?? null
+      const a = { sha: rev, size: f.size }
+      useApp.setState((s) => ({ assets: { ...s.assets, [path]: a } }))
+      void db.putAsset({ path, sha: rev, size: f.size })
+      done.push(path)
+    } catch (e) {
+      failed.push({ name: f.name, why: e instanceof Error ? e.message : String(e) })
+    }
+  }
+  return { done, failed }
+}
+
 /** 노트·이미지가 아닌 파일 하나를 원격 저장소에서 받아 base64 로 돌려준다(저장해 두지 않는다) */
 export async function fetchOther(path: string): Promise<string> {
   const { settings, assets } = useApp.getState()

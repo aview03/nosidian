@@ -2,7 +2,7 @@ import { t } from '../i18n'
 import type { CloudCfg } from '../types'
 import { refreshTokens } from './oauth'
 import { capOthers } from './others'
-import { bytesToB64, isHidden, SyncError, type Provider, type PushChange, type RemoteEntry } from './types'
+import { b64ToBytes, bytesToB64, isHidden, SyncError, type Provider, type PushChange, type RemoteEntry } from './types'
 
 const G = 'https://graph.microsoft.com/v1.0/me/drive'
 
@@ -96,7 +96,7 @@ export function onedrive(initial: CloudCfg, save: (c: CloudCfg) => void): Provid
           continue
         }
         // 경로로 PUT 하면 상위 폴더까지 알아서 만들어진다
-        const r = await raw(`${at(c.path)}:/content`, { method: 'PUT', body: c.content, headers: { 'Content-Type': 'text/markdown; charset=UTF-8' } })
+        const r = await raw(`${at(c.path)}:/content`, { method: 'PUT', body: c.b64 != null ? (b64ToBytes(c.b64) as BlobPart) : c.content, headers: { 'Content-Type': c.b64 != null ? 'application/octet-stream' : 'text/markdown; charset=UTF-8' } })
         revs.set(c.path, revOf((await r.json()) as Item))
       }
       return revs

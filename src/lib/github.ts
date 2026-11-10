@@ -86,7 +86,7 @@ export async function pushChanges(cfg: RepoCfg, changes: PushChange[], message: 
     } else {
       const b = await gh<{ sha: string }>(cfg, '/git/blobs', {
         method: 'POST',
-        body: JSON.stringify({ content: c.content, encoding: 'utf-8' }),
+        body: JSON.stringify(c.b64 != null ? { content: c.b64, encoding: 'base64' } : { content: c.content, encoding: 'utf-8' }),
       })
       shas.set(c.path, b.sha)
       tree.push({ path: c.path, mode: '100644', type: 'blob', sha: b.sha })

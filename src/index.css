@@ -1457,3 +1457,6 @@ input.inline.wide { width: 100%; box-sizing: border-box; height: 42px; }
 /* 노트가 아닌 파일(눌러서 받기) */
 .memo-file:disabled { opacity: .55; }
 .memo-file .memo-title { font-weight: 500; }
+.memo-sec-row { display: flex; align-items: center; justify-content: space-between; margin-right: 16px; }
+.memo-sec-row .memo-chip { background: transparent; }
+.memo-files-empty { margin: 6px 16px 10px; }

@@ -14,7 +14,7 @@ import { useAiThread } from '../lib/aiThread'
 import { getLang } from '../lib/i18n'
 import { importFromPicker } from '../lib/importFiles'
 import { Capacitor } from '@capacitor/core'
-import { fetchOther } from '../lib/app'
+import { fetchOther, uploadOthers } from '../lib/app'
 import { formatSize, gate, gateMessage, handOver, othersIn, type OtherFile } from '../lib/attachments'
 import { Icon } from './Icon'
 import { openNewFolder } from './NewNote'
@@ -173,6 +173,9 @@ export function MemoTab({ sync }: { sync?: ReactNode }) {
   const files = useApp((s) => s.files)
   const assets = useApp((s) => s.assets)
   const [busyFile, setBusyFile] = useState<string | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const hasRemote = useApp((s) => !!s.settings.remote)
+  const picker = useRef<HTMLInputElement>(null)
   const bookmarks = useApp((s) => s.settings.bookmarks)
   const dir = useMemoUi((s) => s.dir)
   const sel = useMemoUi((s) => s.sel)
@@ -326,6 +329,22 @@ export function MemoTab({ sync }: { sync?: ReactNode }) {
       setBusyFile(null)
     }
   }
+  /** 고른 파일을 지금 폴더의 저장소에 올린다 */
+  const upload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const list = [...(e.target.files ?? [])]
+    e.target.value = ''
+    if (!list.length || uploading) return
+    setUploading(true)
+    try {
+      const r = await uploadOthers(list, dir)
+      if (r.done.length) app.say(r.done.length === 1 ? t('올렸어요: {name}', { name: r.done[0].split('/').pop()! }) : t('{n}개를 올렸어요', { n: r.done.length }))
+      if (r.failed.length) app.say(t('올리지 못했어요: {name} — {why}', { name: r.failed[0].name, why: r.failed[0].why }))
+    } catch (err) {
+      app.say(err instanceof Error ? err.message : String(err))
+    } finally {
+      setUploading(false)
+    }
+  }
   const fileRow = (f: OtherFile) => (
     <button key={'f:' + f.path} className="memo-row memo-file" disabled={!!sel} onClick={() => void getFile(f)}>
       <span className="memo-ico"><Icon name="import" size={20} /></span>
@@ -417,12 +436,19 @@ export function MemoTab({ sync }: { sync?: ReactNode }) {
             {notes.map(noteRow)}
           </section>
         )}
-        {others.files.length > 0 && (
+        {(others.files.length > 0 || (hasRemote && !sel)) && (
           <section>
-            {!sel && <h3 className="memo-sec">{t('파일')}</h3>}
+            {!sel && (
+              <h3 className="memo-sec memo-sec-row">
+                <span>{t('파일')}</span>
+                {hasRemote && <button className="memo-chip" disabled={uploading} onClick={() => picker.current?.click()}>{uploading ? t('올리는 중…') : t('올리기')}</button>}
+              </h3>
+            )}
             {others.files.map(fileRow)}
+            {others.files.length === 0 && <p className="memo-snip memo-files-empty">{t('이 폴더의 파일이 여기에 보여요')}</p>}
           </section>
         )}
+        <input ref={picker} type="file" multiple hidden onChange={(e) => void upload(e)} />
         {empty && (
           <div className="memo-empty">
             <p>{t('아직 메모가 없어요')}</p>

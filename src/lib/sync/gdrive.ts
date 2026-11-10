@@ -2,7 +2,7 @@ import { t } from '../i18n'
 import type { CloudCfg } from '../types'
 import { refreshTokens } from './oauth'
 import { capOthers } from './others'
-import { bytesToB64, dirOf, isHidden, SyncError, type Provider, type PushChange, type RemoteEntry } from './types'
+import { b64ToBytes, bytesToB64, dirOf, isHidden, SyncError, type Provider, type PushChange, type RemoteEntry } from './types'
 
 const API = 'https://www.googleapis.com/drive/v3'
 const UP = 'https://www.googleapis.com/upload/drive/v3'
@@ -129,8 +129,8 @@ export function gdrive(initial: CloudCfg, save: (c: CloudCfg) => void): Provider
         if (id) {
           f = await api<DriveFile>(`${UP}/files/${id}?uploadType=media&fields=id,md5Checksum,version`, {
             method: 'PATCH',
-            body: c.content,
-            headers: { 'Content-Type': 'text/markdown; charset=UTF-8' },
+            body: c.b64 != null ? (b64ToBytes(c.b64) as BlobPart) : c.content,
+            headers: { 'Content-Type': c.b64 != null ? 'application/octet-stream' : 'text/markdown; charset=UTF-8' },
           })
         } else {
           const parent = await ensureFolder(dirOf(c.path))
@@ -139,7 +139,9 @@ export function gdrive(initial: CloudCfg, save: (c: CloudCfg) => void): Provider
           f = await api<DriveFile>(`${UP}/files?uploadType=multipart&fields=id,md5Checksum,version`, {
             method: 'POST',
             headers: { 'Content-Type': `multipart/related; boundary=${b}` },
-            body: `--${b}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${meta}\r\n--${b}\r\nContent-Type: text/markdown; charset=UTF-8\r\n\r\n${c.content}\r\n--${b}--`,
+            body: c.b64 != null
+              ? new Blob([`--${b}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${meta}\r\n--${b}\r\nContent-Type: application/octet-stream\r\n\r\n`, b64ToBytes(c.b64) as BlobPart, `\r\n--${b}--`])
+              : `--${b}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${meta}\r\n--${b}\r\nContent-Type: text/markdown; charset=UTF-8\r\n\r\n${c.content}\r\n--${b}--`,
           })
         }
         ids.set(c.path, f.id)

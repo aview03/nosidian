@@ -11,6 +11,8 @@ export interface RemoteEntry {
 export interface PushChange {
   path: string
   content: string | null // null이면 삭제
+  /** 바이너리 파일(.docx·.zip …)이면 base64 내용. 이때 content 는 쓰지 않는다 */
+  b64?: string
 }
 
 export interface Provider {
@@ -39,6 +41,13 @@ export const isOther = (p: string) => !isNote(p) && !isImage(p)
 export const MAX_OTHERS = 3000
 export const isHidden = (p: string) => p.split('/').some((s) => s.startsWith('.'))
 export const dirOf = (p: string) => p.split('/').slice(0, -1).join('/')
+
+export function b64ToBytes(b64: string): Uint8Array {
+  const bin = atob(b64)
+  const u = new Uint8Array(bin.length)
+  for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i)
+  return u
+}
 
 export function bytesToB64(buf: ArrayBuffer) {
   const u = new Uint8Array(buf)

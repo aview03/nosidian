@@ -1123,5 +1123,16 @@ const dict: Record<string, string> = {
   '파일이 너무 커서({size}) 휴대폰에서는 받을 수 없어요. PC에서 받아 주세요': "The file is too large ({size}) for the phone. Get it on the PC.",
   '실행 파일이에요. 출처를 아는 파일만 받아 주세요.': "This is an executable. Only download files from sources you know.",
   '큰 파일({size})이에요. 받을까요?': "This is a large file ({size}). Download it?",
+  '올리기': "Upload",
+  '올리는 중…': "Uploading…",
+  '이 폴더의 파일이 여기에 보여요': "Files in this folder appear here",
+  '올렸어요: {name}': "Uploaded: {name}",
+  '{n}개를 올렸어요': "Uploaded {n} files",
+  '올리지 못했어요: {name} — {why}': "Could not upload: {name} — {why}",
+  '파일 추가: {name}': "Add file: {name}",
+  '노트(.md)는 "가져오기"로 넣어 주세요': "Use \"Import\" for notes (.md)",
+  '숨김 파일({name})은 올릴 수 없어요': "Hidden files ({name}) cannot be uploaded",
+  '빈 파일({name})은 올릴 수 없어요': "Empty files ({name}) cannot be uploaded",
+  '{name}은(는) 너무 커요(최대 {max})': "{name} is too large (max {max})",
 }
 export default dict

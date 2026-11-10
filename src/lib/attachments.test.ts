@@ -1,6 +1,9 @@
+import { setLang } from './i18n'
 import { describe, expect, it } from 'vitest'
 import { formatSize, gate, isExecutable, LARGE_BYTES, MAX_PHONE_BYTES, othersIn } from './attachments'
 import { capOthers, isOther, MAX_OTHERS } from './sync'
+
+setLang('ko')
 
 describe('다른 파일 판정', () => {
   it('노트·이미지가 아닌 것만 "다른 파일"', () => {
@@ -53,5 +56,48 @@ describe('받기 전 확인', () => {
     expect(formatSize(2048)).toBe('2 KB')
     expect(formatSize(5 * 1024 * 1024)).toBe('5.0 MB')
     expect(formatSize(30 * 1024 * 1024)).toBe('30 MB')
+  })
+})
+
+import { uploadPath, uploadProblem, MAX_UPLOAD_BYTES } from './attachments'
+import { pushChanges } from './github'
+import { vi } from 'vitest'
+
+describe('올리기 규칙', () => {
+  it('노트·숨김·빈 파일·너무 큰 파일은 막는다', () => {
+    expect(uploadProblem('a.md', 5)).toContain('가져오기')
+    expect(uploadProblem('.env', 5)).toContain('숨김')
+    expect(uploadProblem('a.zip', 0)).toContain('빈 파일')
+    expect(uploadProblem('a.zip', MAX_UPLOAD_BYTES + 1)).toContain('너무 커요')
+    expect(uploadProblem('a.docx', 1000)).toBeNull()
+  })
+  it('경로: 폴더 아래에 두고, 같은 이름이면 번호를 붙이며(대소문자 무시), 금지 문자는 바꾼다', () => {
+    expect(uploadPath('', 'r.docx', new Set())).toBe('r.docx')
+    expect(uploadPath('proj/sub', 'r.docx', new Set())).toBe('proj/sub/r.docx')
+    expect(uploadPath('proj', 'r.docx', new Set(['proj/R.DOCX', 'proj/r (2).docx']))).toBe('proj/r (3).docx')
+    expect(uploadPath('', 'a:b?.txt', new Set())).toBe('a_b_.txt')
+    expect(uploadPath('', 'noext', new Set(['noext']))).toBe('noext (2)')
+  })
+})
+
+describe('GitHub 업로드: 바이너리는 base64 blob 으로', () => {
+  it('b64 가 있으면 base64 로, 없으면 utf-8 로 blob 을 만든다', async () => {
+    const calls: { url: string; body: string }[] = []
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+      calls.push({ url, body: String(init?.body ?? '') })
+      const u = String(url)
+      const j = (o: unknown) => ({ ok: true, status: 200, json: async () => o, text: async () => JSON.stringify(o) })
+      if (u.includes('/git/ref/')) return j({ object: { sha: 'c0' } })
+      if (u.includes('/git/commits/c0')) return j({ tree: { sha: 't0' } })
+      if (u.endsWith('/git/blobs')) return j({ sha: 'blob' + calls.length })
+      if (u.endsWith('/git/trees')) return j({ sha: 't1' })
+      if (u.endsWith('/git/commits')) return j({ sha: 'c1' })
+      return j({})
+    }))
+    const revs = await pushChanges({ token: 't', owner: 'o', repo: 'r', branch: 'main' } as never, [{ path: 'a.docx', content: '', b64: 'AQID' }, { path: 'n.md', content: '# 안녕' }], 'm')
+    const blobs = calls.filter((c) => c.url.endsWith('/git/blobs')).map((c) => JSON.parse(c.body))
+    expect(blobs).toEqual([{ content: 'AQID', encoding: 'base64' }, { content: '# 안녕', encoding: 'utf-8' }])
+    expect([...revs.keys()]).toEqual(['a.docx', 'n.md'])
+    vi.unstubAllGlobals()
   })
 })
