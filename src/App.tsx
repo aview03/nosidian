@@ -5,6 +5,7 @@ import { App as CapApp } from '@capacitor/app'
 import { homeTab, useApp, type Tab } from './lib/app'
 import { useDialog } from './lib/dialog'
 import { FileTree } from './components/FileTree'
+import { MemoTab, memoBack } from './components/MemoTab'
 import { Search } from './components/Search'
 import { Graph } from './components/Graph'
 import { startReminders } from './lib/reminders'
@@ -176,6 +177,7 @@ export default function App() {
       if (app.palette) return app.setPalette(null)
       if (app.sheet) return app.setSheet(null)
       if (app.tab === 'note' && app.back()) return
+      if (app.tab === 'files' && memoBack()) return // 메모 탭: 선택 해제 → 위 폴더로
       if (app.tab !== homeTab()) return app.go(homeTab()) // 홈(PC: 캘린더 / 모바일: 오늘)으로 한 번 돌아간 뒤 종료
       void CapApp.exitApp()
     })
@@ -270,7 +272,7 @@ export default function App() {
           {tab === 'project' && <ProjectHub />}
           {tab === 'today' && <TodayView />}
           {tab === 'calendar' && <CalendarMobile />}
-          {tab === 'files' && (<><FileTree /><div className="fab-sync"><SyncBtn cls="fab" /></div></>)}
+          {tab === 'files' && <MemoTab sync={<SyncBtn cls="icon-btn" />} />}
           {tab === 'search' && <Search autoFocus={false} />}
           {tab === 'graph' && <Graph />}
           {tab === 'settings' && <Settings />}

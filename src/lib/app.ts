@@ -107,6 +107,10 @@ interface AppState {
   createNote(path: string, content?: string, open?: boolean): string
   renameNote(path: string, newPath: string): void
   deleteNote(path: string, opts?: { silent?: boolean }): void
+  /** 여러 노트를 한 번에 옮긴다(폴더 이동·이름 바꾸기). 목적지가 비어 있는 것만 옮기고, 옮긴 개수를 돌려준다. 노트 이름이 같아서 링크는 그대로다 */
+  moveNotes(pairs: [string, string][], opts?: { silent?: boolean }): number
+  /** 여러 노트를 한 번에 지운다(한 번만 색인을 다시 만든다). 지운 개수를 돌려준다 */
+  deleteNotes(paths: string[], opts?: { silent?: boolean }): number
   openDaily(): void
   toggleBookmark(path: string): void
   toggleTask(path: string, line: number): void
@@ -499,6 +503,60 @@ export const useApp = create<AppState>((set, get) => {
         recent: s.settings.recent.filter((b) => b !== path),
       })
       if (!opts?.silent) get().say(t('삭제했습니다 (다음 동기화 때 원격에서도 삭제)'))
+    },
+    moveNotes(pairs, opts) {
+      const moved = new Map<string, string>()
+      const now = Date.now()
+      for (const [from, to] of pairs) {
+        const f = get().files[from]
+        const taken = get().files[to]
+        if (!f || f.deleted || from === to || (taken && !taken.deleted)) continue
+        putFile({ ...f, deleted: true, dirty: true, mtime: now })
+        putFile({ path: to, content: f.content, sha: null, dirty: true, mtime: now })
+        if (!f.sha) {
+          // 원격에 없던 파일이면 tombstone 불필요
+          void db.delFile(from)
+          set((st) => {
+            const files = { ...st.files }
+            delete files[from]
+            return { files }
+          })
+        }
+        moved.set(from, to)
+      }
+      if (!moved.size) return 0
+      rebuild(true)
+      const map = (p: string) => moved.get(p) ?? p
+      set((st) => ({ current: st.current ? map(st.current) : st.current, history: st.history.map(map) }))
+      get().patchSettings({ bookmarks: get().settings.bookmarks.map(map), recent: get().settings.recent.map(map) })
+      if (!opts?.silent) get().say(t('{n}개를 옮겼습니다', { n: moved.size }))
+      return moved.size
+    },
+    deleteNotes(paths, opts) {
+      const gone = new Set<string>()
+      for (const path of paths) {
+        const f = get().files[path]
+        if (!f || f.deleted) continue
+        if (f.sha) putFile({ ...f, deleted: true, dirty: true, mtime: Date.now() })
+        else {
+          void db.delFile(path)
+          set((st) => {
+            const files = { ...st.files }
+            delete files[path]
+            return { files }
+          })
+        }
+        gone.add(path)
+      }
+      if (!gone.size) return 0
+      rebuild(true)
+      const s = get()
+      const history = s.history.filter((h) => !gone.has(h))
+      const cur = s.current && gone.has(s.current) ? (history[history.length - 1] ?? null) : s.current
+      set({ history, hpos: history.length - 1, current: cur, tab: s.current && gone.has(s.current) ? 'files' : s.tab })
+      get().patchSettings({ bookmarks: s.settings.bookmarks.filter((b) => !gone.has(b)), recent: s.settings.recent.filter((b) => !gone.has(b)) })
+      if (!opts?.silent) get().say(t('{n}개를 삭제했습니다 (다음 동기화 때 원격에서도 삭제)', { n: gone.size }))
+      return gone.size
     },
     openDaily() {
       const d = new Date()
