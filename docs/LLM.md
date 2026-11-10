@@ -5,7 +5,7 @@
 ## 지원 제공자
 | 제공자 | 기본 주소 | 키 | 시험 상태 |
 |---|---|---|---|
-| **Ollama** (내 PC·홈 서버) | `http://localhost:11434` | 불필요 | 가짜 서버로 PC·Android 시험 |
+| **Ollama** (내 PC·홈 서버) | `http://localhost:11434` | 불필요 | 가짜 서버로 PC·Android 시험 + **이 PC 의 실제 Ollama(`qwen3.5:4b`)로 목록·응답 확인**(앱 전송 경로, 0.3초). 이 모델은 도구 호출(`tools`) 지원 — 앱 안 AI 의 Ollama 백엔드 후보 |
 | **사용자 지정** (OpenAI 호환: LM Studio·vLLM …) | `http://localhost:1234/v1` | 선택 | 가짜 서버로 PC 시험 |
 | OpenAI | `https://api.openai.com/v1` | 필수 | **요청 형식만 구현·단위 테스트, 실제 서버 미시험(키 없음)** |
 | Anthropic | `https://api.anthropic.com` | 필수 | 위와 같음 |
@@ -35,6 +35,9 @@
 
 ## Ollama 를 다른 기기에서 쓰려면
 PC 에서 `OLLAMA_HOST=0.0.0.0:11434` 로 Ollama 를 실행하고, Windows 방화벽에서 같은 사설망만 허용한다. 11434 포트를 인터넷에 직접 열지 않는다(인증이 없다). 밖에서는 Tailscale 같은 VPN 을 쓴다. PC 가 꺼져 있으면 폰에서도 쓸 수 없다.
+
+## 앱 안 AI 와의 관계
+앱 안 AI(질문·요약·변경 제안)는 현재 **Claude Code CLI** 로 동작한다([MCP.md](MCP.md)의 "앱 안 AI"). 이 문서의 연결 설정(Ollama·클라우드)을 쓰는 앱 안 AI 는 아직 없다 — 같은 MCP 도구와 정책 엔진을 쓰는 **도구 호출 반복(agent loop)** 을 얹어야 한다.
 
 ## 아직 없는 것
 스트리밍 응답 · 도구 호출(function calling) 지원 판별 · 앱 안 AI 기능(질문·요약·변경 제안 만들기) · 연결 여러 개 저장 · Android 키 보안 저장(Keystore) · 클라우드 3종의 실서버 시험.

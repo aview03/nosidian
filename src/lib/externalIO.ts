@@ -54,9 +54,30 @@ export interface McpApi {
   get(): Promise<McpStatus>
   set(patch: { enabled?: boolean; regenerate?: boolean }): Promise<McpStatus>
   reply(id: string, result: { ok: unknown } | { error: string }): Promise<void>
-  onCall(cb: (call: { id: string; tool: string; args: unknown; client: string }) => void): () => void
+  onCall(cb: (call: { id: string; tool: string; args: unknown; client: string; internal?: boolean }) => void): () => void
+}
+export interface ClaudeStatus {
+  found: boolean
+  /** npm 설치(claude.cmd)만 있어 지원하지 않는 경우 */
+  onlyCmd?: boolean
+  path?: string
+  version?: string | null
+  loggedIn?: boolean
+  authMethod?: string | null
+}
+export type ClaudeEvent =
+  | { type: 'tool'; name: string; input: string }
+  | { type: 'text'; text: string }
+  | { type: 'result'; ok: boolean; text: string; turns: number; costUsd: number }
+  | { type: 'error'; code: string; message: string }
+export interface ClaudeApi {
+  detect(): Promise<ClaudeStatus>
+  run(req: { prompt: string; model?: string }): Promise<{ ok: boolean }>
+  cancel(): Promise<boolean>
+  onEvent(cb: (e: ClaudeEvent) => void): () => void
 }
 export interface DesktopApi {
+  claude?: ClaudeApi
   mcp?: McpApi
   widget?: WidgetApi
   takeOpenNotes?(): Promise<string[]>

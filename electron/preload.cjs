@@ -10,6 +10,17 @@ contextBridge.exposeInMainWorld('amsidianDesktop', {
     set: (key) => ipcRenderer.invoke('llm:key:set', key),
     clear: () => ipcRenderer.invoke('llm:key:clear'),
   },
+  /** 앱 안 AI(PC 의 Claude Code CLI): 찾기·로그인 확인, 한 번 실행(진행·결과는 이벤트), 취소 */
+  claude: {
+    detect: () => ipcRenderer.invoke('claude:detect'),
+    run: (req) => ipcRenderer.invoke('claude:run', req),
+    cancel: () => ipcRenderer.invoke('claude:cancel'),
+    onEvent: (cb) => {
+      const h = (_e, ev) => cb(ev)
+      ipcRenderer.on('claude:event', h)
+      return () => ipcRenderer.removeListener('claude:event', h)
+    },
+  },
   /** 외부 AI 연결(MCP): 설정 조회·변경, 도구 호출 수신·응답. 문서 데이터는 렌더러가 처리한다 */
   mcp: {
     get: () => ipcRenderer.invoke('mcp:get'),

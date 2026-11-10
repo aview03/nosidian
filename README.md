@@ -56,6 +56,7 @@
 ### 일정 관리 (2차 기능) — 자세한 규격은 docs/CALENDAR.md
 - **일정 = 노트의 한 줄**: Daily 노트의 `- [ ] 14:00-15:00 치과`, 다른 노트의 `- [ ] 보고서 @2026-11-20`, 또는 프론트매터 `date`.
 - **문서 규칙·점검**(선택, 기본 꺼짐): vault 의 `_workspace/문서규칙.md` 에 프로젝트 문서의 역할(개요·정책·할 일 …)과 필수 제목·상태 값을 사람이 읽는 줄로 정해 두면, 프로젝트 허브의 **"문서 점검"** 탭이 역할 충돌·필수 제목 누락·끊어진 링크·고아·개요에서 닿지 않는 문서·중복 후보를 알려 준다. 알려 주기만 하고 노트를 고치거나 저장을 막지 않는다. 규칙을 적용한 프로젝트의 "문서" 탭은 먼저 읽어야 할 공식 문서를 앞세워 보여 준다(Human View). 같은 규칙으로 AI 쓰기를 판정하는 정책 엔진(`lib/docpolicy.ts`: allow / require_approval / deny, 이동·이름 바꾸기·보호 경로·버전 검사·승인 후 재검증)까지 있고, 아직 어떤 AI(MCP·LLM)에도 연결하지 않았다. 정책이 "승인 대기"로 돌린 AI 변경은 내 업무의 "검토" 화면에서 전후 차이를 보고 승인·거절하며, 승인할 때 반영 직전에 한 번 더 검증한다(문서가 그새 바뀌었으면 반영하지 않음). 규격은 [docs/DOCRULES.md](docs/DOCRULES.md).
+- **앱 안 AI — Claude Code CLI**(PC): 내 업무의 ✦ 버튼으로 노트에 대해 묻고·요약하고·변경을 제안받는다. API 키 없이 PC 에 설치·로그인된 `claude` 를 별도 프로세스로 띄우며(누를 때만), 내장 도구를 끈 채 Nosidian 도구만 쓰고 변경은 제안→승인을 거친다. 규격은 [docs/MCP.md](docs/MCP.md) "앱 안 AI".
 - **외부 AI 연결 — MCP 서버**(PC, 설정, 기본 꺼짐): Claude Code·Codex 같은 에이전트가 127.0.0.1 로 접속해(토큰 필수) 연결해 준 **vault 하나만** 검색·읽기하고(`search_notes`·`read_note`·`list_projects`·`get_document_rules`), 변경은 `propose_change` 로 **제안만** 낸다. 노트를 직접 쓰는 길은 없고 문서 규칙(정책 엔진)과 "AI 변경 제안" 승인을 거친다. 규격 [docs/MCP.md](docs/MCP.md).
 - **AI 연결**(설정, 기본 꺼짐): 제공자(Ollama · OpenAI 호환 · OpenAI · Anthropic · Gemini)와 서버 주소·모델·키를 이 기기에 저장하고 연결을 시험한다. PC 는 메인 프로세스, Android 는 네이티브 HTTP 가 대신 보내고, http 는 사설망·내 기기만 허용한다. API 키는 PC 에서는 운영체제 보안 저장소(DPAPI)로 암호화해 메인 프로세스에서만 쓰고(화면은 못 읽음), Android 는 아직 평문이다. 앱 안에서 이 연결을 부르는 기능은 아직 없다. 규격은 [docs/LLM.md](docs/LLM.md).
 - **캘린더**: 월간 / 주간 / 목록. 헤더는 `‹ 연월 ›` 다음에 `오늘` 버튼, 오른쪽에 보기 전환. 모바일은 월간(격자+선택한 날)·주간(7일 세로)·목록이 각각 다른 화면. 오늘 일정은 시작 화면 "내 업무"에도 나온다.
@@ -174,7 +175,7 @@ app/
 │  ├─ components/             Calendar, EventEditor, Widget, NoteView, Editor, Reader, Graph,
 │  │                          Search, FileTree, InfoPanel, Palette, FindBar, Settings, Onboarding, VaultSheet, Dialogs …
 │  │                          WorkHome(내 업무) · ProjectHub · TaskEditor · NewProject · ViewEditor · NewNote · Select
-│  └─ lib/*.test.ts · test/   vitest 테스트 20개 파일(업무·건강도·타임라인·타일·보기·템플릿·일정 공존·예제 vault)
+│  └─ lib/*.test.ts · test/   vitest 테스트 22개 파일(업무·건강도·타임라인·타일·보기·템플릿·일정 공존·예제 vault)
 ├─ electron/                  main.cjs(서버·창·IPC) · widget.cjs · desktopLayer.cjs · preload.cjs
 ├─ android/app/src/main/java/com/amsidian/app/
 │                             MainActivity · OpenFilePlugin · CalendarBridgePlugin · CalStore · Links
@@ -203,7 +204,7 @@ cd android && gradlew.bat assembleDebug                        # → android/app
 ```
 - **GitHub 연결**: Fine-grained PAT(대상 저장소 1개, Contents: Read and write)를 첫 화면에 입력. 저장소에 커밋이 1개 이상 있어야 한다.
 - **Google Drive / OneDrive**: 사용자가 OAuth 클라이언트 ID를 직접 넣는다(앱이 공용 ID를 제공하지 않음).
-- 린트 `npm run lint`(oxlint), 타입체크 `npx tsc -b`, **테스트 `npm test`**(vitest + jsdom + fake-indexeddb, 247개: 문서 규칙·점검·AI 정책·변경 제안·LLM 연결·MCP, 업무 문법·대기열·노트에 쓰는 연산·건강도·타임라인·타일·보기·템플릿). 화면은 실제 앱(Electron 시험 인스턴스·Android 실기기)에서 CDP 스크립트와 스크린샷으로 확인한다. 캘린더·위젯·동기화·에디터에는 자동화 테스트가 거의 없다.
+- 린트 `npm run lint`(oxlint), 타입체크 `npx tsc -b`, **테스트 `npm test`**(vitest + jsdom + fake-indexeddb, 276개: 문서 규칙·점검·AI 정책·변경 제안·LLM 연결·MCP·앱 안 AI, 업무 문법·대기열·노트에 쓰는 연산·건강도·타임라인·타일·보기·템플릿). 화면은 실제 앱(Electron 시험 인스턴스·Android 실기기)에서 CDP 스크립트와 스크린샷으로 확인한다. 캘린더·위젯·동기화·에디터에는 자동화 테스트가 거의 없다.
 - 저장 위치 이름은 옛 이름 그대로 `Amsidian`/`amsidian`(IndexedDB, Electron userData, localStorage 키). 바꾸면 기존 사용자의 데이터가 사라진 것처럼 보이므로 유지한다.
 
 ---
