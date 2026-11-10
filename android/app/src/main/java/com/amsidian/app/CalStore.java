@@ -68,6 +68,22 @@ final class CalStore {
         return out;
     }
 
+    /** 공휴일 이름 (날짜 → 이름). 스냅샷의 "holn": [[date, name], ...] */
+    static Map<String, String> holidayNames(Context c) {
+        Map<String, String> out = new HashMap<>();
+        try {
+            String s = prefs(c).getString("snapshot", null);
+            if (s == null) return out;
+            JSONArray arr = new JSONObject(s).optJSONArray("holn");
+            if (arr != null) for (int i = 0; i < arr.length(); i++) {
+                JSONArray a = arr.getJSONArray(i);
+                out.put(a.getString(0), a.getString(1));
+            }
+        } catch (Exception ignored) {
+        }
+        return out;
+    }
+
     static Set<String> holidays(Context c) {
         Set<String> out = new HashSet<>();
         try {

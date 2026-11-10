@@ -3,14 +3,15 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { useApp } from '../lib/app'
 import { t } from '../lib/i18n'
-import { fmtDay, openDay, todayYmd } from '../lib/calendar'
+import { fmtDay, todayYmd } from '../lib/calendar'
 import { addDaysYmd, buildQueues, buildWork, diffDays, parseMe, type Project, type Task, type QueueItem, type Queues, type WorkIndex } from '../lib/work'
 import { EventRow, QuickAdd, useCalMap } from './Calendar'
 import { Icon } from './Icon'
 import { Select } from './Select'
+import { TileArranger } from './TileArranger'
 import { openMyNameSetting } from './Settings'
 import { applyView, readViews, type View } from '../lib/views'
-import { customName, isCustom, LIMIT_CHOICES, moveBefore, moveTile, resolveTiles, setCollapsed, setHidden, setLimit, type BuiltinTile } from '../lib/tiles'
+import { customName, isCustom, resolveTiles, setCollapsed, setHidden, setLimit, type BuiltinTile } from '../lib/tiles'
 import { moveToProject, toggleOrClose, useWorkUi } from '../lib/workOps'
 import { projectHealth, readThresholds, type Health, type Signal } from '../lib/health'
 
@@ -135,16 +136,12 @@ interface TileData {
   custom?: View
 }
 
-const LIMIT_LABEL = (n: number) => (n === 0 ? t('모두') : t('{n}줄', { n }))
 
-function TileView({ id, data, limit, collapsed, editing, onMove, onDropOn }: {
+function TileView({ id, data, limit, collapsed }: {
   id: string
   data: TileData
   limit: number
   collapsed: boolean
-  editing: boolean
-  onMove(dir: -1 | 1): void
-  onDropOn(dragId: string): void
 }) {
   const [expanded, setExpanded] = useState(false)
   const patch = useWorkUi.getState().patchLayout
@@ -152,41 +149,13 @@ function TileView({ id, data, limit, collapsed, editing, onMove, onDropOn }: {
   const rest = data.rows.length - shown.length
   const count = data.count ?? (data.limitable ? data.rows.length : undefined)
   return (
-    <section
-      className={`wrk-sec wrk-tile ${data.tone ?? ''}${editing ? ' editing' : ''}${collapsed ? ' collapsed' : ''}`}
-      draggable={editing}
-      onDragStart={(e) => e.dataTransfer.setData('text/plain', id)}
-      onDragOver={(e) => editing && e.preventDefault()}
-      onDrop={(e) => {
-        if (!editing) return
-        e.preventDefault()
-        onDropOn(e.dataTransfer.getData('text/plain'))
-      }}
-    >
+    <section className={`wrk-sec wrk-tile ${data.tone ?? ''}${collapsed ? ' collapsed' : ''}`}>
       <div className="wrk-tilehead">
         <button className="wrk-tiletitle" aria-expanded={!collapsed} onClick={() => patch((l) => setCollapsed(l, id, !collapsed))}>
-          {(collapsed || editing) && <Icon name={collapsed ? 'chevron' : 'chevron-down'} size={14} />}
+          {collapsed && <Icon name="chevron" size={14} />}
           <span className="wrk-tname">{data.title}</span>
           {count !== undefined && <span className="wrk-count">{count}</span>}
         </button>
-        {editing && (
-          <div className="wrk-tilectl">
-            {data.limitable && (
-              <Select<string>
-                value={String(limit)}
-                title={t('처음 보일 줄 수')}
-                ariaLabel={t('처음 보일 줄 수')}
-                className="wrk-limitsel"
-                options={LIMIT_CHOICES.map((n) => ({ value: String(n), label: LIMIT_LABEL(n) }))}
-                onChange={(v) => patch((l) => setLimit(l, id, Number(v)))}
-              />
-            )}
-            {data.custom && <button className="wrk-tilebtn" onClick={() => useWorkUi.setState({ viewEditor: { view: data.custom } })}>{t('조건')}</button>}
-            <button className="icon-btn" aria-label={t('위로')} onClick={() => onMove(-1)}><Icon name="chevron-up" size={16} /></button>
-            <button className="icon-btn" aria-label={t('아래로')} onClick={() => onMove(1)}><Icon name="chevron-down" size={16} /></button>
-            <button className="wrk-tilebtn" onClick={() => patch((l) => setHidden(l, id, true))}>{t('숨기기')}</button>
-          </div>
-        )}
       </div>
       {!collapsed && (
         <div className="wrk-tilebody">
@@ -299,25 +268,21 @@ export function WorkHome() {
     }
   }
 
-  const hiddenTiles = tiles.filter((x) => x.hidden)
   const titleOf = (id: string) => (isCustom(id) ? customName(id) : t(BUILTIN_TITLE[id as BuiltinTile]))
-  const todayShown = tiles.some((x) => x.id === 'today' && !x.hidden)
 
   return (
     <div className="work">
       <div className="panel-head">
         <h2>{t('내 업무')}<small>{fmtDay(today)}</small></h2>
         <div className="head-actions">
-          <button className="icon-btn" title={t('업무 추가')} onClick={() => useWorkUi.getState().openEditor()}><Icon name="plus" /></button>
           <button className={`icon-btn${editing ? ' on' : ''}`} title={t('화면 편집')} aria-pressed={editing} onClick={() => setEditing(!editing)}><Icon name="sliders" /></button>
-          <button className="icon-btn" title={t('오늘의 노트 열기')} onClick={() => openDay(today)}><Icon name="edit" /></button>
         </div>
       </div>
       <div className="wrk-scroll">
         <div className="wrk-inner">
           {editing && (
             <div className="wrk-editbar">
-              <span>{t('타일의 순서를 바꾸고, 숨기고, 새로 만들 수 있어요.')}</span>
+              <span>{t('오른쪽 손잡이를 끌어 순서를 바꾸세요. 터치에서는 줄을 꾹 눌러도 돼요.')}</span>
               <button className="primary" onClick={() => setEditing(false)}>{t('완료')}</button>
             </div>
           )}
@@ -333,51 +298,40 @@ export function WorkHome() {
             )
           )}
 
-          {tiles.filter((x) => !x.hidden).map((tile) => {
-            const data = dataFor(tile.id)
-            if (!data) return null
-            if (!editing && !data.alwaysShow && data.rows.length === 0) return null // 비어 있는 타일은 평소엔 화면에서 빠진다
-            return (
-              <TileView
-                key={tile.id}
-                id={tile.id}
-                data={data}
-                limit={tile.limit}
-                collapsed={tile.collapsed}
-                editing={editing}
-                onMove={(dir) => patch((l) => moveTile(l, customs, tile.id, dir))}
-                onDropOn={(dragId) => dragId && patch((l) => moveBefore(l, customs, dragId, tile.id))}
+          {editing ? (
+            <>
+              <TileArranger
+                rows={tiles.map((x) => ({ ...x, title: titleOf(x.id), limitable: x.id !== 'today' && x.id !== 'projects', custom: isCustom(x.id) }))}
+                onOrder={(ids) => patch((l) => ({ ...l, order: ids }))}
+                onHidden={(id, h) => patch((l) => setHidden(l, id, h))}
+                onLimit={(id, n) => patch((l) => setLimit(l, id, n))}
+                onCondition={(id) => { const v = views.find((x) => x.name === customName(id)); if (v) useWorkUi.setState({ viewEditor: { view: v } }) }}
               />
-            )
-          })}
+              <button className="wrk-newproj" onClick={() => useWorkUi.setState({ viewEditor: {} })}>+ {t('조건으로 새 타일 만들기')}</button>
+            </>
+          ) : (
+            tiles.filter((x) => !x.hidden).map((tile) => {
+              const data = dataFor(tile.id)
+              if (!data) return null
+              if (!data.alwaysShow && data.rows.length === 0) return null // 비어 있는 타일은 화면에서 빠진다
+              return <TileView key={tile.id} id={tile.id} data={data} limit={tile.limit} collapsed={tile.collapsed} />
+            })
+          )}
 
           {!editing && work.tasks.length > 0 && q.total === 0 && q.doing.length === 0 && q.unowned.length === 0 && (
             <p className="hint pad wrk-clear">{t('밀린 일이 없습니다. 👍')}</p>
           )}
 
-          {editing && (
-            <section className="wrk-sec wrk-addtiles">
-              <div className="wrk-tilehead"><span className="wrk-tname">{t('타일 추가')}</span></div>
-              {hiddenTiles.map((x) => (
-                <div key={x.id} className="wrk-hiddenrow">
-                  <span className="wrk-hiddenname">{titleOf(x.id)}</span>
-                  <button className="wrk-tilebtn" onClick={() => patch((l) => setHidden(l, x.id, false))}>{t('보이기')}</button>
-                </div>
-              ))}
-              <button className="wrk-newproj" onClick={() => useWorkUi.setState({ viewEditor: {} })}>+ {t('조건으로 새 타일 만들기')}</button>
-            </section>
-          )}
-
           {empty && (
             <div className="wrk-guide">
               <h3>{t('프로젝트 업무를 시작해 보세요')}</h3>
-              <p>{t('위의 + 로 업무를 추가하거나, 아래 "새 프로젝트"로 템플릿에서 시작하세요. 노트 맨 위에 프로젝트 속성을 넣고 할 일 줄에 마감·담당자를 적어도 여기에 모입니다.')}</p>
+              <p>{t('아래 입력 칸에 업무를 적거나, 아래 "새 프로젝트"로 템플릿에서 시작하세요. 노트 맨 위에 프로젝트 속성을 넣고 할 일 줄에 마감·담당자를 적어도 여기에 모입니다.')}</p>
               <pre>{`---\ntype: project\nstatus: active\n---\n\n- [ ] 견적서 수정 due:2026-11-12 owner:홍길동\n- [ ] 확인 요청 status:waiting due:2026-11-14`}</pre>
             </div>
           )}
         </div>
       </div>
-      {todayShown && !editing && <div className="wrk-foot"><QuickAdd date={today} /></div>}
+      {!editing && <div className="wrk-foot"><QuickAdd date={today} /></div>}
     </div>
   )
 }

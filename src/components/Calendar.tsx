@@ -164,12 +164,13 @@ function CalHead() {
   const cal = useCal.getState()
   return (
     <div className="cal-head">
-      <h2>{view === 'week' ? `${fmtShort(weekOf(sel)[0])} – ${fmtShort(weekOf(sel)[1])}` : fmtMonth(month)}</h2>
       <div className="cal-nav">
         <button className="icon-btn" onClick={() => cal.shift(-1)} aria-label={t('이전 달')}><Icon name="back" /></button>
-        <button className="today-btn" onClick={cal.goToday}>{t('오늘')}</button>
+        <h2>{view === 'week' ? `${fmtShort(weekOf(sel)[0])} – ${fmtShort(weekOf(sel)[1])}` : fmtMonth(month)}</h2>
         <button className="icon-btn" onClick={() => cal.shift(1)} aria-label={t('다음 달')}><Icon name="forward" /></button>
       </div>
+      <button className="today-btn" onClick={cal.goToday}>{t('오늘')}</button>
+      <span className="cal-gap" />
       <div className="seg">
         <button className={view === 'month' ? 'on' : ''} onClick={() => cal.setView('month')}>{t('월간')}</button>
         <button className={view === 'week' ? 'on' : ''} onClick={() => cal.setView('week')}>{t('주간')}</button>

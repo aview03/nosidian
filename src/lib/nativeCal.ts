@@ -30,10 +30,12 @@ export function buildPayload() {
   const days = 155 // 지난 35일 ~ 앞으로 120일
   const ev: [string, string, string, number][] = []
   const hol: string[] = []
+  const holn: [string, string][] = []
   for (let i = 0; i < days && ev.length < 1500; i++) {
     const d = addDays(from, i)
     for (const e of cal.get(d) ?? []) ev.push([d, e.start ?? '', e.title, e.done ? 1 : 0])
-    if (s.settings.calHolidays && holidayOf(d)) hol.push(d)
+    const h = s.settings.calHolidays ? holidayOf(d) : null
+    if (h) { hol.push(d); holn.push([d, h]) }
   }
 
   const reminders: Reminder[] = []
@@ -53,7 +55,7 @@ export function buildPayload() {
       }
     }
   }
-  return { snapshot: JSON.stringify({ ev, hol }), reminders }
+  return { snapshot: JSON.stringify({ ev, hol, holn }), reminders }
 }
 
 async function push() {
