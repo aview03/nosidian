@@ -135,3 +135,26 @@ export function saveLayout(layout: Layout) {
     /* 저장소를 못 쓰면 이번 실행에서만 유지 */
   }
 }
+
+/** 켜 둔 타일의 순서를 바꾼다. 꺼 둔 타일은 그 뒤(아래)에 그대로 둔다 */
+export function reorderVisible(layout: Layout, customs: string[], ids: string[]): Layout {
+  const tiles = resolveTiles(layout, customs)
+  const hidden = tiles.filter((x) => x.hidden).map((x) => x.id)
+  return { ...layout, order: [...ids.filter((id) => !hidden.includes(id)), ...hidden] }
+}
+
+/** 타일을 켠다: 켜 둔 타일들의 맨 끝에 붙는다(꺼 둔 타일 위) */
+export function enableTile(layout: Layout, customs: string[], id: string): Layout {
+  const tiles = resolveTiles(layout, customs)
+  const visible = tiles.filter((x) => !x.hidden && x.id !== id).map((x) => x.id)
+  const hidden = tiles.filter((x) => x.hidden && x.id !== id).map((x) => x.id)
+  return { ...layout, order: [...visible, id, ...hidden], hidden: layout.hidden.filter((x) => x !== id) }
+}
+
+/** 타일을 끈다: 꺼 둔 타일들의 맨 앞으로 간다(방금 끈 것이 아래 목록에서 먼저 보이게) */
+export function disableTile(layout: Layout, customs: string[], id: string): Layout {
+  const tiles = resolveTiles(layout, customs)
+  const visible = tiles.filter((x) => !x.hidden && x.id !== id).map((x) => x.id)
+  const hidden = tiles.filter((x) => x.hidden && x.id !== id).map((x) => x.id)
+  return { ...layout, order: [...visible, id, ...hidden], hidden: [...new Set([...layout.hidden, id])] }
+}

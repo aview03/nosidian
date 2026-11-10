@@ -15,8 +15,7 @@ import { autoInboxCount } from './AutoSettings'
 import { Icon } from './Icon'
 import { Reader } from './Reader'
 import { Select } from './Select'
-import orbAnim from '../assets/ai-thinking.webp'
-import orbStill from '../assets/ai-thinking-still.webp'
+import { Orb } from './Orb'
 import { Diff, KIND, reasonText } from './ProposalReview'
 
 /** 변경 제안 카드: 패널 안에서 차이를 보고 승인·거절한다(승인하면 반영 직전에 한 번 더 확인한다) */
@@ -45,16 +44,6 @@ function ProposalCard({ id }: { id: string }) {
         <p className="hint small ai-prop-done">{p.status === 'applied' ? t('반영했어요') : p.status === 'rejected' ? t('거절했어요') : `${t('반영하지 못했어요')}${p.failReason ? ` — ${reasonText(p.failReason)}` : ''}`}</p>
       )}
     </section>
-  )
-}
-
-/** AI 가 일하는 중임을 보여 준다: 빛나는 구(움직이는 이미지) + 지금 하는 일. 움직임을 줄인 설정이면 정지 이미지로 */
-function Orb({ size, still }: { size: number; still?: boolean }) {
-  return (
-    <picture>
-      <source media="(prefers-reduced-motion: reduce)" srcSet={orbStill} />
-      <img className="ai-orb" src={still ? orbStill : orbAnim} alt="" width={size} height={size} draggable={false} />
-    </picture>
   )
 }
 

@@ -5,6 +5,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { t } from '../lib/i18n'
 import { LIMIT_CHOICES, type ResolvedTile } from '../lib/tiles'
+import { TILE_GROUPS, TILE_HINT, groupOfTile } from '../lib/persona'
+import type { BuiltinTile } from '../lib/tiles'
 import { Select } from './Select'
 
 const ROW_H = 56
@@ -123,6 +125,31 @@ export function TileArranger({ rows, onOrder, onHidden, onLimit, onCondition }: 
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6" /><circle cx="15" cy="6" r="1.6" /><circle cx="9" cy="12" r="1.6" /><circle cx="15" cy="12" r="1.6" /><circle cx="9" cy="18" r="1.6" /><circle cx="15" cy="18" r="1.6" /></svg>
             </span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+/** "더 추가하기": 꺼 둔 타일을 분류별로 묶어 한 줄 설명과 함께 보여 준다 */
+export function TileAdder({ rows, onAdd }: { rows: ArrangeRow[]; onAdd(id: string): void }) {
+  if (rows.length === 0) return <p className="hint small">{t('쓸 수 있는 타일을 모두 켜 두었어요.')}</p>
+  const groups = [...TILE_GROUPS.map((g) => ({ id: g.id, label: g.label })), { id: 'custom', label: '내가 만든 타일' }]
+  return (
+    <div className="tadd">
+      {groups.map((g) => {
+        const list = rows.filter((r) => groupOfTile(r.id) === g.id)
+        if (list.length === 0) return null
+        return (
+          <div key={g.id} className="tadd-group">
+            <div className="tadd-label">{t(g.label)}</div>
+            {list.map((r) => (
+              <div key={r.id} className="tadd-row">
+                <span className="tadd-text"><b>{r.title}</b><small>{r.custom ? t('조건으로 만든 타일') : t(TILE_HINT[r.id as BuiltinTile])}</small></span>
+                <button onClick={() => onAdd(r.id)} aria-label={t('{name} 추가', { name: r.title })}>{t('추가')}</button>
+              </div>
+            ))}
           </div>
         )
       })}

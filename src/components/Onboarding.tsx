@@ -1,11 +1,14 @@
 import { t } from '../lib/i18n'
 import { tx } from '../lib/tx'
-import { LangSelect } from './LangSelect'
+import { LANGS, LANG_NAMES, type LangPref } from '../lib/i18n'
 import { useState } from 'react'
 import { useApp } from '../lib/app'
 import { SYNC_LABEL, type CloudKind, type SyncKind } from '../lib/types'
 import { importFromPicker } from '../lib/importFiles'
 import { authorize, REDIRECT_HINT } from '../lib/sync/oauth'
+import { PERSONAS, PERSONA_INFO, type PersonaId } from '../lib/persona'
+import { Orb } from './Orb'
+import { setPersona } from '../lib/personaApply'
 
 export function parseRepo(input: string) {
   const m = input.trim().replace(/\.git$/, '').match(/(?:github\.com[/:])?([\w.-]+)\/([\w.-]+)\/?$/)
@@ -136,33 +139,139 @@ export function ConnectForm({ kind, onDone }: { kind: SyncKind; onDone?: () => v
   return kind === 'github' ? <GithubForm onDone={onDone} /> : <CloudForm kind={kind} onDone={onDone} />
 }
 
+/** 천천히 나타나는 묶음: delay(ms) 뒤에 부드럽게 떠오른다(움직임을 줄인 설정이면 바로 보인다) */
+function Soft({ d = 0, as: Tag = 'div', className = '', children }: { d?: number; as?: 'div' | 'p' | 'h2' | 'span'; className?: string; children: React.ReactNode }) {
+  return <Tag className={`soft-in ${className}`} style={{ ['--d' as string]: `${d}ms` }}>{children}</Tag>
+}
+
+type Step = 'lang' | 'hello' | 'name' | 'role' | 'start'
+
+/** 첫 실행: 한 번에 하나씩, 서두르지 않고 묻는다. 이름·역할은 건너뛸 수 있다 */
+function Guide({ step, setStep, children }: { step: Step; setStep(s: Step): void; children?: React.ReactNode }) {
+  const [name, setName] = useState(useApp.getState().settings.myName)
+  const [role, setRole] = useState<PersonaId | null>(null)
+  const save = () => {
+    const app = useApp.getState()
+    if (name.trim()) app.patchSettings({ myName: name.trim() })
+    if (role) setPersona(role)
+  }
+  const call = name.trim()
+  const lang = useApp((x) => x.settings.lang)
+  if (step === 'lang') {
+    return (
+      <div className="ob-step" key="lang">
+        <Soft d={0} className="ob-orbwrap"><Orb size={104} className="ob-orb" /></Soft>
+        <Soft as="h2" d={500} className="ob-q">{t('언어를 선택해 주세요')}</Soft>
+        <Soft as="p" d={1100} className="ob-sub">Choose your language</Soft>
+        <div className="ob-roles ob-langs" role="radiogroup" aria-label="Language">
+          {(['auto', ...LANGS] as LangPref[]).map((l, i) => (
+            <Soft key={l} d={1500 + i * 110} className="ob-roleslot">
+              <button className={`ob-role ob-lang${lang === l ? ' on' : ''}`} role="radio" aria-checked={lang === l} onClick={() => useApp.getState().patchSettings({ lang: l })}>
+                <b>{l === 'auto' ? t('시스템 설정 따라가기') : LANG_NAMES[l]}</b>
+              </button>
+            </Soft>
+          ))}
+        </div>
+        <Soft d={2500} className="ob-actions"><button className="primary big" onClick={() => setStep('hello')}>{t('계속')}</button></Soft>
+      </div>
+    )
+  }
+  if (step === 'hello') {
+    return (
+      <div className="ob-step" key="hello">
+        <Soft d={0} className="ob-orbwrap"><Orb size={104} className="ob-orb" /></Soft>
+        <Soft as="h2" d={500} className="ob-q">{t('안녕하세요')}</Soft>
+        <Soft as="p" d={1300} className="ob-sub">{t('천천히, 편하게 시작해 볼게요')}</Soft>
+        <Soft d={2300} className="ob-actions"><button className="primary big" onClick={() => setStep('name')}>{t('좋아요')}</button></Soft>
+      </div>
+    )
+  }
+  if (step === 'name') {
+    return (
+      <div className="ob-step" key="name">
+        <Soft d={0} className="ob-orbwrap"><Orb size={72} className="ob-orb" /></Soft>
+        <Soft as="h2" d={300} className="ob-q">{t('먼저, 어떻게 불러 드리면 좋을까요?')}</Soft>
+        <Soft d={1100} className="ob-field">
+          <input className="ob-name" value={name} placeholder={t('이름이나 별명')} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) setStep('role') }} autoFocus />
+          <small>{t('나중에 언제든 바꿀 수 있어요')}</small>
+        </Soft>
+        <Soft d={1700} className="ob-actions">
+          <button className="primary big" onClick={() => setStep('role')}>{call ? t('다음') : t('다음에 할게요')}</button>
+        </Soft>
+      </div>
+    )
+  }
+  if (step === 'role') {
+    return (
+      <div className="ob-step" key="role">
+        <Soft d={0} className="ob-orbwrap"><Orb size={72} className="ob-orb" /></Soft>
+        <Soft as="h2" d={300} className="ob-q">{call ? t('{name}님은 주로 어떤 일을 하세요?', { name: call.split(',')[0].trim() }) : t('주로 어떤 일을 하세요?')}</Soft>
+        <Soft as="p" d={1000} className="ob-sub">{t('그에 맞춰 첫 화면을 꾸며 드릴게요')}</Soft>
+        <div className="ob-roles" role="radiogroup" aria-label={t('내가 하는 일')}>
+          {PERSONAS.map((p, i) => (
+            <Soft key={p} d={1500 + i * 140} className="ob-roleslot">
+              <button className={`ob-role${role === p ? ' on' : ''}`} role="radio" aria-checked={role === p} onClick={() => setRole(role === p ? null : p)}>
+                <b>{t(PERSONA_INFO[p].label)}</b>
+                <small>{t(PERSONA_INFO[p].hint)}</small>
+              </button>
+            </Soft>
+          ))}
+        </div>
+        <Soft d={2500} className="ob-actions">
+          <button className="primary big" onClick={() => { save(); setStep('start') }}>{role ? t('다음') : t('아직 모르겠어요')}</button>
+        </Soft>
+      </div>
+    )
+  }
+  return <div className="ob-step" key="start">{children}</div>
+}
+
 export function Onboarding() {
   const [kind, setKind] = useState<SyncKind | null>(null)
+  const [step, setStep] = useState<Step>(() => {
+    const st = useApp.getState().settings
+    return st.myName.trim() || st.persona ? 'start' : 'lang' // 이미 정한 적이 있으면 묻지 않는다
+  })
+  useApp((x) => x.settings.lang) // 언어를 고르면 바로 그 언어로 다시 그린다
   return (
     <div className="onboard">
       <div className="onboard-card">
-        <img className="logo" src="/logo.png" alt="Nosidian" />
-        <h1>Nosidian</h1>
-        <div className="tag-line">
-          <p className="tag-head">{t('Markdown, 딱 필요한 만큼만.')}</p>
-          <p className="tag-sub">{t('기록하고, 연결하고, 자유롭게 보관하세요.')}<br />{t('복잡한 기능 없이 기본에 충실한 Markdown 공간.')}</p>
-        </div>
-        <div className="onboard-lang"><LangSelect /></div>
-        {kind === null ? (
-          <div className="onboard-actions">
-            {(Object.keys(SYNC_LABEL) as SyncKind[]).map((k) => (
-              <button key={k} className="big" onClick={() => setKind(k)}>{SYNC_LABEL[k]}</button>
-            ))}
-            <button className="big" onClick={() => void importFromPicker()}>{t('내 기기의 md 파일 열기')}</button>
-            <button className="link-btn" onClick={() => void useApp.getState().startDemo()}>{t('예제 노트로 둘러보기')}</button>
-          </div>
-        ) : (
-          <>
-            <h2 className="step-title">{t('{name} 연결', { name: SYNC_LABEL[kind] })}</h2>
-            <ConnectForm kind={kind} />
-            <button className="link-btn" onClick={() => setKind(null)}>{t('← 처음으로')}</button>
-          </>
+        {step === 'start' && (
+          <Soft d={0}>
+            <img className="logo" src="/logo.png" alt="Nosidian" />
+            <h1>Nosidian</h1>
+            <div className="tag-line">
+              <p className="tag-head">{t('Markdown, 딱 필요한 만큼만.')}</p>
+              <p className="tag-sub">{t('기록하고, 연결하고, 자유롭게 보관하세요.')}<br />{t('복잡한 기능 없이 기본에 충실한 Markdown 공간.')}</p>
+            </div>
+          </Soft>
         )}
+        {step === 'hello' && <Soft d={0}><h1 className="ob-brand">Nosidian</h1></Soft>}
+        <Guide step={step} setStep={setStep}>
+          {kind === null ? (
+            <>
+              <Soft as="h2" d={200} className="ob-q">{t('노트는 어떻게 시작해 볼까요?')}</Soft>
+              <div className="onboard-actions">
+                <Soft d={700}><button className="primary big" onClick={() => void useApp.getState().startDemo()}>{t('예제 노트로 둘러보기')}</button></Soft>
+                <Soft d={900}><button className="big" onClick={() => void importFromPicker()}>{t('내 기기의 md 파일 열기')}</button></Soft>
+                <Soft d={1100} className="ob-connect">
+                  <small>{t('이미 쓰는 노트가 있다면 연결해서 가져와요')}</small>
+                  <div className="ob-connect-row">
+                    {(Object.keys(SYNC_LABEL) as SyncKind[]).map((k) => (
+                      <button key={k} onClick={() => setKind(k)}>{SYNC_LABEL[k]}</button>
+                    ))}
+                  </div>
+                </Soft>
+              </div>
+            </>
+          ) : (
+            <>
+              <h2 className="step-title">{t('{name} 연결', { name: SYNC_LABEL[kind] })}</h2>
+              <ConnectForm kind={kind} />
+              <button className="link-btn" onClick={() => setKind(null)}>{t('← 처음으로')}</button>
+            </>
+          )}
+        </Guide>
       </div>
     </div>
   )

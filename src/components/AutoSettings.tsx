@@ -9,6 +9,7 @@ import { analysisEngine, runDry, useAutomation, type HoldReason } from '../lib/a
 import { CAPS, DEBOUNCES, changedPaths, describePolicy, inboxCount, usedToday, type AutoMode, type QueueItem, type SkipReason } from '../lib/autoTriggers'
 import type { LintKind } from '../lib/doclint'
 import { Select } from './Select'
+import { Orb } from './Orb'
 
 const KIND: Record<LintKind, string> = {
   duplicate: '중복 문서 후보', singletonDup: '하나뿐이어야 하는 역할이 둘 이상', roleConflict: '역할 충돌', roleMisplaced: '역할의 자리가 어긋남',
@@ -193,7 +194,7 @@ function InboxItem({ q, files }: { q: QueueItem; files: ReturnType<typeof useApp
       ) : (
         <>
           <div className="auto-state">
-            {q.status === 'running' ? t('AI 가 분석하는 중이에요…') : q.status === 'failed' ? t('분석하지 못했어요') : q.retryAt && q.retryAt > Date.now() ? t('분석에 실패해서 잠시 뒤 다시 시도해요') : q.interrupted ? t('AI 대화 때문에 잠시 멈췄어요. 이어서 분석해요') : t('AI 분석 대기')} · {when(q.createdAt)}
+            {q.status === 'running' ? <><Orb size={22} className="auto-orb" />{t('AI 가 분석하는 중이에요…')}</> : q.status === 'failed' ? t('분석하지 못했어요') : q.retryAt && q.retryAt > Date.now() ? t('분석에 실패해서 잠시 뒤 다시 시도해요') : q.interrupted ? t('AI 대화 때문에 잠시 멈췄어요. 이어서 분석해요') : t('AI 분석 대기')} · {when(q.createdAt)}
           </div>
           <div className="auto-act">
             {q.status === 'failed' && <button className="btn-link" onClick={() => au.reanalyze(q.id)}>{t('다시 시도')}</button>}

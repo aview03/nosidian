@@ -5,6 +5,10 @@ import { CalendarBridge, isAndroid } from '../lib/nativeCal'
 import { t, getLang } from '../lib/i18n'
 import { tx } from '../lib/tx'
 import { LangSelect } from './LangSelect'
+import { PERSONAS, PERSONA_INFO, matchesPreset } from '../lib/persona'
+import { applyPersonaLayout, personaOf, setPersona } from '../lib/personaApply'
+import { useWorkUi } from '../lib/workOps'
+import { Select } from './Select'
 import { LlmCard } from './LlmSettings'
 import { McpCard } from './McpSettings'
 import { AutoCard } from './AutoSettings'
@@ -36,6 +40,33 @@ export function openMyNameSetting() {
 }
 
 /** 내 이름: 입력해 두고 "적용"을 눌러야 반영된다. 적용된 값과 같으면 버튼은 꺼져 있다 */
+/** 내 프로필: 이름 + 내가 하는 일(역할). 설정 맨 위 */
+function ProfileCard() {
+  const persona = useApp((x) => personaOf(x.settings.persona))
+  const apply = useApp((x) => x.settings.personaApply)
+  const layout = useWorkUi((x) => x.layout)
+  const options = [{ value: '', label: t('정하지 않음') }, ...PERSONAS.map((p) => ({ value: p as string, label: t(PERSONA_INFO[p].label), hint: t(PERSONA_INFO[p].hint) }))]
+  return (
+    <section className="card profile">
+      <h3>{t('내 프로필')}</h3>
+      <MyNameField />
+      <p className="hint small">{t('할 일 줄의 owner:이름 이 내 이름과 같은 일만 내 업무에 모아 보여 줍니다. 쉼표로 여러 이름(별명)을 쓸 수 있어요.')}</p>
+      <div className="kv"><span>{t('내가 하는 일')}</span>
+        <Select<string> value={persona ?? ''} options={options} title={t('내가 하는 일')} onChange={(v) => setPersona(personaOf(v || null))} />
+      </div>
+      <label className="auto-check consent">
+        <input type="checkbox" checked={apply} onChange={(e) => useApp.getState().patchSettings({ personaApply: e.target.checked })} />
+        <span>{t('역할에 맞춰 내 업무 화면 구성하기')}<small>{t('켜 두면 역할을 바꿀 때 내 업무의 기본 구성도 함께 바뀌어요. 끄면 역할은 표시만 하고 지금 구성을 그대로 둬요.')}</small></span>
+      </label>
+      {persona && (
+        <div className="kv"><span>{matchesPreset(persona, layout) ? t('지금 구성이 이 역할의 기본 구성이에요') : t('내가 바꾼 구성이에요')}</span>
+          <button disabled={matchesPreset(persona, layout)} onClick={() => applyPersonaLayout(persona)}>{t('이 역할의 기본 구성으로 되돌리기')}</button>
+        </div>
+      )}
+    </section>
+  )
+}
+
 function MyNameField() {
   const saved = useApp((x) => x.settings.myName)
   const [draft, setDraft] = useState(saved)
@@ -80,6 +111,7 @@ export function Settings() {
     <div className="settings">
       <div className="panel-head"><h2>{t('설정')}</h2></div>
       <div className="settings-scroll">
+        <ProfileCard />
         {vault && (
           <section className="card">
             <h3>Vault</h3>
@@ -147,11 +179,6 @@ export function Settings() {
             <p className="hint small">{t('위젯의 날짜나 일정을 누르면 앱의 그 날로 이동하고, + 를 누르면 바로 일정을 추가할 수 있습니다.')}</p>
           </section>
         )}
-        <section className="card">
-          <h3>{t('업무')}</h3>
-          <MyNameField />
-          <p className="hint small">{t('할 일 줄의 owner:이름 이 내 이름과 같은 일만 내 업무에 모아 보여 줍니다. 쉼표로 여러 이름(별명)을 쓸 수 있어요.')}</p>
-        </section>
         <LlmCard />
         <ClaudeCliCard />
         <McpCard />

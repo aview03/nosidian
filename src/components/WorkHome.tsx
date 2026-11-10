@@ -8,11 +8,12 @@ import { addDaysYmd, buildQueues, buildWork, diffDays, parseMe, type Project, ty
 import { EventRow, QuickAdd, useCalMap } from './Calendar'
 import { Icon } from './Icon'
 import { Select } from './Select'
-import { TileArranger } from './TileArranger'
+import { TileAdder, TileArranger } from './TileArranger'
+import { Orb } from './Orb'
 import { ProposalBanner } from './ProposalReview'
 import { openMyNameSetting } from './Settings'
 import { applyView, readViews, type View } from '../lib/views'
-import { customName, isCustom, resolveTiles, setCollapsed, setHidden, setLimit, type BuiltinTile } from '../lib/tiles'
+import { customName, disableTile, enableTile, isCustom, reorderVisible, resolveTiles, setCollapsed, setLimit, type BuiltinTile } from '../lib/tiles'
 import { moveToProject, toggleOrClose, useWorkUi } from '../lib/workOps'
 import { projectHealth, readThresholds, type Health, type Signal } from '../lib/health'
 
@@ -270,6 +271,7 @@ export function WorkHome() {
   }
 
   const titleOf = (id: string) => (isCustom(id) ? customName(id) : t(BUILTIN_TITLE[id as BuiltinTile]))
+  const arrRows = tiles.map((x) => ({ ...x, title: titleOf(x.id), limitable: x.id !== 'today' && x.id !== 'projects', custom: isCustom(x.id) }))
 
   return (
     <div className="work">
@@ -287,7 +289,7 @@ export function WorkHome() {
         <div className="wrk-inner">
           {editing && (
             <div className="wrk-editbar">
-              <span>{t('오른쪽 손잡이를 끌어 순서를 바꾸세요. 터치에서는 줄을 꾹 눌러도 돼요.')}</span>
+              <span>{t('켜 둔 타일은 끌어서 순서를 바꾸고, 안 쓰는 타일은 스위치를 꺼서 아래로 내리세요. 터치에서는 줄을 꾹 눌러도 돼요.')}</span>
             </div>
           )}
 
@@ -306,13 +308,16 @@ export function WorkHome() {
 
           {editing ? (
             <>
+              <div className="arr-title">{t('켜 둔 타일')}</div>
               <TileArranger
-                rows={tiles.map((x) => ({ ...x, title: titleOf(x.id), limitable: x.id !== 'today' && x.id !== 'projects', custom: isCustom(x.id) }))}
-                onOrder={(ids) => patch((l) => ({ ...l, order: ids }))}
-                onHidden={(id, h) => patch((l) => setHidden(l, id, h))}
+                rows={arrRows.filter((x) => !x.hidden)}
+                onOrder={(ids) => patch((l) => reorderVisible(l, customs, ids))}
+                onHidden={(id, h) => patch((l) => (h ? disableTile(l, customs, id) : enableTile(l, customs, id)))}
                 onLimit={(id, n) => patch((l) => setLimit(l, id, n))}
                 onCondition={(id) => { const v = views.find((x) => x.name === customName(id)); if (v) useWorkUi.setState({ viewEditor: { view: v } }) }}
               />
+              <div className="arr-title">{t('더 추가하기')}</div>
+              <TileAdder rows={arrRows.filter((x) => x.hidden)} onAdd={(id) => patch((l) => enableTile(l, customs, id))} />
               <button className="wrk-newproj" onClick={() => useWorkUi.setState({ viewEditor: {} })}>+ {t('조건으로 새 타일 만들기')}</button>
             </>
           ) : (
@@ -330,6 +335,7 @@ export function WorkHome() {
 
           {empty && (
             <div className="wrk-guide">
+              <div className="wrk-guide-orb"><Orb size={64} className="ob-orb" /></div>
               <h3>{t('프로젝트를 만들어 시작해 보세요')}</h3>
               <p>{t('프로젝트를 만들면 할 일, 문서, 일정이 한곳에 모여요. 템플릿을 고르면 바로 시작할 수 있어요.')}</p>
               <div className="wrk-guide-actions"><button className="primary" onClick={() => useWorkUi.setState({ wizard: true })}>{t('새 프로젝트 만들기')}</button></div>
