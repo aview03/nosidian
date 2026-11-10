@@ -899,6 +899,21 @@ export async function uploadOthers(list: File[], dir: string): Promise<{ done: s
   return { done, failed }
 }
 
+/** 올린 파일(노트가 아닌 파일) 하나를 저장소에서 지운다. 다른 기기에서도 다음 동기화 때 사라진다 */
+export async function deleteOther(path: string): Promise<void> {
+  const { settings, assets } = useApp.getState()
+  if (!settings.remote) throw new Error(t('저장소에 연결돼 있지 않아요'))
+  if (!assets[path]) return
+  const prov = providerOf(settings.remote)
+  await prov.push([{ path, content: null }], t('파일 삭제: {name}', { name: path.split('/').pop()! }))
+  useApp.setState((s) => {
+    const next = { ...s.assets }
+    delete next[path]
+    return { assets: next }
+  })
+  void db.delAsset(path)
+}
+
 /** 노트·이미지가 아닌 파일 하나를 원격 저장소에서 받아 base64 로 돌려준다(저장해 두지 않는다) */
 export async function fetchOther(path: string): Promise<string> {
   const { settings, assets } = useApp.getState()

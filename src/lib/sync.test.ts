@@ -156,3 +156,16 @@ describe('파일 올리기(uploadOthers)', () => {
     }
   })
 })
+
+describe('파일 삭제(deleteOther)', () => {
+  it('저장소에서 지우고 목록에서도 뺀다(원격에 없는 경로는 건드리지 않는다)', async () => {
+    const { uploadOthers, deleteOther } = await import('./app')
+    await uploadOthers([new File([new Uint8Array([1, 2])], 'gone.zip')], '')
+    expect(remote.files.has('gone.zip')).toBe(true)
+    await deleteOther('gone.zip')
+    expect(remote.files.has('gone.zip')).toBe(false)
+    expect(useApp.getState().assets['gone.zip']).toBeUndefined()
+    expect(remote.files.has('a.md')).toBe(true)
+    await deleteOther('never.zip') // 목록에 없으면 아무 일도 하지 않는다
+  })
+})

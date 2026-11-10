@@ -11,4 +11,4 @@ vault 저장소(GitHub·Google Drive·OneDrive)에 있는 `.md`·이미지가 �
 ## 2단계: 파일 올리기 (v1.35.0)
 - 메모 탭 "파일" 구역의 **올리기**(저장소가 연결돼 있을 때): 지금 폴더에 파일을 올린다(여러 개 가능). 바이너리는 `PushChange.b64` 로 — GitHub 는 `encoding: base64` blob, Drive 는 바이너리 multipart/PATCH, OneDrive 는 PUT.
 - 규칙(`uploadProblem`/`uploadPath`): `.md` 는 "가져오기"로, 숨김·빈 파일 거절, 1개 최대 25MB, 같은 이름이면 `이름 (2).확장자`. 하나씩 올려 실패한 것만 알린다.
-- 아직 없음: 올린 파일 삭제·이름 바꾸기·폴더로 옮기기, 폰에서 고친 파일 덮어쓰기, Claude 의 파일 생성.
+- v1.35.1: 파일 행의 "삭제"(확인 후 저장소에서 삭제, `deleteOther`). 아직 없음: 이름 바꾸기·폴더로 옮기기(내려받아 다시 올려야 함), 폰에서 고친 파일 덮어쓰기, Claude 의 파일 생성.

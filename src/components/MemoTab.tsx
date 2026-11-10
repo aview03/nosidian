@@ -14,7 +14,7 @@ import { useAiThread } from '../lib/aiThread'
 import { getLang } from '../lib/i18n'
 import { importFromPicker } from '../lib/importFiles'
 import { Capacitor } from '@capacitor/core'
-import { fetchOther, uploadOthers } from '../lib/app'
+import { deleteOther, fetchOther, uploadOthers } from '../lib/app'
 import { formatSize, gate, gateMessage, handOver, othersIn, type OtherFile } from '../lib/attachments'
 import { Icon } from './Icon'
 import { openNewFolder } from './NewNote'
@@ -345,6 +345,20 @@ export function MemoTab({ sync }: { sync?: ReactNode }) {
       setUploading(false)
     }
   }
+  /** 저장소에서 파일을 지운다(다른 기기에서도 사라진다). 되돌릴 수 없으니 먼저 묻는다 */
+  const removeFile = async (f: OtherFile) => {
+    if (busyFile) return
+    if (!(await confirmAsk(t('"{name}" 파일을 지울까요?', { name: f.name }), t('저장소에서 지워져서 다른 기기에서도 사라져요.'), t('삭제'), true))) return
+    setBusyFile(f.path)
+    try {
+      await deleteOther(f.path)
+      app.say(t('지웠어요: {name}', { name: f.name }))
+    } catch (e) {
+      app.say(t('지우지 못했어요: {why}', { why: e instanceof Error ? e.message : String(e) }))
+    } finally {
+      setBusyFile(null)
+    }
+  }
   const fileRow = (f: OtherFile) => (
     <button key={'f:' + f.path} className="memo-row memo-file" disabled={!!sel} onClick={() => void getFile(f)}>
       <span className="memo-ico"><Icon name="import" size={20} /></span>
@@ -353,6 +367,7 @@ export function MemoTab({ sync }: { sync?: ReactNode }) {
         <span className="memo-snip">{busyFile === f.path ? t('받는 중…') : t('눌러서 받기')}</span>
       </span>
       <span className="memo-date">{formatSize(f.size)}</span>
+      {hasRemote && <span className="memo-chip danger" role="button" tabIndex={0} onClick={(e) => { e.stopPropagation(); void removeFile(f) }}>{t('삭제')}</span>}
     </button>
   )
   const noteRow = (n: MemoNote) => (

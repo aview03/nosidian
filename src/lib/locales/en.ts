@@ -1134,5 +1134,10 @@ const dict: Record<string, string> = {
   '숨김 파일({name})은 올릴 수 없어요': "Hidden files ({name}) cannot be uploaded",
   '빈 파일({name})은 올릴 수 없어요': "Empty files ({name}) cannot be uploaded",
   '{name}은(는) 너무 커요(최대 {max})': "{name} is too large (max {max})",
+  '"{name}" 파일을 지울까요?': "Delete \"{name}\"?",
+  '저장소에서 지워져서 다른 기기에서도 사라져요.': "It is removed from the storage and disappears on your other devices too.",
+  '지웠어요: {name}': "Deleted: {name}",
+  '지우지 못했어요: {why}': "Could not delete: {why}",
+  '파일 삭제: {name}': "Delete file: {name}",
 }
 export default dict
