@@ -293,7 +293,7 @@ function PcStep({ onBack, onDone }: { onBack(): void; onDone(e: 'claude' | 'olla
       <button className="big" disabled={!text.trim() || c.kind === 'busy'} onClick={() => void connect()}>{t('코드로 연결')}</button>
       <CheckLine c={c} />
       <button className="link-btn" onClick={onBack}>{t('← 다른 방법')}</button>
-      {scan && <QrScan onClose={() => setScan(false)} onResult={(p) => { setScan(false); void connect(p) }} />}
+      {scan && <QrScan parse={parsePairing} onClose={() => setScan(false)} onResult={(p) => { setScan(false); void connect(p) }} />}
     </>
   )
 }

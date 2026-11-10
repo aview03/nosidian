@@ -9,6 +9,7 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(OpenFilePlugin.class);
         registerPlugin(CalendarBridgePlugin.class);
+        registerPlugin(PinnedHttpPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }

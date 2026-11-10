@@ -98,7 +98,32 @@ export interface RelayApi {
   revoke(id: string): Promise<RelayStatus>
   upstream(cfg: { kind: string; baseUrl: string; model: string; keyStored?: boolean } | null): Promise<boolean>
 }
+export interface ShareStatus {
+  enabled: boolean
+  running: boolean
+  port: number
+  ips: string[]
+  /** 공유 폴더(절대 경로). 지정 전이면 null */
+  dir: string | null
+  code: string | null
+  /** 연결 문자열("nsf1:ip,ip:port:code:지문") — QR·복사에 쓴다. 인증서 지문이 들어 있다 */
+  pair: string | null
+  fingerprint: string
+  devices: { id: string; name: string; createdAt: number; lastSeen: number }[]
+  error: string | null
+  /** pickDir 직후: 폴더를 공유할 수 없는 이유(없으면 null/undefined) */
+  pickError?: string | null
+}
+export interface ShareApi {
+  get(): Promise<ShareStatus>
+  set(patch: { enabled?: boolean }): Promise<ShareStatus>
+  pickDir(): Promise<ShareStatus>
+  clearDir(): Promise<ShareStatus>
+  newCode(): Promise<ShareStatus>
+  revoke(id: string): Promise<ShareStatus>
+}
 export interface DesktopApi {
+  share?: ShareApi
   relay?: RelayApi
   claude?: ClaudeApi
   mcp?: McpApi

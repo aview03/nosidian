@@ -1,7 +1,7 @@
 {
   "name": "app",
   "private": true,
-  "version": "1.37.0",
+  "version": "1.38.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -42,6 +42,7 @@
     "qrcode": "^1.5.4",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
+    "selfsigned": "^5.5.0",
     "zustand": "^5.0.16"
   },
   "devDependencies": {

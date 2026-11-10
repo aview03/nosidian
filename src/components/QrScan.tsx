@@ -1,15 +1,17 @@
 // 카메라로 QR 을 읽는다(휴대폰의 "내 PC에 연결"). 웹뷰의 카메라(getUserMedia)와 jsQR 로 직접 해독한다 — 별도 네이티브 플러그인이 없다.
-// 연결 코드 모양이 맞는 QR 만 받아들인다(parsePairing). 카메라를 못 쓰면 이유를 알리고, 코드를 직접 입력하게 한다.
+// 해석(parse)이 되는 QR 만 받아들인다. 카메라를 못 쓰면 이유를 알리고, 코드를 직접 입력하게 한다.
 import { useEffect, useRef, useState } from 'react'
 import jsQR from 'jsqr'
 import { t } from '../lib/i18n'
-import { parsePairing, type Pairing } from '../lib/pcLink'
 import { Icon } from './Icon'
 
-export function QrScan({ onResult, onClose }: { onResult(p: Pairing): void; onClose(): void }) {
+export function QrScan<T>({ parse, onResult, onClose }: { /** QR 글자를 해석한다. 우리 연결 문자열이 아니면 null(그 QR 은 무시) */ parse(raw: string): T | null; onResult(p: T): void; onClose(): void }) {
   const video = useRef<HTMLVideoElement>(null)
   const canvas = useRef<HTMLCanvasElement>(null)
   const [err, setErr] = useState('')
+  // 부모가 다시 그려져도 카메라를 다시 켜지 않도록 콜백은 ref 로 들고 있는다
+  const cb = useRef({ parse, onResult })
+  cb.current = { parse, onResult }
 
   useEffect(() => {
     let stream: MediaStream | null = null
@@ -43,10 +45,10 @@ export function QrScan({ onResult, onClose }: { onResult(p: Pairing): void; onCl
           ctx.drawImage(v, 0, 0, w, h)
           const q = jsQR(ctx.getImageData(0, 0, w, h).data, w, h, { inversionAttempts: 'dontInvert' })
           if (!q) return
-          const p = parsePairing(q.data)
+          const p = cb.current.parse(q.data)
           if (p) {
             stop()
-            onResult(p)
+            cb.current.onResult(p)
           }
         }
         raf = requestAnimationFrame(tick)
@@ -56,7 +58,7 @@ export function QrScan({ onResult, onClose }: { onResult(p: Pairing): void; onCl
       }
     })()
     return stop
-  }, [onResult])
+  }, [])
 
   return (
     <div className="qr-wrap" role="dialog" aria-label={t('QR 스캔')}>

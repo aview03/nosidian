@@ -22,6 +22,7 @@ import { NewProject } from './components/NewProject'
 import { NewNote } from './components/NewNote'
 import { ViewEditor } from './components/ViewEditor'
 import { ProposalReview } from './components/ProposalReview'
+import { PcFilesSheet } from './components/PcFilesCard'
 import { AiPanel } from './components/AiPanel'
 import { startAiThread, useAiThread } from './lib/aiThread'
 import { startAutomation, useAutomation } from './lib/automation'
@@ -264,6 +265,7 @@ export default function App() {
         <NewNote />
         <ViewEditor />
         <ProposalReview />
+        <PcFilesSheet />
         <VaultSheet />
         <Dialogs />
       </div>
@@ -304,6 +306,7 @@ export default function App() {
         <NewNote />
         <ViewEditor />
         <ProposalReview />
+        <PcFilesSheet />
       <VaultSheet />
       <Dialogs />
     </div>

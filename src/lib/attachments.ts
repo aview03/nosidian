@@ -92,7 +92,7 @@ const baseName = (p: string) => p.split('/').pop()!.replace(/[\\/:*?"<>|]/g, '_'
 export async function handOver(path: string, b64: string): Promise<void> {
   const name = baseName(path)
   if (Capacitor.isNativePlatform()) {
-    const w = await Filesystem.writeFile({ path: `nosidian-files/${Date.now()}-${name}`, data: b64, directory: Directory.Cache, recursive: true })
+    const w = await Filesystem.writeFile({ path: `nosidian-files/${Date.now()}/${name}`, data: b64, directory: Directory.Cache, recursive: true })
     await Share.share({ title: name, url: w.uri, dialogTitle: name })
     return
   }

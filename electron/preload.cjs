@@ -35,6 +35,14 @@ contextBridge.exposeInMainWorld('amsidianDesktop', {
     },
   },
   /** 휴대폰에서 이 PC 의 AI 쓰기(중계): 켜기·연결 코드·기기 목록·PC 에 저장된 AI 연결 알림 */
+  share: {
+    get: () => ipcRenderer.invoke('share:get'),
+    set: (patch) => ipcRenderer.invoke('share:set', patch),
+    pickDir: () => ipcRenderer.invoke('share:pickDir'),
+    clearDir: () => ipcRenderer.invoke('share:clearDir'),
+    newCode: () => ipcRenderer.invoke('share:newCode'),
+    revoke: (id) => ipcRenderer.invoke('share:revoke', id),
+  },
   relay: {
     get: () => ipcRenderer.invoke('relay:get'),
     set: (patch) => ipcRenderer.invoke('relay:set', patch),

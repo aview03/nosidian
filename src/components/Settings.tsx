@@ -13,6 +13,8 @@ import { McpCard } from './McpSettings'
 import { AutoCard } from './AutoSettings'
 import { AiWizard } from './AiWizard'
 import { RelayCard } from './RelayCard'
+import { ShareCard } from './ShareCard'
+import { PcFilesCard } from './PcFilesCard'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { create } from 'zustand'
 import { useApp } from '../lib/app'
@@ -227,6 +229,8 @@ function NotesGroup() {
     <>
       <VaultCard />
       <SyncCard />
+      <ShareCard />
+      <PcFilesCard />
       <section className="card">
         <h3>{t('오늘의 노트')}</h3>
         <div className="kv"><span>{t('저장 폴더')}</span>

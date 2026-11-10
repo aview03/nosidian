@@ -1463,3 +1463,6 @@ input.inline.wide { width: 100%; box-sizing: border-box; height: 42px; }
 .memo-sec-row .memo-chip { background: transparent; }
 .memo-files-empty { margin: 6px 16px 10px; }
 .memo-file .memo-chip.danger { border-color: var(--border); color: var(--muted); margin-left: 8px; }
+.share-dir { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; min-width: 0; }
+.share-dir b { font-weight: 500; font-size: 13px; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; }
+.share-fp { font-variant-numeric: tabular-nums; letter-spacing: .3px; }
