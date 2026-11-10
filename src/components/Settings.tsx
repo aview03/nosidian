@@ -1,7 +1,6 @@
 import { askNotifyPermission } from '../lib/reminders'
 import { pruneAllDaily } from '../lib/calendar'
 import { desktop, type WidgetState } from '../lib/externalIO'
-import { CalendarBridge, isAndroid } from '../lib/nativeCal'
 import { t, getLang } from '../lib/i18n'
 import { tx } from '../lib/tx'
 import { LangSelect } from './LangSelect'
@@ -19,6 +18,8 @@ import { useApp } from '../lib/app'
 import { confirmAsk } from '../lib/dialog'
 import { SYNC_LABEL, type SyncKind } from '../lib/types'
 import { ConnectForm } from './Onboarding'
+import { Icon } from './Icon'
+import { DOCRULES_PATH } from '../lib/docrules'
 import { createVaultFlow, deleteVaultFlow, renameVaultFlow, useActiveVault, vaultSub } from './VaultSheet'
 
 function ago(ts: number | null) {
@@ -36,6 +37,7 @@ const KINDS = Object.keys(SYNC_LABEL) as SyncKind[]
 const useFocusName = create<{ want: boolean }>(() => ({ want: false }))
 export function openMyNameSetting() {
   useFocusName.setState({ want: true })
+  useSettingsUi.setState({ group: 'profile' })
   useApp.getState().go('settings')
 }
 
@@ -50,17 +52,17 @@ function ProfileCard() {
     <section className="card profile">
       <h3>{t('내 프로필')}</h3>
       <MyNameField />
-      <p className="hint small">{t('할 일 줄의 owner:이름 이 내 이름과 같은 일만 내 업무에 모아 보여 줍니다. 쉼표로 여러 이름(별명)을 쓸 수 있어요.')}</p>
+      <p className="hint small">{t('내 업무에는 담당자(owner:)가 내 이름인 일만 모여요. 쉼표로 별명도 넣을 수 있어요.')}</p>
       <div className="kv"><span>{t('내가 하는 일')}</span>
         <Select<string> value={persona ?? ''} options={options} title={t('내가 하는 일')} onChange={(v) => setPersona(personaOf(v || null))} />
       </div>
       <label className="auto-check consent">
         <input type="checkbox" checked={apply} onChange={(e) => useApp.getState().patchSettings({ personaApply: e.target.checked })} />
-        <span>{t('역할에 맞춰 내 업무 화면 구성하기')}<small>{t('켜 두면 역할을 바꿀 때 내 업무의 기본 구성도 함께 바뀌어요. 끄면 역할은 표시만 하고 지금 구성을 그대로 둬요.')}</small></span>
+        <span>{t('역할에 맞춰 내 업무 화면 구성하기')}<small>{t('끄면 역할은 표시만 하고, 내 업무 구성은 그대로 둬요.')}</small></span>
       </label>
       {persona && (
         <div className="kv"><span>{matchesPreset(persona, layout) ? t('지금 구성이 이 역할의 기본 구성이에요') : t('내가 바꾼 구성이에요')}</span>
-          <button disabled={matchesPreset(persona, layout)} onClick={() => applyPersonaLayout(persona)}>{t('이 역할의 기본 구성으로 되돌리기')}</button>
+          <button disabled={matchesPreset(persona, layout)} onClick={() => applyPersonaLayout(persona)}>{t('기본 구성으로 되돌리기')}</button>
         </div>
       )}
     </section>
@@ -95,157 +97,289 @@ function MyNameField() {
   )
 }
 
-export function Settings() {
+type GroupId = 'profile' | 'notes' | 'ai' | 'view' | 'work' | 'about'
+/** 모바일: null = 그룹 목록, 그 밖 = 그 그룹 화면. PC: null 이면 첫 그룹 */
+const useSettingsUi = create<{ group: GroupId | null }>(() => ({ group: null }))
+
+function useMedia(q: string) {
+  const [m, setM] = useState(() => window.matchMedia(q).matches)
+  useEffect(() => {
+    const mq = window.matchMedia(q)
+    const f = () => setM(mq.matches)
+    mq.addEventListener('change', f)
+    return () => mq.removeEventListener('change', f)
+  }, [q])
+  return m
+}
+
+/** 노트와 동기화 */
+function VaultCard() {
+  const vault = useActiveVault()
+  const app = useApp.getState()
+  if (!vault) return null
+  return (
+    <section className="card">
+      <h3>{t('내 노트 보관함')}</h3>
+      <div className="kv"><span>{t('현재')}</span><b>{vault.name}</b></div>
+      <div className="kv"><span>{t('동기화')}</span><b>{vaultSub(vault)}</b></div>
+      <div className="btn-row">
+        <button onClick={() => app.setVaultSheet(true)}>{t('전환')}</button>
+        <button onClick={() => void createVaultFlow()}>{t('＋ 새 vault')}</button>
+        <button onClick={() => void renameVaultFlow(vault)}>{t('이름 바꾸기')}</button>
+      </div>
+      <details className="more">
+        <summary>{t('고급')}</summary>
+        <button className="danger-link" onClick={() => void deleteVaultFlow(vault)}>{t('이 vault 삭제')}</button>
+      </details>
+    </section>
+  )
+}
+
+function SyncCard() {
   const s = useApp((x) => x.settings)
   const files = useApp((x) => x.files)
   const syncing = useApp((x) => x.syncing)
   const app = useApp.getState()
   const [editing, setEditing] = useState(false)
   const [pick, setPick] = useState<SyncKind>('github')
+  const [connecting, setConnecting] = useState(false)
   const dirty = Object.values(files).filter((f) => f.dirty).length
   const conflicts = Object.values(files).filter((f) => f.conflict).length
   const r = s.remote
-  const vault = useActiveVault()
-
   return (
-    <div className="settings">
-      <div className="panel-head"><h2>{t('설정')}</h2></div>
-      <div className="settings-scroll">
-        <ProfileCard />
-        {vault && (
-          <section className="card">
-            <h3>Vault</h3>
-            <div className="kv"><span>{t('현재')}</span><b>{vault.name}</b></div>
-            <div className="kv"><span>{t('동기화')}</span><b>{vaultSub(vault)}</b></div>
-            <div className="btn-row">
-              <button onClick={() => app.setVaultSheet(true)}>{t('전환')}</button>
-              <button onClick={() => void createVaultFlow()}>{t('＋ 새 vault')}</button>
-              <button onClick={() => void renameVaultFlow(vault)}>{t('이름 바꾸기')}</button>
-            </div>
-            <button className="danger-link" onClick={() => void deleteVaultFlow(vault)}>{t('이 vault 삭제')}</button>
-          </section>
-        )}
-
-        <section className="card">
-          <h3>{t('동기화')}{r ? ` · ${SYNC_LABEL[r.kind]}` : ''}</h3>
-          {r ? (
-            <>
-              {r.kind === 'github' ? (
-                <>
-                  <div className="kv"><span>{t('저장소')}</span><b>{r.owner}/{r.repo}</b></div>
-                  <div className="kv"><span>{t('브랜치')}</span><b>{r.branch}</b></div>
-                </>
-              ) : (
-                <div className="kv"><span>{t('폴더')}</span><b>{r.folder}</b></div>
-              )}
-              <div className="kv"><span>{t('마지막 동기화')}</span><b>{ago(s.lastSync)}</b></div>
-              <div className="kv"><span>{t('올리기 대기')}</span><b>{t('{n}개', { n: dirty })}{conflicts ? ' · ' + t('충돌 {n}', { n: conflicts }) : ''}</b></div>
-              <div className="btn-row">
-                <button className="primary" disabled={syncing} onClick={() => void app.sync()}>{syncing ? t('동기화 중…') : t('지금 동기화')}</button>
-                <button onClick={() => setEditing((v) => !v)}>{t('연결 수정')}</button>
-              </div>
-              {editing && <ConnectForm kind={r.kind} onDone={() => setEditing(false)} />}
-              <button
-                className="danger-link"
-                onClick={async () => {
-                  if (await confirmAsk(t('연결 해제'), t('이 vault의 노트 사본과 로그인 정보가 삭제됩니다(vault는 로컬 전용으로 남아요). 올리지 않은 변경은 사라져요.'), t('해제'), true)) await app.disconnect()
-                }}
-              >
-                {t('이 vault의 연결 해제 및 로컬 데이터 삭제')}
-              </button>
-            </>
+    <section className="card">
+      <h3>{t('다른 기기와 맞추기')}</h3>
+      {r ? (
+        <>
+          <div className="kv"><span>{t('연결')}</span><b>{SYNC_LABEL[r.kind]} · {r.kind === 'github' ? `${r.owner}/${r.repo}` : r.folder}</b></div>
+          <div className="kv"><span>{t('마지막 동기화')}</span><b>{ago(s.lastSync)}</b></div>
+          <div className="kv"><span>{t('올리기 대기')}</span><b>{t('{n}개', { n: dirty })}{conflicts ? ' · ' + t('충돌 {n}', { n: conflicts }) : ''}</b></div>
+          <div className="btn-row">
+            <button className="primary" disabled={syncing} onClick={() => void app.sync()}>{syncing ? t('동기화 중…') : t('지금 동기화')}</button>
+          </div>
+          <details className="more">
+            <summary>{t('고급')}</summary>
+            {r.kind === 'github' && <div className="kv"><span>{t('브랜치')}</span><b>{r.branch}</b></div>}
+            <div className="btn-row"><button onClick={() => setEditing((v) => !v)}>{t('연결 수정')}</button></div>
+            {editing && <ConnectForm kind={r.kind} onDone={() => setEditing(false)} />}
+            <p className="hint small">{t('받은 변경을 먼저 가져온 뒤 내 변경을 올려요. 같은 노트를 양쪽에서 고치면 충돌 안내가 떠요.')}</p>
+            <button
+              className="danger-link"
+              onClick={async () => {
+                if (await confirmAsk(t('연결 해제'), t('이 vault의 노트 사본과 로그인 정보가 삭제됩니다(vault는 로컬 전용으로 남아요). 올리지 않은 변경은 사라져요.'), t('해제'), true)) await app.disconnect()
+              }}
+            >
+              {t('연결 해제')}
+            </button>
+          </details>
+        </>
+      ) : (
+        <>
+          <p className="hint">{t('지금은 이 기기에만 저장돼요. 연결하면 다른 기기와 맞출 수 있어요.')}</p>
+          {!connecting ? (
+            <div className="btn-row"><button className="primary" onClick={() => setConnecting(true)}>{t('연결하기')}</button></div>
           ) : (
             <>
-              <p className="hint">{t('로컬 전용 vault예요. 이 기기에만 저장돼요. 아래에서 연결하면 지금 노트도 함께 올라가요.')}</p>
+              <div className="set-sub">{t('어디에 보관할까요?')}</div>
               <div className="seg wide">
                 {KINDS.map((k) => (
                   <button key={k} className={pick === k ? 'on' : ''} onClick={() => setPick(k)}>{SYNC_LABEL[k]}</button>
                 ))}
               </div>
               <ConnectForm key={pick} kind={pick} />
+              <button className="link-btn" onClick={() => setConnecting(false)}>{t('취소')}</button>
             </>
           )}
-          <p className="hint small">{t('동기화 = 원격의 변경분을 받고(pull) → 이 기기의 변경분을 올립니다(push). 같은 노트를 양쪽에서 고치면 충돌 안내가 표시됩니다.')}</p>
-        </section>
+        </>
+      )}
+    </section>
+  )
+}
 
-        <WidgetCard />
-        {isAndroid() && (
-          <section className="card">
-            <h3>{t('홈 화면 위젯')}</h3>
-            <div className="btn-row">
-              <button onClick={() => void CalendarBridge.pinWidget({ type: 'month' }).catch(() => app.say(t('이 런처는 앱에서 위젯 추가를 지원하지 않습니다. 홈 화면을 길게 눌러 위젯에서 Nosidian을 고르세요.')))}>{t('월간 달력 추가')}</button>
-              <button onClick={() => void CalendarBridge.pinWidget({ type: 'agenda' }).catch(() => app.say(t('이 런처는 앱에서 위젯 추가를 지원하지 않습니다. 홈 화면을 길게 눌러 위젯에서 Nosidian을 고르세요.')))}>{t('일정 목록 추가')}</button>
-            </div>
-            <p className="hint small">{t('위젯의 날짜나 일정을 누르면 앱의 그 날로 이동하고, + 를 누르면 바로 일정을 추가할 수 있습니다.')}</p>
-          </section>
-        )}
+function NotesGroup() {
+  const s = useApp((x) => x.settings)
+  const app = useApp.getState()
+  return (
+    <>
+      <VaultCard />
+      <SyncCard />
+      <section className="card">
+        <h3>{t('오늘의 노트')}</h3>
+        <div className="kv"><span>{t('저장 폴더')}</span>
+          <input className="inline" value={s.dailyFolder} onChange={(e) => app.patchSettings({ dailyFolder: e.target.value })} />
+        </div>
+      </section>
+    </>
+  )
+}
+
+/** AI: 자주 쓰는 것(앱 안 AI·자동 문서 관리)을 위에, 직접 연결·외부 연결은 "고급"으로 접는다 */
+function AiGroup() {
+  if (!desktop()) {
+    return (
+      <section className="card">
+        <h3>{t('AI')}</h3>
+        <p className="hint">{t('AI는 PC 앱에서 쓸 수 있어요. 휴대폰에서는 PC가 정리해 둔 노트를 그대로 볼 수 있어요.')}</p>
+      </section>
+    )
+  }
+  return (
+    <>
+      <ClaudeCliCard />
+      <AutoCard />
+      <details className="more adv-card">
+        <summary>{t('고급: 다른 AI 직접 연결 (API 키·로컬 모델)')}</summary>
         <LlmCard />
-        <ClaudeCliCard />
+      </details>
+      <details className="more adv-card">
+        <summary>{t('고급: 다른 앱의 AI가 내 노트를 쓰게 하기 (MCP)')}</summary>
         <McpCard />
-        <AutoCard />
-        <section className="card">
-          <h3>{t('캘린더')}</h3>
-          <div className="kv"><span>{t('공휴일 표시')}</span>
-            <div className="seg">
-              <button className={s.calHolidays ? 'on' : ''} onClick={() => app.patchSettings({ calHolidays: true })}>{t('켜기')}</button>
-              <button className={!s.calHolidays ? 'on' : ''} onClick={() => app.patchSettings({ calHolidays: false })}>{t('끄기')}</button>
-            </div>
+      </details>
+    </>
+  )
+}
+
+function ViewGroup() {
+  const s = useApp((x) => x.settings)
+  const app = useApp.getState()
+  const onOff = (key: 'calHolidays' | 'calLunar' | 'showRecent') => (
+    <div className="seg">
+      <button className={s[key] ? 'on' : ''} onClick={() => app.patchSettings({ [key]: true })}>{t('켜기')}</button>
+      <button className={!s[key] ? 'on' : ''} onClick={() => app.patchSettings({ [key]: false })}>{t('끄기')}</button>
+    </div>
+  )
+  return (
+    <>
+      <section className="card">
+        <h3>{t('화면')}</h3>
+        <div className="kv"><span>{t('언어')} / Language</span><LangSelect /></div>
+        <div className="kv"><span>{t('테마')}</span>
+          <div className="seg">
+            {(['auto', 'light', 'dark'] as const).map((th) => (
+              <button key={th} className={s.theme === th ? 'on' : ''} onClick={() => app.patchSettings({ theme: th })}>{{ auto: t('시스템'), light: t('라이트'), dark: t('다크') }[th]}</button>
+            ))}
           </div>
-          <div className="kv"><span>{t('음력 표시')}</span>
-            <div className="seg">
-              <button className={s.calLunar ? 'on' : ''} onClick={() => app.patchSettings({ calLunar: true })}>{t('켜기')}</button>
-              <button className={!s.calLunar ? 'on' : ''} onClick={() => app.patchSettings({ calLunar: false })}>{t('끄기')}</button>
-            </div>
+        </div>
+        <div className="kv"><span>{t('글자 크기 {n}px', { n: s.fontSize })}</span>
+          <input type="range" min={14} max={24} value={s.fontSize} onChange={(e) => app.patchSettings({ fontSize: +e.target.value })} />
+        </div>
+        <div className="kv"><span>{t('노트를 열 때')}</span>
+          <div className="seg">
+            <button className={s.startMode === 'read' ? 'on' : ''} onClick={() => app.patchSettings({ startMode: 'read' })}>{t('읽기')}</button>
+            <button className={s.startMode === 'edit' ? 'on' : ''} onClick={() => app.patchSettings({ startMode: 'edit' })}>{t('편집')}</button>
           </div>
-          <div className="kv"><span>{t('일정 알림')}</span>
-            <div className="seg">
-              {[0, 5, 10, 30].map((m) => (
-                <button key={m} className={s.remindMin === m ? 'on' : ''} onClick={() => { app.patchSettings({ remindMin: m }); if (m) void askNotifyPermission().then((ok) => !ok && app.say(t('알림 권한이 없어 앱 안에서만 알려 드립니다'))) }}>{m ? t('{n}분', { n: m }) : t('끔')}</button>
-              ))}
-            </div>
+        </div>
+        <div className="kv"><span>{t('최근 연 노트 보이기')}</span>{onOff('showRecent')}</div>
+      </section>
+      <section className="card">
+        <h3>{t('캘린더')}</h3>
+        <div className="kv"><span>{t('공휴일 표시')}</span>{onOff('calHolidays')}</div>
+        <div className="kv"><span>{t('음력 표시')}</span>{onOff('calLunar')}</div>
+        <div className="kv"><span>{t('일정 알림')}</span>
+          <div className="seg">
+            {[0, 5, 10, 30].map((m) => (
+              <button key={m} className={s.remindMin === m ? 'on' : ''} onClick={() => { app.patchSettings({ remindMin: m }); if (m) void askNotifyPermission().then((ok) => !ok && app.say(t('알림 권한이 없어 앱 안에서만 알려 드립니다'))) }}>{m ? t('{n}분', { n: m }) : t('끔')}</button>
+            ))}
           </div>
-          <div className="kv"><span>{t('일정·메모가 비어 버린 Daily 노트')}</span>
+        </div>
+        <details className="more">
+          <summary>{t('고급')}</summary>
+          <div className="kv"><span>{t('비어 버린 Daily 노트')}</span>
             <button onClick={() => { const n = pruneAllDaily(); app.say(n ? t('빈 Daily 노트 {n}개를 정리했습니다', { n }) : t('정리할 빈 Daily 노트가 없습니다')) }}>{t('지금 정리')}</button>
           </div>
-        </section>
+        </details>
+      </section>
+    </>
+  )
+}
 
-        <section className="card">
-          <h3>{t('화면')}</h3>
-          <div className="kv"><span>{t('언어')} / Language</span><LangSelect /></div>
-          <div className="kv"><span>{t('테마')}</span>
-            <div className="seg">
-              {(['auto', 'light', 'dark'] as const).map((th) => (
-                <button key={th} className={s.theme === th ? 'on' : ''} onClick={() => app.patchSettings({ theme: th })}>{{ auto: t('시스템'), light: t('라이트'), dark: t('다크') }[th]}</button>
-              ))}
-            </div>
-          </div>
-          <div className="kv"><span>{t('글자 크기 {n}px', { n: s.fontSize })}</span>
-            <input type="range" min={14} max={24} value={s.fontSize} onChange={(e) => app.patchSettings({ fontSize: +e.target.value })} />
-          </div>
-          <div className="kv"><span>{t('노트를 열 때')}</span>
-            <div className="seg">
-              <button className={s.startMode === 'read' ? 'on' : ''} onClick={() => app.patchSettings({ startMode: 'read' })}>{t('읽기')}</button>
-              <button className={s.startMode === 'edit' ? 'on' : ''} onClick={() => app.patchSettings({ startMode: 'edit' })}>{t('편집')}</button>
-            </div>
-          </div>
-          <div className="kv"><span>{t('파일 목록에 최근 연 노트 표시')}</span>
-            <div className="seg">
-              <button className={s.showRecent ? 'on' : ''} onClick={() => app.patchSettings({ showRecent: true })}>{t('켜기')}</button>
-              <button className={!s.showRecent ? 'on' : ''} onClick={() => app.patchSettings({ showRecent: false })}>{t('끄기')}</button>
-            </div>
-          </div>
-          <div className="kv"><span>{t('오늘의 노트 폴더')}</span>
-            <input className="inline" value={s.dailyFolder} onChange={(e) => app.patchSettings({ dailyFolder: e.target.value })} />
-          </div>
-        </section>
-
-        <section className="card">
-          <h3>{t('단축키 (PC)')}</h3>
-          <p className="hint small">{tx('{o} 빠른 이동 · {p} 명령 · {e} 읽기/편집 · {s} 동기화 · {alt} 뒤로/앞으로 · 링크는 {click}', { o: <kbd>Ctrl+O</kbd>, p: <kbd>Ctrl+P</kbd>, e: <kbd>Ctrl+E</kbd>, s: <kbd>Ctrl+S</kbd>, alt: <kbd>Alt+←/→</kbd>, click: <kbd>Ctrl+Click</kbd> })}</p>
-          <p className="hint small">{tx('{f} 문서에서 찾기 · {s} 전체 검색', { f: <kbd>Ctrl+F</kbd>, s: <kbd>Ctrl+Shift+F</kbd> })}</p>
-          {desktop() && <p className="hint small">{tx('{a} AI 패널', { a: <kbd>Ctrl+Shift+A</kbd> })}</p>}
-        </section>
+/** 업무와 문서: 내 업무 화면 구성과 문서 규칙으로 바로 가기 */
+function WorkGroup() {
+  const app = useApp.getState()
+  return (
+    <section className="card">
+      <h3>{t('업무와 문서')}</h3>
+      <div className="kv"><span>{t('내 업무 화면 구성')}</span>
+        <button onClick={() => { app.go('work'); useWorkUi.setState({ editing: true }) }}>{t('편집하기')}</button>
       </div>
+      <div className="kv"><span>{t('문서 규칙')}</span>
+        <button onClick={() => app.openNote(DOCRULES_PATH)}>{t('규칙 파일 열기')}</button>
+      </div>
+    </section>
+  )
+}
+
+function AboutGroup() {
+  return (
+    <>
+      {desktop() && (
+        <section className="card">
+          <h3>{t('단축키')}</h3>
+          <p className="hint small">{tx('{o} 빠른 이동 · {p} 명령 · {e} 읽기/편집 · {s} 동기화', { o: <kbd>Ctrl+O</kbd>, p: <kbd>Ctrl+P</kbd>, e: <kbd>Ctrl+E</kbd>, s: <kbd>Ctrl+S</kbd> })}</p>
+          <p className="hint small">{tx('{f} 문서에서 찾기 · {s} 전체 검색 · {a} AI 패널', { f: <kbd>Ctrl+F</kbd>, s: <kbd>Ctrl+Shift+F</kbd>, a: <kbd>Ctrl+Shift+A</kbd> })}</p>
+        </section>
+      )}
+      <WidgetCard />
+      <section className="card">
+        <h3>{t('정보')}</h3>
+        <div className="kv"><span>{t('버전')}</span><b>{__APP_VERSION__}</b></div>
+      </section>
+    </>
+  )
+}
+
+export function Settings() {
+  const s = useApp((x) => x.settings)
+  const vault = useActiveVault()
+  const wide = useMedia('(min-width: 900px)')
+  const picked = useSettingsUi((x) => x.group)
+  const group: GroupId | null = wide ? (picked ?? 'profile') : picked
+  const persona = personaOf(s.persona)
+  const mobile = !desktop()
+  const groups: { id: GroupId; label: string; icon: 'star' | 'sync' | 'spark' | 'sun' | 'tasks' | 'more'; sub: string }[] = [
+    { id: 'profile', label: t('내 프로필'), icon: 'star', sub: `${s.myName.trim() || t('이름 없음')} · ${persona ? t(PERSONA_INFO[persona].label) : t('역할 미정')}` },
+    { id: 'notes', label: t('노트와 동기화'), icon: 'sync', sub: `${vault?.name ?? ''} · ${s.remote ? SYNC_LABEL[s.remote.kind] : t('이 기기에만')}` },
+    { id: 'ai', label: 'AI', icon: 'spark', sub: mobile ? t('PC 앱에서 쓸 수 있어요') : t('연결·자동 문서 관리') },
+    { id: 'view', label: t('화면과 캘린더'), icon: 'sun', sub: `${{ auto: t('시스템'), light: t('라이트'), dark: t('다크') }[s.theme]} · ${s.fontSize}px` },
+    { id: 'work', label: t('업무와 문서'), icon: 'tasks', sub: t('내 업무 구성·문서 규칙') },
+    { id: 'about', label: t('정보'), icon: 'more', sub: `v${__APP_VERSION__}` },
+  ]
+  const page = {
+    profile: <ProfileCard />,
+    notes: <NotesGroup />,
+    ai: <AiGroup />,
+    view: <ViewGroup />,
+    work: <WorkGroup />,
+    about: <AboutGroup />,
+  }
+  const cur = groups.find((g) => g.id === group)
+  const nav = (
+    <nav className={`set-nav${wide ? '' : ' full'}`} aria-label={t('설정')}>
+      {groups.map((g) => (
+        <button key={g.id} className={`set-nav-row${group === g.id ? ' on' : ''}`} onClick={() => useSettingsUi.setState({ group: g.id })}>
+          <span className="set-ico"><Icon name={g.icon} size={20} /></span>
+          <span className="set-text"><b>{g.label}</b><small>{g.sub}</small></span>
+          {!wide && <span className="set-chev"><Icon name="chevron" size={14} /></span>}
+        </button>
+      ))}
+    </nav>
+  )
+  return (
+    <div className="settings">
+      <div className="panel-head">
+        {!wide && group && <button className="icon-btn" onClick={() => useSettingsUi.setState({ group: null })} aria-label={t('설정 목록으로')}><Icon name="back" /></button>}
+        <h2>{!wide && cur ? cur.label : t('설정')}</h2>
+      </div>
+      {wide ? (
+        <div className="set-split">
+          {nav}
+          <div className="settings-scroll set-pane" key={group}>{group && page[group]}</div>
+        </div>
+      ) : group ? (
+        <div className="settings-scroll" key={group}>{page[group]}</div>
+      ) : (
+        <div className="settings-scroll">{nav}</div>
+      )}
     </div>
   )
 }

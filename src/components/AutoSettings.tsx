@@ -28,9 +28,9 @@ const REASON: Record<SkipReason, string> = {
   capReached: '하루 분석 한도를 넘어서 다음에 분석해요',
 }
 const MODES: { v: AutoMode; label: string; hint: string; soon?: boolean }[] = [
-  { v: 'off', label: '쓰지 않음', hint: '문서 점검 탭에서 직접 [AI로 고치기]를 누를 때만 AI 가 일해요' },
-  { v: 'notify', label: '알림만', hint: '새 문제가 생기면 알려 줘요. AI 는 부르지 않아요' },
-  { v: 'analyze', label: 'AI 자동 분석', hint: '새 문제를 AI 가 읽기 전용으로 분석해 정리 계획을 만들어 둬요. 문서는 수정하지 않아요' },
+  { v: 'off', label: '쓰지 않음', hint: '직접 [AI로 고치기]를 누를 때만 AI 가 일해요' },
+  { v: 'notify', label: '알림만', hint: '새 문제가 생기면 알려 줘요 (AI 호출 없음)' },
+  { v: 'analyze', label: 'AI 자동 분석', hint: '새 문제를 AI 가 읽기만 하고 정리 계획을 만들어 둬요' },
 ]
 
 export const autoInboxCount = inboxCount
@@ -68,7 +68,7 @@ export function AutoCard() {
   return (
     <section className="card auto">
       <h3>{t('AI 자동 문서 관리')}</h3>
-      <p className="hint small">{t('규칙 검사는 항상, AI 분석은 조건에 맞을 때만, 문서 변경은 항상 승인을 거쳐요. 이 기능은 이 기기에서만 동작하고, 앱이 켜져 있을 때 문서가 바뀌면 점검해요.')}</p>
+      <p className="hint small">{t('문서가 바뀌면 이 기기에서 점검해요. AI 분석은 새 문제가 생길 때만, 문서 변경은 항상 승인을 거쳐요.')}</p>
       <div className="auto-modes" role="radiogroup" aria-label={t('자동 관리 방식')}>
         {MODES.map((m) => (
           <label key={m.v} className={`auto-mode${s.mode === m.v ? ' on' : ''}${m.soon ? ' soon' : ''}`}>
@@ -83,7 +83,7 @@ export function AutoCard() {
           <div className="auto-sub">{t('새로 생기면 알릴 문제')}</div>
           <label className="auto-check"><input type="checkbox" checked={s.triggers.duplicate} onChange={(e) => au.setSettings({ triggers: { ...s.triggers, duplicate: e.target.checked } })} />{t('새 중복 문서 후보')}</label>
           <label className="auto-check"><input type="checkbox" checked={s.triggers.roleIssue} onChange={(e) => au.setSettings({ triggers: { ...s.triggers, roleIssue: e.target.checked } })} />{t('역할 충돌·중복')}</label>
-          <p className="hint small">{t('제목 누락·status·끊어진 링크처럼 규칙만으로 알 수 있는 문제는 AI 없이 문서 점검 탭에서 알려 줘요.')}</p>
+          <p className="hint small">{t('제목 누락·끊어진 링크 같은 단순한 문제는 AI 없이 문서 점검 탭에서 알려 줘요.')}</p>
           <div className="kv"><span>{t('문서 변경 후 점검까지 대기')}</span>
             <Select value={String(s.debounceSec)} onChange={(v) => au.setSettings({ debounceSec: Number(v) })} options={DEBOUNCES.map((d) => ({ value: String(d), label: d >= 60 ? t('{n}분', { n: d / 60 }) : t('{n}초', { n: d }) }))} />
           </div>
@@ -97,7 +97,7 @@ export function AutoCard() {
               </div>
               {analysisEngine(s) === 'claude' && (
                 <label className="auto-check consent"><input type="checkbox" checked={s.claudeConsent} onChange={(e) => au.setSettings({ claudeConsent: e.target.checked })} />
-                  <span>{t('Claude 로 자동 분석 허용')}<small>{t('누르지 않아도 문서 내용이 Anthropic 으로 전송되고, 로그인한 Claude 계정의 사용량이 차감돼요. 로컬 모델은 이 동의가 필요 없어요.')}</small></span>
+                  <span>{t('Claude 로 자동 분석 허용')}<small>{t('문서 내용이 Anthropic으로 전송되고 Claude 계정 사용량이 차감돼요. 로컬 모델은 동의가 필요 없어요.')}</small></span>
                 </label>
               )}
               <label className="auto-check"><input type="checkbox" checked={s.holdOnBattery} onChange={(e) => au.setSettings({ holdOnBattery: e.target.checked })} />{t('배터리로 전원을 쓸 때는 보류')}</label>
@@ -126,7 +126,7 @@ export function AutoCard() {
           )}
 
           <div className="auto-sub">{t('시험 실행')}</div>
-          <p className="hint small">{t('이 설정이었다면 지금 문서의 어떤 문제를 AI 분석 대기열에 올리고, 어떤 것은 왜 건너뛰는지 AI 호출 없이 보여 줘요.')}</p>
+          <p className="hint small">{t('이 설정이면 어떤 문제를 분석하고 어떤 것은 왜 건너뛰는지 AI 없이 미리 보여 줘요.')}</p>
           <label className="auto-check"><input type="checkbox" checked={ignoreSeen} onChange={(e) => { setIgnoreSeen(e.target.checked); setDry(null) }} />{t('기존 문제도 새 문제인 것처럼 판정(정책 확인용)')}</label>
           <div className="llm-actions"><button onClick={() => setDry(runDry(ignoreSeen))}>{t('시험 실행')}</button></div>
           {dry && (

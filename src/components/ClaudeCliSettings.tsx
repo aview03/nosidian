@@ -20,7 +20,7 @@ export function ClaudeCliCard() {
   const r = readiness(st)
   return (
     <section className="card claude">
-      <h3>{t('앱 안 AI (Claude Code CLI)')}</h3>
+      <h3>{t('앱 안 AI (내 Claude 계정)')}</h3>
       <div className="kv"><span>{t('상태')}</span>
         <b>
           {r === 'ok' ? t('사용할 수 있어요 · {v}', { v: st?.version ?? '' }) : r === 'notLoggedIn' ? t('설치됨 · 로그인 필요') : r === 'notFound' ? t('찾지 못했어요') : r === 'onlyCmd' ? t('지원하지 않는 설치 방식') : t('확인하는 중…')}
@@ -33,7 +33,7 @@ export function ClaudeCliCard() {
         <button disabled={busy} onClick={() => void check()}>{t('다시 확인')}</button>
         <button className="primary" disabled={r !== 'ok'} onClick={() => useAiThread.getState().setOpen(true)}>{t('AI 패널 열기')}</button>
       </div>
-      <p className="hint small">{t('왼쪽 막대의 AI 버튼이나 Ctrl+Shift+A 로 열 수 있어요. 누를 때만 실행하고, 실행하는 동안만 임시 MCP 서버(열려 있는 vault 하나)를 열어요. Claude Code 는 파일·셸 도구를 끈 채로 Nosidian 도구만 쓰고, 노트 변경은 문서 규칙과 승인을 거쳐요. 질문과 AI 가 읽은 노트 내용은 Anthropic 으로 전송되고, 사용량은 로그인한 Claude 계정에서 차감돼요.')}</p>
+      <p className="hint small">{t('왼쪽 막대의 AI 버튼(Ctrl+Shift+A)으로 열어요. 질문과 AI가 읽은 노트는 Anthropic으로 전송되고, 사용량은 로그인한 Claude 계정에서 차감돼요.')}</p>
     </section>
   )
 }

@@ -98,7 +98,7 @@ export function LlmCard() {
         <input className="inline" type="password" autoComplete="off" value={cfg.apiKey ?? ''} placeholder={cfg.keyStored ? t('보안 저장소에 저장됨 — 바꾸려면 새 키 입력') : prov.needsKey ? t('필수') : t('필요하면 입력')} onChange={(e) => set({ apiKey: e.target.value })} />
       </div>
       {prov.hint && <p className="hint small">{t(prov.hint)}</p>}
-      {supportsTools(cfg.kind) && desktop() && <p className="hint small">{t('PC 의 AI 패널에서 이 모델로 답할 수 있어요(도구 호출을 지원하는 모델 필요). 노트는 이 서버로만 전송돼요.')}</p>}
+      {supportsTools(cfg.kind) && desktop() && <p className="hint small">{t('AI 패널에서 이 모델로 답해요(도구 호출을 지원하는 모델 필요).')}</p>}
       {problems.includes('httpPublic') && <p className="hint small llm-err">{t('공개 인터넷 주소는 https 로만 연결할 수 있어요 (http 는 같은 사설망·내 기기만)')}</p>}
       <div className="llm-actions">
         <button disabled={problems.length > 0 || status.kind === 'busy'} onClick={() => void test()}>{status.kind === 'busy' ? t('시험하는 중…') : t('연결 시험')}</button>
@@ -107,7 +107,7 @@ export function LlmCard() {
       </div>
       {status.kind === 'ok' && <p className="hint small llm-ok">{status.text}</p>}
       {status.kind === 'err' && <p className="hint small llm-err">{status.text}</p>}
-      <p className="hint small">{secure.available ? t('API 키는 이 PC 의 운영체제 보안 저장소로 암호화해 저장하고, 화면에서는 다시 읽을 수 없어요. vault·동기화에는 들어가지 않아요.') : t('API 키는 이 기기에만 저장되고 vault·동기화에는 들어가지 않아요. 이 기기에서는 암호화되지 않은 채로 저장돼요.')} {t('앞으로 AI 기능을 쓰면 선택한 노트 내용이 여기서 고른 서버로 전송돼요 — 클라우드 API 를 고르면 해당 업체로 나가요.')}</p>
+      <p className="hint small">{secure.available ? t('API 키는 이 PC의 보안 저장소에 암호화해 저장돼요. 동기화에는 들어가지 않아요.') : t('API 키는 이 기기에만 저장되고 vault·동기화에는 들어가지 않아요. 이 기기에서는 암호화되지 않은 채로 저장돼요.')} {t('AI를 쓰면 노트 내용이 여기서 고른 서버로 전송돼요.')}</p>
     </section>
   )
 }
