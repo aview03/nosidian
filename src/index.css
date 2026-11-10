@@ -950,8 +950,8 @@ html.popup-win .ee { max-width: none; max-height: none; height: 100%; border-rad
 .hdoc-check:hover { color: var(--text); }
 
 /* ── AI 변경 제안 검토 ── */
-.pr-banner { display: block; width: calc(100% - 8px); margin: 4px 4px 12px; padding: 10px 14px; text-align: left; font-size: 14px; border: 1px solid var(--accent); background: none; color: var(--text); border-radius: var(--r); min-height: 0; }
-.pr-banner span { color: var(--accent); margin-left: 8px; font-weight: 600; }
+.pr-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: calc(100% - 8px); margin: 4px 4px 12px; padding: 10px 14px; text-align: left; font-size: 14px; border: 1px solid var(--accent); background: none; color: var(--text); border-radius: var(--r); min-height: 0; }
+.pr-banner span { flex: none; color: var(--accent); font-weight: 600; }
 .ee.pr { width: min(760px, 94vw); max-height: 88vh; }
 .pr-intro { margin: 0 0 12px; }
 .pr-item { padding: 14px 0 16px; border-bottom: 1px solid var(--border); }
