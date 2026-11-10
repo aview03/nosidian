@@ -922,3 +922,13 @@ html.popup-win .ee { max-width: none; max-height: none; height: 100%; border-rad
 .arr-switch i { position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: transform .15s; }
 .arr-switch.on { background: var(--accent); }
 .arr-switch.on i { transform: translateX(16px); }
+
+/* ── 내 업무: 넓은 화면(PC)에서는 타일을 2열로 ──
+   창 너비가 아니라 이 화면의 너비로 판단한다(사이드바·패널이 열려 있으면 좁아지므로) */
+.wrk-scroll { container-type: inline-size; }
+@container (min-width: 980px) {
+  .wrk-inner { max-width: 1160px; }
+  .wrk-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 48px; align-items: start; }
+  .wrk-tiles > .wrk-sec { margin-top: 28px; min-width: 0; }
+  .wrk-tiles > .wrk-sec:first-of-type { margin-top: 28px; }
+}

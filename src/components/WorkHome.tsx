@@ -310,12 +310,12 @@ export function WorkHome() {
               <button className="wrk-newproj" onClick={() => useWorkUi.setState({ viewEditor: {} })}>+ {t('조건으로 새 타일 만들기')}</button>
             </>
           ) : (
-            tiles.filter((x) => !x.hidden).map((tile) => {
+            <div className="wrk-tiles">{tiles.filter((x) => !x.hidden).map((tile) => {
               const data = dataFor(tile.id)
               if (!data) return null
               if (!data.alwaysShow && data.rows.length === 0) return null // 비어 있는 타일은 화면에서 빠진다
               return <TileView key={tile.id} id={tile.id} data={data} limit={tile.limit} collapsed={tile.collapsed} />
-            })
+            })}</div>
           )}
 
           {!editing && work.tasks.length > 0 && q.total === 0 && q.doing.length === 0 && q.unowned.length === 0 && (
