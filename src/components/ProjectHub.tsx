@@ -1,5 +1,5 @@
 // 프로젝트 허브: 프로젝트 하나의 할 일·문서·일정을 한 화면에 모은다. 모두 노트에서 파생한 읽기 화면이고, 고치는 일은 업무 편집기가 맡는다.
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useApp } from '../lib/app'
 import { t } from '../lib/i18n'
 import { addDays, fmtDay, todayYmd } from '../lib/calendar'
@@ -94,6 +94,28 @@ export function TaskLine({ tk, showProject }: { tk: Task; showProject?: string }
   )
 }
 
+/** 제목 줄 오른쪽의 ⋯ 메뉴(자주 쓰지 않는 동작을 모아 둔다) */
+function HubMenu({ items }: { items: { label: string; run(): void }[] }) {
+  const [open, setOpen] = useState(false)
+  const box = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const off = (e: Event) => { if (!box.current?.contains(e.target as Node)) setOpen(false) }
+    window.addEventListener('pointerdown', off, true)
+    return () => window.removeEventListener('pointerdown', off, true)
+  }, [open])
+  return (
+    <div className="hub-menu" ref={box}>
+      <button className="icon-btn" aria-haspopup="menu" aria-expanded={open} aria-label={t('더 보기')} onClick={() => setOpen(!open)}><Icon name="more" /></button>
+      {open && (
+        <div className="menu-pop hub-pop" role="menu">
+          {items.map((it) => <button key={it.label} role="menuitem" onClick={() => { setOpen(false); it.run() }}>{it.label}</button>)}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function ProjectHub() {
   const path = useWorkUi((s) => s.hub)
   const work = useWork()
@@ -165,24 +187,29 @@ export function ProjectHub() {
         <h2>{project.name}</h2>
         <div className="head-actions">
           <button className="icon-btn" title={t('업무 추가')} onClick={() => useWorkUi.getState().openEditor(undefined, project.path)}><Icon name="plus" /></button>
-          <button className="icon-btn" title={t('노트로 열기')} onClick={() => useApp.getState().openNote(project.path)}><Icon name="edit" /></button>
+          <HubMenu items={[
+            { label: t('노트로 열기'), run: () => useApp.getState().openNote(project.path) },
+            { label: t('템플릿으로 저장'), run: () => void saveAsTemplate() },
+          ]} />
         </div>
       </div>
-      <div className="hub-meta">
-        {statusLabel && <em>{statusLabel}</em>}
-        {project.owner.length > 0 && <span className="wrk-owner">{project.owner.join(', ')}</span>}
-        {project.due && <span>{t('마감 {d}', { d: project.due })}</span>}
-        {project.health && <span className="hub-health">{t('판단')}: {project.health}</span>}
-        {healthMap.get(project.path) && <span className={`wrk-health ${healthMap.get(project.path)!.level}`} title={healthMap.get(project.path)!.signals.map(signalText).join(' · ')}>{t('점검')}: {healthLabel(healthMap.get(project.path)!)}</span>}
-        <span>{t('열린 일 {n}/{m}', { n: open.length, m: tasks.length })}</span>
-        <button className="btn-link hub-savetpl" onClick={() => void saveAsTemplate()}>{t('템플릿으로 저장')}</button>
-      </div>
-      <div className="seg wide hub-tabs">
-        <button className={tab === 'tasks' ? 'on' : ''} onClick={() => setTab('tasks')}>{t('할 일')}</button>
-        <button className={tab === 'board' ? 'on' : ''} onClick={() => setTab('board')}>{t('보드')}</button>
-        <button className={tab === 'docs' ? 'on' : ''} onClick={() => setTab('docs')}>{t('문서')}</button>
-        <button className={tab === 'timeline' ? 'on' : ''} onClick={() => setTab('timeline')}>{t('타임라인')}</button>
-        <button className={tab === 'check' ? 'on' : ''} onClick={() => setTab('check')}>{t('문서 점검')}</button>
+      {/* 프로젝트 요약 띠: 제목과 탭 사이에서 배경으로 구분한다 */}
+      <div className="hub-meta"><div className="hub-meta-in">
+        {statusLabel && <span className="hub-chip status"><small>{t('상태')}</small><b>{statusLabel}</b></span>}
+        {project.owner.length > 0 && <span className="hub-chip"><small>{t('담당')}</small><b>{project.owner.join(', ')}</b></span>}
+        {project.due && <span className="hub-chip"><small>{t('마감')}</small><b>{project.due}</b></span>}
+        <span className="hub-chip"><small>{t('열린 일')}</small><b>{open.length}/{tasks.length}</b></span>
+        {project.health && <span className="hub-chip"><small>{t('판단')}</small><b>{project.health}</b></span>}
+        {healthMap.get(project.path) && <span className={`hub-chip wrk-health ${healthMap.get(project.path)!.level}`} title={healthMap.get(project.path)!.signals.map(signalText).join(' · ')}><small>{t('점검')}</small><b>{healthLabel(healthMap.get(project.path)!)}</b></span>}
+      </div></div>
+      {/* 탭 순서: 일을 보는 화면(할 일·보드·타임라인) → 문서를 보는 화면(문서·문서 점검) */}
+      <div className="seg wide hub-tabs" role="tablist">
+        <button role="tab" aria-selected={tab === 'tasks'} className={tab === 'tasks' ? 'on' : ''} onClick={() => setTab('tasks')}>{t('할 일')}</button>
+        <button role="tab" aria-selected={tab === 'board'} className={tab === 'board' ? 'on' : ''} onClick={() => setTab('board')}>{t('보드')}</button>
+        <button role="tab" aria-selected={tab === 'timeline'} className={tab === 'timeline' ? 'on' : ''} onClick={() => setTab('timeline')}>{t('타임라인')}</button>
+        <span className="hub-tab-sep" aria-hidden="true" />
+        <button role="tab" aria-selected={tab === 'docs'} className={tab === 'docs' ? 'on' : ''} onClick={() => setTab('docs')}>{t('문서')}</button>
+        <button role="tab" aria-selected={tab === 'check'} className={tab === 'check' ? 'on' : ''} onClick={() => setTab('check')}>{t('문서 점검')}</button>
       </div>
 
       <div className="wrk-scroll">

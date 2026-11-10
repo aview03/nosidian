@@ -1337,3 +1337,41 @@ details.adv-card[open] > summary { margin-bottom: 8px; }
 .memo-up.drop-on { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
 .memo-ghost { position: fixed; z-index: 60; transform: translate(-50%, -140%); pointer-events: none; padding: 8px 14px; border-radius: 999px; background: var(--accent); color: var(--on-accent); font-size: 13.5px; font-weight: 700; box-shadow: 0 10px 24px -8px #0008; }
 .memo-row.sel { touch-action: pan-y; }
+
+/* ── AI 연결 마법사 ───────────────────────────── */
+.aiw { display: flex; flex-direction: column; gap: 10px; }
+.aiw > h3 { margin-bottom: 0; }
+.aiw-status { display: flex; align-items: center; gap: 12px; padding: 10px 0 4px; }
+.aiw-status > span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.aiw-status b { font-size: 16px; }
+.aiw-status small { color: var(--muted); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.aiw-status .ai-orb { border-radius: 50%; background: #15171c; }
+.aiw-q { margin: 4px 0 0; font-size: 15.5px; font-weight: 600; }
+.aiw-way { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; width: 100%; padding: 14px 16px; text-align: left; border: 1px solid var(--border); border-radius: var(--r); background: var(--bg); min-height: 0; }
+.aiw-way:hover { background: var(--bg3); }
+.aiw-way small { color: var(--muted); font-size: 13px; font-weight: 400; }
+.aiw-list { display: flex; flex-direction: column; gap: 6px; }
+.aiw-item { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--r); font-size: 14.5px; background: var(--bg); text-align: left; min-height: 0; }
+.aiw-item span { color: var(--muted); font-size: 13px; }
+.aiw-item.ok { border-color: var(--accent); }
+.aiw-item.ok span { color: var(--accent); }
+.aiw-item.soon { opacity: .5; }
+.aiw-check { margin: 0; font-size: 13.5px; }
+.aiw-check.ok { color: var(--accent); } .aiw-check.err { color: var(--danger); } .aiw-check.busy { color: var(--muted); }
+input.inline.wide { width: 100%; box-sizing: border-box; height: 42px; }
+
+/* ── 프로젝트 허브: 제목 / 요약 띠 / 탭을 서로 구분 ───────────── */
+.hub > .hub-meta { width: 100%; max-width: none; margin: 4px 0 0; padding: 0; background: var(--bg2); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.hub-meta-in { display: flex; flex-wrap: wrap; gap: 8px; max-width: 884px; margin: 0 auto; padding: 10px 16px; }
+@media (min-width: 900px) { .hub-meta-in { padding: 12px 20px; } }
+.hub-chip { display: inline-flex; align-items: baseline; gap: 6px; padding: 3px 10px; border: 1px solid var(--border); background: var(--bg); border-radius: var(--r); font-size: 13px; color: var(--text); }
+.hub-chip small { color: var(--muted); font-size: 11.5px; }
+.hub-chip b { font-weight: 600; }
+.hub-chip.status b { color: var(--accent); }
+.hub > .hub-tabs { margin-top: 10px; }
+.hub-tab-sep { flex: none; align-self: center; width: 1px; height: 18px; margin: 0 6px; background: var(--border); }
+.hub-menu { position: relative; }
+.hub-pop { position: absolute; right: 0; top: calc(100% + 4px); min-width: 170px; z-index: 20; }
+.hub-pop button { width: 100%; text-align: left; }
+.hub-meta-in { max-width: none; margin: 0; padding-left: 16px; }
+@media (min-width: 900px) { .hub-meta-in { padding-left: 20px; } }

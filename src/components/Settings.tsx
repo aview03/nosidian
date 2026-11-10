@@ -11,7 +11,7 @@ import { Select } from './Select'
 import { LlmCard } from './LlmSettings'
 import { McpCard } from './McpSettings'
 import { AutoCard } from './AutoSettings'
-import { ClaudeCliCard } from './ClaudeCliSettings'
+import { AiWizard } from './AiWizard'
 import { useEffect, useRef, useState } from 'react'
 import { create } from 'zustand'
 import { useApp } from '../lib/app'
@@ -31,7 +31,9 @@ function ago(ts: number | null) {
   return new Date(ts).toLocaleDateString(getLang())
 }
 
-const KINDS = Object.keys(SYNC_LABEL) as SyncKind[]
+const SYNC_HINT: Record<SyncKind, string> = { gdrive: '구글 계정으로 로그인해요', onedrive: 'Microsoft 계정으로 로그인해요', github: '개발자용 · 토큰이 필요해요' }
+/** 보관 위치를 고르는 순서: 개발자·연구자는 GitHub 이 먼저, 나머지는 로그인만 하면 되는 곳이 먼저 */
+const syncOrder = (p: ReturnType<typeof personaOf>): SyncKind[] => (p === 'developer' || p === 'researcher' ? ['github', 'gdrive', 'onedrive'] : ['gdrive', 'onedrive', 'github'])
 
 /** 설정 화면이 열릴 때 "내 이름" 칸으로 바로 가 달라는 요청(내 업무의 "내 이름 설정 →"에서 쓴다) */
 const useFocusName = create<{ want: boolean }>(() => ({ want: false }))
@@ -146,6 +148,8 @@ function SyncCard() {
   const [editing, setEditing] = useState(false)
   const [pick, setPick] = useState<SyncKind>('github')
   const [connecting, setConnecting] = useState(false)
+  const [picked, setPicked] = useState(false)
+  const persona = personaOf(s.persona)
   const dirty = Object.values(files).filter((f) => f.dirty).length
   const conflicts = Object.values(files).filter((f) => f.conflict).length
   const r = s.remote
@@ -181,14 +185,24 @@ function SyncCard() {
             <button className="primary big" onClick={() => setConnecting(true)}>{t('연결하기')}</button>
           ) : (
             <>
-              <div className="set-sub">{t('어디에 보관할까요?')}</div>
-              <div className="seg wide">
-                {KINDS.map((k) => (
-                  <button key={k} className={pick === k ? 'on' : ''} onClick={() => setPick(k)}>{SYNC_LABEL[k]}</button>
-                ))}
-              </div>
-              <ConnectForm key={pick} kind={pick} />
-              <button className="link-btn" onClick={() => setConnecting(false)}>{t('취소')}</button>
+              {!picked ? (
+                <>
+                  <p className="aiw-q">{t('어디에 보관할까요?')}</p>
+                  {syncOrder(persona).map((k) => (
+                    <button key={k} className="aiw-way" onClick={() => { setPick(k); setPicked(true) }}>
+                      <b>{SYNC_LABEL[k]}</b>
+                      <small>{t(SYNC_HINT[k])}</small>
+                    </button>
+                  ))}
+                  <button className="link-btn" onClick={() => setConnecting(false)}>{t('취소')}</button>
+                </>
+              ) : (
+                <>
+                  <p className="aiw-q">{t('{name} 연결', { name: SYNC_LABEL[pick] })}</p>
+                  <ConnectForm key={pick} kind={pick} />
+                  <button className="link-btn" onClick={() => setPicked(false)}>{t('← 다른 곳 고르기')}</button>
+                </>
+              )}
             </>
           )}
         </>
@@ -226,10 +240,10 @@ function AiGroup() {
   }
   return (
     <>
-      <ClaudeCliCard />
+      <AiWizard />
       <AutoCard />
       <details className="more adv-card">
-        <summary>{t('고급: 다른 AI 직접 연결 (API 키·로컬 모델)')}</summary>
+        <summary>{t('고급: 연결 직접 설정 (서버 주소·모델·키)')}</summary>
         <LlmCard />
       </details>
       <details className="more adv-card">
