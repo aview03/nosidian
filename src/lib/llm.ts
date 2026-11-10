@@ -6,6 +6,8 @@
 //  - OpenAI·Anthropic·Gemini 의 요청 형식은 공식 문서 기준으로 만들었지만 실제 서버로는 시험하지 못했다(키가 없음). Ollama·OpenAI 호환은 가짜 서버로 시험했다.
 //  - API 키는 이 기기에만 둔다(vault·동기화에 넣지 않는다).
 
+import { clearSecretRecord, readSecretRecord, registerSecret, writeSecretRecord, type SecretSpec } from './secureStore'
+
 export type ProviderKind = 'ollama' | 'openai' | 'custom' | 'anthropic' | 'gemini'
 
 export interface LlmConfig {
@@ -301,13 +303,14 @@ export function describeFailure(status: number, body: unknown): string {
 }
 
 const KEY = 'nosidian.llm'
+/** 안드로이드 앱에서는 API 키(와 PC 중계 토큰)를 보안 저장소(Keystore)에 둔다. 키가 없는 서버는 그대로 유효 */
+const SECRET: SecretSpec = { storageKey: KEY, field: 'apiKey', secretName: 'llm.apiKey', required: false }
+registerSecret(SECRET)
 
 /** 기기에 저장된 연결 설정(없으면 null). vault 와 동기화에 넣지 않는다 */
 export function loadLlmConfig(): LlmConfig | null {
   try {
-    const raw = localStorage.getItem(KEY)
-    if (!raw) return null
-    const v = JSON.parse(raw) as Partial<LlmConfig>
+    const v = readSecretRecord<Partial<LlmConfig>>(SECRET)
     if (!v || !PROVIDERS.some((p) => p.kind === v.kind)) return null
     return { kind: v.kind!, baseUrl: String(v.baseUrl ?? ''), model: String(v.model ?? ''), apiKey: v.apiKey ? String(v.apiKey) : undefined, ...(v.keyStored ? { keyStored: true } : {}), ...(v.viaPc ? { viaPc: true } : {}) }
   } catch {
@@ -316,8 +319,8 @@ export function loadLlmConfig(): LlmConfig | null {
 }
 export function saveLlmConfig(cfg: LlmConfig | null) {
   try {
-    if (cfg) localStorage.setItem(KEY, JSON.stringify(cfg))
-    else localStorage.removeItem(KEY)
+    if (cfg) writeSecretRecord(SECRET, { ...cfg })
+    else clearSecretRecord(SECRET)
     if (typeof window !== 'undefined') window.dispatchEvent(new Event('nosidian-llm-changed'))
   } catch {
     /* 저장소를 못 쓰면 이번 실행에서만 유지 */

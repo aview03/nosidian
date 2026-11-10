@@ -3,6 +3,7 @@
 //  - Claude 구독 중계: PC 의 Claude Code 를 실행하게 하되, 노트 도구 호출은 PC 가 폰으로 되돌려 보내고 폰이 폰의 노트에서 실행한다(폴링).
 // 네트워크는 llmNet.send(안드로이드는 네이티브 HTTP)를 쓴다 — 웹뷰의 https 출처에서 http 사설망으로 보내도 막히지 않는다.
 import { send } from './llmNet'
+import { clearSecretRecord, readSecretRecord, registerSecret, writeSecretRecord, type SecretSpec } from './secureStore'
 import { loadLlmConfig, saveLlmConfig, type LlmConfig } from './llm'
 import { buildEnv } from './mcpBridge'
 import { callTool } from './mcpTools'
@@ -11,6 +12,9 @@ import { t } from './i18n'
 
 export const DEFAULT_RELAY_PORT = 47410
 const KEY = 'nosidian.pc'
+/** 연결 토큰은 안드로이드 보안 저장소(Keystore)에 둔다 */
+const SECRET: SecretSpec = { storageKey: KEY, field: 'token', secretName: 'pc.token', required: true }
+registerSecret(SECRET)
 
 export interface PcLink {
   host: string
@@ -25,7 +29,7 @@ export interface PcLink {
 
 export function loadPcLink(): PcLink | null {
   try {
-    const v = JSON.parse(localStorage.getItem(KEY) ?? 'null') as Partial<PcLink> | null
+    const v = readSecretRecord<Partial<PcLink>>(SECRET)
     if (!v || typeof v.host !== 'string' || typeof v.token !== 'string' || !Number.isInteger(v.port)) return null
     return { host: v.host, port: v.port as number, token: v.token, name: String(v.name ?? 'PC'), claude: v.claude === true, upstream: v.upstream && typeof v.upstream.kind === 'string' ? { kind: v.upstream.kind, model: String(v.upstream.model ?? '') } : null }
   } catch {
@@ -33,12 +37,8 @@ export function loadPcLink(): PcLink | null {
   }
 }
 export function savePcLink(l: PcLink | null) {
-  try {
-    if (l) localStorage.setItem(KEY, JSON.stringify(l))
-    else localStorage.removeItem(KEY)
-  } catch {
-    /* 저장소를 못 쓰면 이번 실행에서만 */
-  }
+  if (l) writeSecretRecord(SECRET, { ...l })
+  else clearSecretRecord(SECRET)
 }
 export const pcClaude = () => loadPcLink()?.claude === true
 

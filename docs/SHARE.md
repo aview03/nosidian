@@ -15,6 +15,7 @@ AI 중계(`docs/RELAY.md`, 평문 http)와 **완전히 분리**: 별도 서버(�
 - **경로 방어**: 상대 경로만, `..` · 숨김(`.`로 시작) · `:`(드라이브·ADS) · 역슬래시 · NUL · 윈도 예약 이름(CON·NUL…) · 끝의 점/공백 거절. 목록에서 심볼릭 링크·정션은 빼고, 내려받기는 `realpath` 가 요청 경로와 다르면(중간에 링크가 있으면) 거절. 숨김 파일·`node_modules` 는 목록에서 뺀다. 한 파일 25MB.
 - 공유 폴더로 지정할 수 없는 곳: 드라이브 루트, 홈 폴더 자체, 앱 데이터 폴더, 시스템 폴더.
 - 받은 파일은 PC 가 보낸 크기·SHA-256 과 맞을 때만 건넨다(다르면 버림).
+- **폰의 토큰 보관(v1.39.0)**: 연결 토큰은 Android Keystore(AES-GCM)로 암호화해 앱 전용 저장소에 둔다. 웹뷰 localStorage 에는 주소·지문·이름만 남고, 백업·기기 이전에서 제외한다. 상세: `docs/SECURE-STORAGE.md`.
 
 ## 코드
 `electron/fileShare.cjs`(서버·인증서·IPC) · `ShareCard.tsx`(PC UI) · `src/lib/pcFiles.ts`(폰 클라이언트) · `pinnedHttp.ts` + `PinnedHttpPlugin.java`(지문 고정 전송) · `PcFilesCard.tsx`(폰 UI·파일 시트).

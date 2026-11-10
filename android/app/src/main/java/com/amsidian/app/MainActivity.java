@@ -10,6 +10,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(OpenFilePlugin.class);
         registerPlugin(CalendarBridgePlugin.class);
         registerPlugin(PinnedHttpPlugin.class);
+        registerPlugin(SecureStorePlugin.class);
         super.onCreate(savedInstanceState);
     }
 }

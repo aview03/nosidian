@@ -4,9 +4,13 @@
 //  - 읽기 전용: 이 파일에는 PC 에 쓰는 요청이 없다.
 import { create } from 'zustand'
 import { pinnedRequest } from './pinnedHttp'
+import { clearSecretRecord, onSecretsReady, readSecretRecord, registerSecret, writeSecretRecord, type SecretSpec } from './secureStore'
 import { t } from './i18n'
 
 const KEY = 'nosidian.pcshare'
+/** 파일 공유 토큰은 안드로이드 보안 저장소(Keystore)에 둔다 */
+const SECRET: SecretSpec = { storageKey: KEY, field: 'token', secretName: 'pcshare.token', required: true }
+registerSecret(SECRET)
 export const DEFAULT_SHARE_PORT = 47411
 /** 받을 수 있는 파일 한 개의 최대 크기(PC 와 같다) */
 export const MAX_SHARE_FILE = 25 * 1024 * 1024
@@ -23,7 +27,7 @@ export interface PcShare {
 
 export function loadPcShare(): PcShare | null {
   try {
-    const v = JSON.parse(localStorage.getItem(KEY) ?? 'null') as Partial<PcShare> | null
+    const v = readSecretRecord<Partial<PcShare>>(SECRET)
     if (!v || typeof v.host !== 'string' || typeof v.token !== 'string' || typeof v.fp !== 'string' || !/^[0-9a-f]{64}$/.test(v.fp) || !Number.isInteger(v.port)) return null
     return { host: v.host, port: v.port as number, token: v.token, fp: v.fp, name: String(v.name ?? 'PC'), dirName: typeof v.dirName === 'string' ? v.dirName : null }
   } catch {
@@ -31,17 +35,15 @@ export function loadPcShare(): PcShare | null {
   }
 }
 export function savePcShare(s: PcShare | null) {
-  try {
-    if (s) localStorage.setItem(KEY, JSON.stringify(s))
-    else localStorage.removeItem(KEY)
-  } catch {
-    /* 저장소를 못 쓰면 이번 실행에서만 */
-  }
+  if (s) writeSecretRecord(SECRET, { ...s })
+  else clearSecretRecord(SECRET)
   usePcFilesUi.setState({ link: s })
 }
 
 /** 화면 상태: 연결 정보와 "내 PC의 파일" 시트가 열려 있는지 */
 export const usePcFilesUi = create<{ link: PcShare | null; open: boolean }>(() => ({ link: loadPcShare(), open: false }))
+// 앱 시작 때 보안 저장소 복호화가 끝나면 연결 정보를 다시 읽는다(모듈이 로드될 때는 아직 토큰을 읽을 수 없다)
+onSecretsReady(() => usePcFilesUi.setState({ link: loadPcShare() }))
 
 export interface SharePairing {
   host: string

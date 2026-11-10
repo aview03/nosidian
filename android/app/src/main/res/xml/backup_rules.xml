@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 보안 저장소(Keystore 로 암호화한 토큰·API 키)는 백업하지 않는다: 키는 기기 밖으로 나가지 않으므로 복원해도 복호화할 수 없다 -->
+<full-backup-content>
+    <exclude domain="sharedpref" path="nosidian_secure.xml" />
+</full-backup-content>
