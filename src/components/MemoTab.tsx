@@ -60,6 +60,91 @@ export function useLongPress(onLong: () => void) {
   }
 }
 
+/** 끌어서 옮기는 동안 화면 스크롤을 막는다(터치) */
+let blockScroll = false
+
+export interface RowGesture {
+  selecting: boolean
+  selected: boolean
+  /** 꾹 눌러 선택 모드로 들어가며 이 행을 선택 */
+  onLong(): void
+  onDragStart(x: number, y: number): void
+  onDragMove(x: number, y: number): void
+  /** 손을 뗐다 */
+  onDrop(): void
+  onDragCancel(): void
+}
+
+/**
+ * 목록 행의 손짓: 꾹 눌러 선택 → 그대로 끌면 선택한 항목을 끌어 옮긴다(폴더 위에서 놓기).
+ * 이미 선택된 행은 0.25초 꾹 누른 뒤 끌면 된다(그냥 끌면 목록이 스크롤된다). 마우스는 선택된 행을 바로 끌 수 있다.
+ */
+export function useRowGesture(g: RowGesture) {
+  const gr = useRef(g)
+  gr.current = g
+  const st = useRef({ down: false, armed: false, dragging: false, x0: 0, y0: 0, timer: undefined as ReturnType<typeof setTimeout> | undefined, fired: 0, pid: 0 })
+  const reset = () => {
+    clearTimeout(st.current.timer)
+    st.current.down = st.current.armed = st.current.dragging = false
+    blockScroll = false
+  }
+  return {
+    onPointerDown: (e: RPointerEvent) => {
+      if (e.pointerType === 'mouse' && e.button !== 0) return
+      const s0 = st.current
+      clearTimeout(s0.timer)
+      s0.down = true
+      s0.armed = s0.dragging = false
+      s0.x0 = e.clientX
+      s0.y0 = e.clientY
+      s0.pid = e.pointerId
+      if (!gr.current.selecting) {
+        s0.timer = setTimeout(() => { s0.armed = true; s0.fired = Date.now(); blockScroll = true; navigator.vibrate?.(15); gr.current.onLong() }, 450)
+      } else if (gr.current.selected) {
+        if (e.pointerType === 'mouse') s0.armed = true
+        else s0.timer = setTimeout(() => { s0.armed = true; s0.fired = Date.now(); blockScroll = true; navigator.vibrate?.(10) }, 250)
+      }
+    },
+    onPointerMove: (e: RPointerEvent) => {
+      const s0 = st.current
+      if (!s0.down) return
+      const dist = Math.hypot(e.clientX - s0.x0, e.clientY - s0.y0)
+      if (!s0.armed) {
+        if (dist > 10) reset() // 스크롤하려는 손짓
+        return
+      }
+      if (!s0.dragging) {
+        if (dist < 8) return
+        s0.dragging = true
+        try { (e.currentTarget as HTMLElement).setPointerCapture(s0.pid) } catch { /* 이미 끝난 포인터 */ }
+        gr.current.onDragStart(e.clientX, e.clientY)
+      }
+      gr.current.onDragMove(e.clientX, e.clientY)
+    },
+    onPointerUp: () => {
+      const s0 = st.current
+      const was = s0.dragging
+      if (was) s0.fired = Date.now()
+      reset()
+      if (was) gr.current.onDrop()
+    },
+    onPointerCancel: () => {
+      const was = st.current.dragging
+      reset()
+      if (was) gr.current.onDragCancel()
+    },
+    // 손가락으로 꾹 누르면 우리 타이머가 먼저 처리하고 곧이어 브라우저의 contextmenu 도 온다 — 마우스 우클릭만 선택으로 본다
+    onContextMenu: (e: React.MouseEvent) => {
+      e.preventDefault()
+      const s0 = st.current
+      if (s0.down || Date.now() - s0.fired < 1500) return
+      s0.fired = Date.now()
+      if (!gr.current.selecting) gr.current.onLong()
+    },
+    onClickCapture: (e: React.MouseEvent) => { if (Date.now() - st.current.fired < 700) { e.stopPropagation(); e.preventDefault() } },
+  }
+}
+
 const when = (ms: number) => {
   const d = new Date(ms)
   const now = new Date()
@@ -67,10 +152,12 @@ const when = (ms: number) => {
   return d.getFullYear() === now.getFullYear() ? `${d.getMonth() + 1}/${d.getDate()}` : `${String(d.getFullYear()).slice(2)}/${d.getMonth() + 1}/${d.getDate()}`
 }
 
-function Row({ k, selecting, selected, onOpen, onSelect, children }: { k: string; selecting: boolean; selected: boolean; onOpen(): void; onSelect(): void; children: ReactNode }) {
-  const lp = useLongPress(onSelect)
+interface DragApi { start(x: number, y: number): void; move(x: number, y: number): void; drop(): void; cancel(): void }
+
+function Row({ k, selecting, selected, onOpen, onSelect, drag, drop, over, children }: { k: string; selecting: boolean; selected: boolean; onOpen(): void; onSelect(): void; drag: DragApi; /** 이 행에 놓을 수 있으면 목적지 */ drop?: string; over?: boolean; children: ReactNode }) {
+  const gesture = useRowGesture({ selecting, selected, onLong: onSelect, onDragStart: drag.start, onDragMove: drag.move, onDrop: drag.drop, onDragCancel: drag.cancel })
   return (
-    <button key={k} className={`memo-row${selected ? ' sel' : ''}`} onClick={() => (selecting ? onSelect() : onOpen())} {...lp}>
+    <button key={k} className={`memo-row${selected ? ' sel' : ''}${over ? ' drop-on' : ''}`} data-drop={drop} onClick={() => (selecting ? onSelect() : onOpen())} {...gesture}>
       {selecting && <span className={`memo-check${selected ? ' on' : ''}`} aria-hidden="true">{selected && <Icon name="check" size={14} />}</span>}
       {children}
     </button>
@@ -84,6 +171,10 @@ export function MemoTab({ sync }: { sync?: ReactNode }) {
   const sel = useMemoUi((s) => s.sel)
   const vault = useActiveVault()
   const [moving, setMoving] = useState(false)
+  /** 끌어 옮기는 중: 손가락 위치와 지금 올라가 있는 목적지(폴더 행 또는 위로) */
+  const [dragging, setDragging] = useState<{ x: number; y: number; over: string | null } | null>(null)
+  const pointer = useRef({ x: 0, y: 0 })
+  const scroller = useRef<HTMLDivElement>(null)
   const app = useApp.getState()
   const daily = dailyOf(useApp((s) => s.settings.dailyFolder))
 
@@ -167,6 +258,38 @@ export function MemoTab({ sync }: { sync?: ReactNode }) {
     exit()
   }
 
+  // 끌어서 옮기기: 손가락 아래의 폴더 행(또는 "위로")이 목적지
+  const dropAt = (x: number, y: number): string | null => document.elementFromPoint(x, y)?.closest('[data-drop]')?.getAttribute('data-drop') ?? null
+  const drag: DragApi = {
+    start: (x, y) => { pointer.current = { x, y }; setDragging({ x, y, over: dropAt(x, y) }) },
+    move: (x, y) => { pointer.current = { x, y }; setDragging({ x, y, over: dropAt(x, y) }) },
+    drop: () => {
+      const over = dragging?.over
+      setDragging(null)
+      if (over === 'up') return moveTo(dirOf(dir))
+      if (over?.startsWith('d:')) moveTo(over.slice(2))
+    },
+    cancel: () => setDragging(null),
+  }
+  // 끄는 동안 목록 위·아래 가장자리에 가면 스크롤한다
+  useEffect(() => {
+    if (!dragging) return
+    const id = setInterval(() => {
+      const el = scroller.current
+      if (!el) return
+      const r = el.getBoundingClientRect()
+      const y = pointer.current.y
+      if (y < r.top + 70) el.scrollTop -= 10
+      else if (y > r.bottom - 70) el.scrollTop += 10
+    }, 16)
+    return () => clearInterval(id)
+  }, [!!dragging])
+  useEffect(() => {
+    const block = (e: TouchEvent) => { if (blockScroll) e.preventDefault() }
+    document.addEventListener('touchmove', block, { passive: false })
+    return () => document.removeEventListener('touchmove', block)
+  }, [])
+
   const crumbs = dir ? dir.split('/') : []
   // 날짜 노트 폴더에 날짜 이름이 아닌 노트가 있으면(동기화·가져오기) 정리하도록 안내한다
   const stray = (!dir || dir === daily) ? strayInDaily(files, { daily }) : []
@@ -178,7 +301,7 @@ export function MemoTab({ sync }: { sync?: ReactNode }) {
   const root = !dir
   const marked = root ? bookmarks.filter((p) => files[p] && !files[p].deleted) : []
   const noteRow = (n: MemoNote) => (
-    <Row key={'n:' + n.path} k={n.path} selecting={!!sel} selected={!!sel?.has(key('n', n.path))} onOpen={() => app.openNote(n.path)} onSelect={() => begin(key('n', n.path))}>
+    <Row key={'n:' + n.path} k={n.path} selecting={!!sel} selected={!!sel?.has(key('n', n.path))} onOpen={() => app.openNote(n.path)} onSelect={() => begin(key('n', n.path))} drag={drag}>
       <span className="memo-main">
         <b className="memo-title">{n.title || t('내용 없음')}</b>
         {n.snippet && <span className="memo-snip">{n.snippet}</span>}
@@ -194,6 +317,7 @@ export function MemoTab({ sync }: { sync?: ReactNode }) {
           <>
             <button className="icon-btn" onClick={exit} aria-label={t('선택 취소')}><Icon name="close" /></button>
             <h2 className="memo-count">{t('{n}개 선택', { n: sel.size })}</h2>
+            {dir && <button className={`memo-up${dragging?.over === 'up' ? ' drop-on' : ''}`} data-drop="up" onClick={() => moveTo(dirOf(dir))}>{t('위 폴더로 꺼내기')}</button>}
             <button className="link-btn memo-all" onClick={() => useMemoUi.setState({ sel: new Set(sel.size === allKeys.length ? [] : allKeys) })}>{sel.size === allKeys.length ? t('선택 해제') : t('전체 선택')}</button>
           </>
         ) : (
@@ -219,7 +343,7 @@ export function MemoTab({ sync }: { sync?: ReactNode }) {
         )}
       </div>
 
-      <div className="memo-scroll">
+      <div className="memo-scroll" ref={scroller}>
         {stray.length > 0 && !sel && (
           <div className="memo-warn">
             <span>{t('날짜 이름이 아닌 노트 {n}개가 "{name}" 폴더에 있어요', { n: stray.length, name: daily })}</span>
@@ -240,7 +364,7 @@ export function MemoTab({ sync }: { sync?: ReactNode }) {
           <section>
             {marked.length > 0 && !sel && <h3 className="memo-sec">{t('폴더')}</h3>}
             {folders.map((f) => (
-              <Row key={'d:' + f.path} k={f.path} selecting={!!sel} selected={!!sel?.has(key('d', f.path))} onOpen={() => useMemoUi.setState({ dir: f.path })} onSelect={() => begin(key('d', f.path))}>
+              <Row key={'d:' + f.path} k={f.path} selecting={!!sel} selected={!!sel?.has(key('d', f.path))} onOpen={() => useMemoUi.setState({ dir: f.path })} onSelect={() => begin(key('d', f.path))} drag={drag} drop={sel && !sel.has(key('d', f.path)) ? 'd:' + f.path : undefined} over={dragging?.over === 'd:' + f.path}>
                 <span className="memo-ico"><Icon name="folder" size={20} /></span>
                 <span className="memo-main"><b className="memo-title">{f.name}</b>{noOverview?.has(f.path) && <span className="memo-snip warn">{t('프로젝트 개요 노트가 없어요')}</span>}</span>
                 {noOverview?.has(f.path) && !sel && <span className="memo-chip" role="button" onClick={(e) => { e.stopPropagation(); const o = overviewNote(f.path, getLang() === 'ko'); app.createNote(o.path, o.content, false); app.say(t('프로젝트 개요 노트를 만들었어요')) }}>{t('개요 만들기')}</span>}
@@ -264,6 +388,8 @@ export function MemoTab({ sync }: { sync?: ReactNode }) {
         )}
         <div className="memo-bottom-space" />
       </div>
+
+      {dragging && <div className="memo-ghost" style={{ left: dragging.x, top: dragging.y }}>{t('{n}개 옮기기', { n: sel?.size ?? 0 })}</div>}
 
       {!sel && (
         <button className="memo-fab" onClick={write} aria-label={t('새 메모 쓰기')}><Icon name="edit" size={24} /></button>

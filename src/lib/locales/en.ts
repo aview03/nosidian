@@ -1007,5 +1007,7 @@ const dict: Record<string, string> = {
   '프로젝트 개요 노트가 없어요': 'No project overview note',
   '개요 만들기': 'Create overview',
   '프로젝트 개요 노트를 만들었어요': 'Project overview note created',
+  '위 폴더로 꺼내기': "Take out to parent folder",
+  '{n}개 옮기기': "Move {n}",
 }
 export default dict
