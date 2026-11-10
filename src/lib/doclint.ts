@@ -103,13 +103,13 @@ export function projectDocs(project: Project, files: Record<string, NoteFile>): 
   return out.sort((a, b) => a.localeCompare(b))
 }
 
-interface Resolved {
+export interface Resolved {
   role?: Role
   issue?: Pick<LintItem, 'kind' | 'text' | 'text2'>
 }
 
 /** 문서 하나의 역할을 정한다. 이름 규칙과 role: 가 어긋나면 정하지 않고 문제로 돌려준다 */
-function resolveRole(profile: Profile, rel: string, fmRole: string): Resolved {
+export function resolveRole(profile: Profile, rel: string, fmRole: string): Resolved {
   const relL = lc(rel)
   const byName = profile.roles.find((r) => r.file && lc(r.file) === relL)
   const byDir = [...profile.roles].filter((r) => r.dir && relL.startsWith(lc(r.dir) + '/')).sort((a, b) => b.dir!.length - a.dir!.length)[0]

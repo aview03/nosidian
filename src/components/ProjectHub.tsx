@@ -11,6 +11,7 @@ import { buildTimeline, groupByDate } from '../lib/timeline'
 import { ask } from '../lib/dialog'
 import { templateFromProject } from '../lib/projectTemplates'
 import { DocCheck } from './DocCheck'
+import { HumanDocs } from './HumanDocs'
 import { Icon } from './Icon'
 import { healthLabel, signalText, useHealth, useWork } from './WorkHome'
 
@@ -209,6 +210,7 @@ export function ProjectHub() {
           {tab === 'board' && <Board tasks={tasks} />}
 
           {tab === 'docs' && (
+            <HumanDocs project={project} open={open.length} decisions={decisions.length} onCheck={() => setTab('check')}>
             <section className="wrk-sec">
               {project.folder === '' && <p className="hint pad">{t('이 프로젝트 노트는 폴더 밖에 있어요. 노트를 폴더로 옮기면 그 폴더의 문서가 여기 모여요.')}</p>}
               {docs.length === 0 && project.folder !== '' && <p className="hint pad">{t('프로젝트 폴더에 다른 문서가 없어요.')}</p>}
@@ -219,6 +221,7 @@ export function ProjectHub() {
                 </button>
               ))}
             </section>
+            </HumanDocs>
           )}
 
           {tab === 'check' && <DocCheck project={project} />}

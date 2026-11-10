@@ -44,12 +44,18 @@ function messageOf(it: LintItem, rel: (p: string) => string): string {
   }
 }
 
-export function DocCheck({ project }: { project: Project }) {
+/** 프로젝트의 규칙·프로필·점검 결과(문서 점검 탭과 문서 탭의 Human View 가 같이 쓴다). 프로필이 없으면 report 는 null */
+export function useProjectLint(project: Project) {
   const files = useApp((s) => s.files)
   const index = useApp((s) => s.index)
   const rules = useMemo(() => readRules(files), [files])
   const profile = useMemo(() => profileFor(rules, project.fm), [rules, project.fm])
   const report = useMemo(() => (profile ? lintProject(project, files, rules, profile, index) : null), [profile, project, files, rules, index])
+  return { rules, profile, report }
+}
+
+export function DocCheck({ project }: { project: Project }) {
+  const { rules, profile, report } = useProjectLint(project)
   const rel = (p: string) => (project.folder && p.startsWith(project.folder + '/') ? p.slice(project.folder.length + 1) : p)
   const open = (p: string) => useApp.getState().openNote(p)
   const docsValue = typeof project.fm.docs === 'string' ? project.fm.docs : ''

@@ -566,5 +566,14 @@ const dict: Record<string, string> = {
   '참고': 'For reference',
   '중복은 이름·제목·본문이 겹치는 "후보"만 보여 줘요. 의미가 같고 글자가 다른 문서는 찾지 못해요.': 'Duplicates are shown only as "candidates" with overlapping names, headings or text. Documents that mean the same thing in different words are not found.',
   '이 프로젝트에서 끄기': 'Turn off for this project',
+  '열린 일 {n}': '{n} open tasks',
+  '결정할 일 {n}': '{n} decisions to make',
+  '문서 점검 · 확인할 것 {n}': 'Doc check · {n} to review',
+  '문서 점검 · 이상 없음': 'Doc check · all good',
+  '먼저 읽어야 할 문서': 'Read these first',
+  '프로젝트 노트': 'Project note',
+  '확인 {n}': '{n} to review',
+  '보조·기타 문서': 'Supporting & other documents',
+  '보관된 문서 {n}개는 점검과 이 목록에서 빠져 있어요.': '{n} archived document(s) are left out of checks and this list.',
 }
 export default dict
