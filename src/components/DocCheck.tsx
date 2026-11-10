@@ -10,6 +10,7 @@ import type { Project } from '../lib/work'
 import { desktop } from '../lib/externalIO'
 import { fixPrompt, fixTitle } from '../lib/aiFix'
 import { useAiThread } from '../lib/aiThread'
+import { useAutomation } from '../lib/automation'
 
 /** 프로젝트 노트 속성의 docs: 를 바꾼다(null 이면 지움) */
 function setProjectDocs(project: Project, value: string | null) {
@@ -59,6 +60,8 @@ export function useProjectLint(project: Project) {
 
 export function DocCheck({ project }: { project: Project }) {
   const { rules, profile, report } = useProjectLint(project)
+  const autoMode = useAutomation((a) => a.settings.mode)
+  const autoExcluded = useAutomation((a) => a.settings.excluded.includes(project.path))
   const rel = (p: string) => (project.folder && p.startsWith(project.folder + '/') ? p.slice(project.folder.length + 1) : p)
   const open = (p: string) => useApp.getState().openNote(p)
   const docsValue = typeof project.fm.docs === 'string' ? project.fm.docs : ''
@@ -140,6 +143,7 @@ export function DocCheck({ project }: { project: Project }) {
       <div className="dchk-foot">
         {ruleBtn}
         <button className="btn-link" onClick={() => setProjectDocs(project, 'off')}>{t('이 프로젝트에서 끄기')}</button>
+        {desktop() && autoMode !== 'off' && <button className="btn-link" onClick={() => useAutomation.getState().setExcluded(project.path, !autoExcluded)}>{autoExcluded ? t('이 프로젝트를 자동 관리에 넣기') : t('이 프로젝트를 자동 관리에서 빼기')}</button>}
       </div>
     </section>
   )

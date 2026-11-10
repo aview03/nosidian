@@ -47,18 +47,36 @@ export function buildPrompt({ question, note, mode, history }: PromptInput): str
  * 답변 속 `경로.md` 를 [[경로|이름]] 링크로 바꿔, 눌러서 본문에서 열 수 있게 한다. 실제로 있는 노트만 바꾼다.
  * (코드 블록 안은 건드리지 않는다)
  */
-export function linkifyPaths(text: string, exists: (path: string) => boolean): string {
+export function linkifyPaths(text: string, exists: (path: string) => boolean, all: string[] = []): string {
+  // 전체 경로가 있으면 그대로, 파일 이름만 쓴 경우(auth-final.md)는 vault 에서 이름이 끝에 맞는 노트가 딱 하나일 때만 그 노트로 본다
+  const resolve = (name: string): string | null => {
+    if (exists(name)) return name
+    const hit = all.filter((p) => p === name || p.endsWith('/' + name))
+    return hit.length === 1 && exists(hit[0]) ? hit[0] : null
+  }
+  const link = (path: string) => `[[${path}|${path.slice(path.lastIndexOf('/') + 1).replace(/\.md$/i, '')}]]`
   const fence = /(```[\s\S]*?```)/g
+  // 이미 코드·위키링크·마크다운 링크인 부분은 건드리지 않는다. 백틱 안의 경로는 노트가 있으면 링크로
+  const keep = /(`[^`\n]*`|\[\[[^\]\n]*\]\]|\[[^\]\n]*\]\([^)\n]*\))/g
   return text
     .split(fence)
     .map((chunk, i) => {
       if (i % 2 === 1) return chunk // 코드 블록
-      return chunk.replace(/`([^`\n]+?\.md)`/g, (m, p: string) => {
-        const path = p.trim()
-        if (!exists(path)) return m
-        const name = path.slice(path.lastIndexOf('/') + 1).replace(/\.md$/i, '')
-        return `[[${path}|${name}]]`
-      })
+      return chunk
+        .split(keep)
+        .map((seg, j) => {
+          if (j % 2 === 1) {
+            const m = /^`([^`\n]+?\.md)`$/.exec(seg)
+            const path = m ? resolve(m[1].trim()) : null
+            return path ? link(path) : seg
+          }
+          // 백틱 없이 쓴 파일 이름. .md 는 도메인 확장자라 그대로 두면 마크다운이 https://auth-final.md 로 자동 링크한다 → 노트가 있으면 노트 링크, 없으면 코드로 감싸 자동 링크를 막는다
+          return seg.replace(/[^\s`\[\]()<>"',;]+\.md(?![\w]|\.\w)/gi, (name) => {
+            const path = resolve(name)
+            return path ? link(path) : '`' + name + '`'
+          })
+        })
+        .join('')
     })
     .join('')
 }

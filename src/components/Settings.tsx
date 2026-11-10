@@ -7,6 +7,7 @@ import { tx } from '../lib/tx'
 import { LangSelect } from './LangSelect'
 import { LlmCard } from './LlmSettings'
 import { McpCard } from './McpSettings'
+import { AutoCard } from './AutoSettings'
 import { ClaudeCliCard } from './ClaudeCliSettings'
 import { useEffect, useRef, useState } from 'react'
 import { create } from 'zustand'
@@ -154,6 +155,7 @@ export function Settings() {
         <LlmCard />
         <ClaudeCliCard />
         <McpCard />
+        <AutoCard />
         <section className="card">
           <h3>{t('캘린더')}</h3>
           <div className="kv"><span>{t('공휴일 표시')}</span>

@@ -9,6 +9,8 @@ import { linkifyPaths, PRESETS, readiness, toolLabel } from '../lib/aiAssistant'
 import { localEngine, useAiThread, type Engine, type Msg, type Step } from '../lib/aiThread'
 import { isStale } from '../lib/proposals'
 import { useProposals } from '../lib/proposalStore'
+import { useAutomation } from '../lib/automation'
+import { autoInboxCount } from './AutoSettings'
 import { Icon } from './Icon'
 import { Reader } from './Reader'
 import { Select } from './Select'
@@ -55,10 +57,17 @@ function Orb({ size, still }: { size: number; still?: boolean }) {
   )
 }
 
+/** 대화 속 프로필 사진: AI 는 빛나는 구(일하는 중이면 움직인다), 나는 이름의 첫 글자 */
+function Avatar({ kind, busy }: { kind: 'ai' | 'me'; busy?: boolean }) {
+  const name = useApp((s) => s.settings.myName)
+  if (kind === 'ai') return <span className="ai-avatar ai" aria-hidden="true"><Orb size={32} still={!busy} /></span>
+  const initial = [...(name.split(',')[0] ?? '').trim()][0]
+  return <span className="ai-avatar me" aria-hidden="true">{initial ? initial.toUpperCase() : t('나')}</span>
+}
+
 function Thinking({ step }: { step?: Step }) {
   return (
     <div className="ai-think" role="status" aria-live="polite">
-      <Orb size={56} />
       <div className="ai-think-text">
         <span className="ai-think-title">{t('생각하는 중…')}</span>
         {step && <span className="ai-think-step">{toolLabel(step.name)}{step.input ? ` · ${step.input}` : ''}</span>}
@@ -70,12 +79,15 @@ function Thinking({ step }: { step?: Step }) {
 function UserMsg({ m }: { m: Msg }) {
   return (
     <div className="ai-u">
-      <div className="ai-u-text">{m.text}</div>
-      <div className="ai-u-meta">
-        {m.mode === 'edit' ? t('변경 제안') : t('묻기')}
-        {m.engine === 'ollama' && <> · {t('로컬 모델')}</>}
-        {m.note && <> · {baseName(m.note)}</>}
+      <div className="ai-u-body">
+        <div className="ai-u-text">{m.text}</div>
+        <div className="ai-u-meta">
+          {m.mode === 'edit' ? t('변경 제안') : t('묻기')}
+          {m.engine === 'ollama' && <> · {t('로컬 모델')}</>}
+          {m.note && <> · {baseName(m.note)}</>}
+        </div>
       </div>
+      <Avatar kind="me" />
     </div>
   )
 }
@@ -87,9 +99,12 @@ function AiMsg({ m, last }: { m: Msg; last: boolean }) {
   const pendingIds = (m.proposals ?? []).filter((id) => items.find((p) => p.id === id)?.status === 'pending')
   const steps = m.steps ?? []
   const busy = m.status === 'running'
-  const text = linkifyPaths(m.text, (p) => !!files[p] && !files[p].deleted)
+  const text = linkifyPaths(m.text, (p) => !!files[p] && !files[p].deleted, Object.keys(files))
   return (
     <div className="ai-a">
+      <Avatar kind="ai" busy={busy} />
+      <div className="ai-a-body">
+      <div className={`ai-bubble${m.status === 'done' && m.text ? '' : ' plain'}`}>
       {steps.length > 0 && (
         busy ? (
           <ul className="ai-steps">{steps.slice(0, -1).slice(-3).map((s, i) => <li key={i}><b>{toolLabel(s.name)}</b>{s.input && <span>{s.input}</span>}</li>)}</ul>
@@ -106,10 +121,13 @@ function AiMsg({ m, last }: { m: Msg; last: boolean }) {
       {m.status === 'done' && m.text && (
         <>
           <div className="ai-text"><Reader path="AI" content={text} compact /></div>
-          <div className="ai-foot">
-            <button className="btn-link" onClick={() => void navigator.clipboard.writeText(m.text).then(() => useApp.getState().say(t('복사했어요')))}>{t('복사')}</button>
-          </div>
         </>
+      )}
+      </div>
+      {m.status === 'done' && m.text && (
+        <div className="ai-foot">
+          <button className="btn-link" onClick={() => void navigator.clipboard.writeText(m.text).then(() => useApp.getState().say(t('복사했어요')))}>{t('복사')}</button>
+        </div>
       )}
       {m.status === 'done' && m.fix === 'plan' && last && (
         <div className="ai-plan">
@@ -127,11 +145,13 @@ function AiMsg({ m, last }: { m: Msg; last: boolean }) {
           </div>
         </div>
       )}
+      </div>
     </div>
   )
 }
 
 export function AiPanel() {
+  const autoNew = useAutomation((s) => (s.settings.mode === 'off' ? 0 : autoInboxCount(s.st)))
   const pc = !!desktop()
   const claude = desktop()?.claude
   const open = useAiThread((s) => s.open)
@@ -199,6 +219,11 @@ export function AiPanel() {
         <button className={`icon-btn${wide ? ' on' : ''}`} onClick={() => useAiThread.getState().setWide(!wide)} title={t('넓게 보기')} aria-label={t('넓게 보기')}><Icon name="expand" size={18} /></button>
         <button className="icon-btn" onClick={() => useAiThread.getState().setOpen(false)} title={t('닫기')} aria-label={t('닫기')}><Icon name="close" size={18} /></button>
       </header>
+      {autoNew > 0 && (
+        <button className="ai-auto" onClick={() => { useApp.getState().go('settings') }}>
+          {t('AI 문서 관리: 새 문서 문제 {n}건 — 설정에서 보기', { n: autoNew })}
+        </button>
+      )}
 
       <div
         className="ai-thread"

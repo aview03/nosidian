@@ -33,7 +33,7 @@ export interface McpEnv {
   partialPaths?: Set<string>
 }
 
-const MAX_READ = 200_000
+export const MAX_READ = 200_000
 
 const str = (v: unknown, name: string, opts: { required?: boolean; max?: number } = {}): string | undefined => {
   if (v === undefined || v === null) {

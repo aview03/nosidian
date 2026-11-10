@@ -9,6 +9,7 @@ import { readRules } from './docrules'
 import { contentHash, type AiRequest } from './docpolicy'
 import { approveAll, approve as approveCheck, newProposal, prune, triage, type FileOp, type Proposal, type Triage } from './proposals'
 import { buildWork } from './work'
+import { emitAiChange } from './aiChangeHook'
 
 const keyOf = (vault: string | null) => `nosidian.proposals.${vault ?? 'local'}`
 
@@ -38,6 +39,7 @@ export function execute(ops: FileOp[]) {
     else if (o.op === 'rename') app.renameNote(o.path, o.to)
     else app.deleteNote(o.path, { silent: true })
   }
+  emitAiChange(ops.flatMap((o) => (o.op === 'rename' ? [o.path, o.to] : [o.path])))
 }
 
 const ctxNow = () => {

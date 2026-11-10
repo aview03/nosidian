@@ -23,6 +23,8 @@ import { ViewEditor } from './components/ViewEditor'
 import { ProposalReview } from './components/ProposalReview'
 import { AiPanel } from './components/AiPanel'
 import { startAiThread, useAiThread } from './lib/aiThread'
+import { startAutomation, useAutomation } from './lib/automation'
+import { autoInboxCount } from './components/AutoSettings'
 import { CalendarMain, CalendarMobile, CalendarSide, DayPanel, TodayView } from './components/Calendar'
 import { NoteView } from './components/NoteView'
 import { Settings } from './components/Settings'
@@ -91,6 +93,8 @@ export default function App() {
   useEffect(() => (ready ? startMcpBridge() : undefined), [ready])
   useEffect(() => void (ready && migrateLlmKey()), [ready])
   useEffect(() => (ready ? startAiThread() : undefined), [ready])
+  useEffect(() => (ready && !window.location.search.includes('widget') ? startAutomation() : undefined), [ready])
+  const autoNew = useAutomation((s) => (s.settings.mode === 'off' ? 0 : autoInboxCount(s.st)))
   const aiOpen = useAiThread((s) => s.open)
   // 이미 쌓여 있던 빈 Daily 노트를 vault 마다 한 번만 자동 정리한다 (이후에 생긴 것은 일정을 지울 때 정리됨 / 수동 정리 명령)
   const activeVaultId = useApp((s) => s.settings.activeVault)
@@ -224,7 +228,7 @@ export default function App() {
           <button className={leftOpen && leftTab === 'files' && mainTab === 'note' ? 'on' : ''} onClick={() => pickLeft('files')} title={t('메모')}><Icon name="note" /></button>
           <button className={leftOpen && railActive('search') ? 'on' : ''} onClick={() => pickLeft('search')} title={t('검색 (Ctrl+Shift+F)')}><Icon name="search" /></button>
           <div className="grow" />
-          {desktop() && <button className={aiOpen ? 'on' : ''} onClick={() => useAiThread.getState().toggle()} title={t('AI (Ctrl+Shift+A)')} aria-label={t('AI 패널 열기/닫기')}><Icon name="spark" /></button>}
+          {desktop() && <button className={`${aiOpen ? 'on' : ''}${autoNew ? ' has-dot' : ''}`} onClick={() => useAiThread.getState().toggle()} title={autoNew ? t('AI (Ctrl+Shift+A) · 새 문서 문제 {n}건', { n: autoNew }) : t('AI (Ctrl+Shift+A)')} aria-label={t('AI 패널 열기/닫기')}><Icon name="spark" /></button>}
           <SyncBtn cls="rail-btn" />
           <button onClick={() => useApp.getState().patchSettings({ leftOpen: !leftOpen })} title={leftOpen ? t('사이드바 접기') : t('사이드바 펴기')} aria-label={t('왼쪽 사이드바 접기/펴기')}><Icon name="panel-left" /></button>
           <button className={railActive('settings') ? 'on' : ''} onClick={() => useApp.getState().go('settings')} title={t('설정')}><Icon name="settings" /></button>

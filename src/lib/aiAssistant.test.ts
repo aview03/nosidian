@@ -67,6 +67,20 @@ describe('답변 속 노트 경로 링크', () => {
     expect(linkifyPaths('없는 노트 `x/y.md`', has)).toBe('없는 노트 `x/y.md`')
     expect(linkifyPaths('명령 `npm test` 와 `a/b.txt`', has)).toBe('명령 `npm test` 와 `a/b.txt`')
   })
+  it('백틱 없이 쓴 파일 이름(auth-final.md)도 노트가 하나뿐이면 링크로 — https:// 로 자동 링크되지 않는다', () => {
+    const all = ['프로젝트/행사 준비/auth-final.md', '프로젝트/행사 준비/auth-final-v2.md', 'a/dup.md', 'b/dup.md']
+    const ex = (p: string) => all.includes(p)
+    expect(linkifyPaths('auth-final.md 는 내용 반영 후 보관', ex, all)).toBe('[[프로젝트/행사 준비/auth-final.md|auth-final]] 는 내용 반영 후 보관')
+    expect(linkifyPaths('v2 는 auth-final-v2.md, 그리고 `auth-final.md`.', ex, all)).toBe('v2 는 [[프로젝트/행사 준비/auth-final-v2.md|auth-final-v2]], 그리고 [[프로젝트/행사 준비/auth-final.md|auth-final]].')
+    expect(linkifyPaths('이름이 같은 dup.md 두 개', ex, all)).toBe('이름이 같은 `dup.md` 두 개') // 어느 쪽인지 모호하면 링크하지 않고 코드로
+    expect(linkifyPaths('없는 문서 nope.md 도', ex, all)).toBe('없는 문서 `nope.md` 도')
+  })
+  it('이미 링크·코드인 부분은 그대로 둔다', () => {
+    const all = ['a/b.md']
+    const ex = (p: string) => all.includes(p)
+    expect(linkifyPaths('[[a/b.md|b]] 와 [글](https://x.md) 와 `npm run x.md`', ex, all)).toBe('[[a/b.md|b]] 와 [글](https://x.md) 와 `npm run x.md`')
+    expect(linkifyPaths('b.md.bak 은 아님', ex, all)).toBe('b.md.bak 은 아님')
+  })
   it('코드 블록 안은 바꾸지 않는다', () => {
     const t = '```\n`a/b.md`\n```\n밖: `a/b.md`'
     expect(linkifyPaths(t, has)).toBe('```\n`a/b.md`\n```\n밖: [[a/b.md|b]]')
