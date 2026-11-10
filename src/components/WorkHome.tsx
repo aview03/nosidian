@@ -9,6 +9,7 @@ import { EventRow, QuickAdd, useCalMap } from './Calendar'
 import { Icon } from './Icon'
 import { Select } from './Select'
 import { TileArranger } from './TileArranger'
+import { ProposalBanner } from './ProposalReview'
 import { openMyNameSetting } from './Settings'
 import { applyView, readViews, type View } from '../lib/views'
 import { customName, isCustom, resolveTiles, setCollapsed, setHidden, setLimit, type BuiltinTile } from '../lib/tiles'
@@ -286,6 +287,8 @@ export function WorkHome() {
               <button className="primary" onClick={() => setEditing(false)}>{t('완료')}</button>
             </div>
           )}
+
+          {!editing && <ProposalBanner />}
 
           {me.length > 0 ? (
             <div className="seg wrk-scope">

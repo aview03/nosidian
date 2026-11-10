@@ -23,3 +23,6 @@ node scripts/dev/shot.cjs 9444 MAIN out.png
 
 ## 한글 입력
 React 입력칸은 `Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(el, v)` 후 `input` 이벤트를 보내야 반영된다. 실제 한글 입력기(IME) 동작은 코드 주입으로는 재현되지 않으니 입력이 있는 기능은 실제 키보드로도 확인한다.
+
+## AI 변경 제안 시험
+AI 도구가 아직 없어서, 렌더러 localStorage 에 `nosidian.dev` = `1` 을 넣고 새로고침하면 `window.__proposals` = `{ store, contentHash, app }` 가 열린다. `store.getState().submit({ action, path, baseHash: contentHash(내용), content }, "이름", "설명")` 로 제안을 넣고 `setOpen(true)` 로 검토 화면을 연다(예: 규칙을 켠 프로젝트의 공식 문서 수정 → 승인 대기).

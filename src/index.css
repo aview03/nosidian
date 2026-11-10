@@ -948,3 +948,31 @@ html.popup-win .ee { max-width: none; max-height: none; height: 100%; border-rad
 .hdoc-check { border: none; background: none; min-height: 0; padding: 0; font-size: 14px; color: var(--muted); text-decoration: underline; }
 .hdoc-check.warn, .hdoc-warn { color: var(--accent); }
 .hdoc-check:hover { color: var(--text); }
+
+/* ── AI 변경 제안 검토 ── */
+.pr-banner { display: block; width: calc(100% - 8px); margin: 4px 4px 12px; padding: 10px 14px; text-align: left; font-size: 14px; border: 1px solid var(--accent); background: none; color: var(--text); border-radius: var(--r); min-height: 0; }
+.pr-banner span { color: var(--accent); margin-left: 8px; font-weight: 600; }
+.ee.pr { width: min(760px, 94vw); max-height: 88vh; }
+.pr-intro { margin: 0 0 12px; }
+.pr-item { padding: 14px 0 16px; border-bottom: 1px solid var(--border); }
+.pr-item > header { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.pr-kind { font-size: 12px; padding: 2px 8px; border-radius: 10px; background: var(--bg2); color: var(--muted); }
+.pr-path { font-weight: 600; word-break: break-all; }
+.pr-by { margin-left: auto; font-size: 12px; color: var(--muted); }
+.pr-sum { margin: 8px 0 0; }
+.pr-why { margin: 6px 0 10px; }
+.pr-diff { margin: 0; padding: 8px 0; background: var(--code-bg); border-radius: var(--r); font-size: 13px; overflow-x: auto; max-height: 300px; overflow-y: auto; }
+.pr-row { display: flex; gap: 8px; padding: 0 10px; white-space: pre-wrap; word-break: break-word; }
+.pr-row b { flex: none; width: 10px; font-weight: 400; color: var(--muted); }
+.pr-row.add { background: rgba(60, 170, 90, .18); }
+.pr-row.add b { color: #3caa5a; }
+.pr-row.del { background: rgba(220, 70, 70, .18); }
+.pr-row.del b { color: var(--accent); }
+.pr-row.gap { color: var(--muted); }
+.pr-move { margin: 0; font-size: 14px; }
+.pr-item > footer { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+.pr-stale { font-size: 13px; color: var(--accent); }
+.pr-done { margin: 8px 0 0; }
+.pr-item.applied, .pr-item.rejected, .pr-item.failed { opacity: .75; }
+.pr-donelist { margin-top: 20px; }
+.pr-donelist > summary { cursor: pointer; font-size: 13px; color: var(--muted); }

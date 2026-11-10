@@ -5,11 +5,12 @@
 > 방향: "AI 가 쓰는 Markdown, 사람이 관리할 수 있도록." 규칙을 AI 에게 알려 주는 것과 규칙을 시스템이 강제하는 것을 분리한다 — 이 규칙 파일은 앱이 직접 해석한다.
 
 ## 지금 되는 것 / 아직 없는 것
-| 되는 것 (v1.20.0) | 아직 없는 것 |
+| 되는 것 (v1.21.0) | 아직 없는 것 |
 |---|---|
 | 규칙 노트 해석(`lib/docrules.ts`), 프로젝트별 적용, 역할 판정 | MCP 서버 · LLM 연결(Ollama 등) |
-| 점검(`lib/doclint.ts`): 역할 충돌·위치 불일치, 하나뿐이어야 하는 역할, 필수 제목·status, 끊어진 링크, 고아, 진입 문서에서 접근 불가, 중복 후보 | 변경안 검토(Diff)·승인 화면, 문서 생명주기 |
-| **AI 쓰기 정책 엔진**(`lib/docpolicy.ts`): 생성·수정·삭제·이동·이름 바꾸기를 allow / require_approval / deny 로 판정, 반영 직전 재검증 | 이 엔진을 부르는 도구(아직 어디에도 연결 안 됨) |
+| 점검(`lib/doclint.ts`): 역할 충돌·위치 불일치, 하나뿐이어야 하는 역할, 필수 제목·status, 끊어진 링크, 고아, 진입 문서에서 접근 불가, 중복 후보 | 문서 생명주기(초안→검토→확정→폐기) |
+| **AI 쓰기 정책 엔진**(`lib/docpolicy.ts`): 생성·수정·삭제·이동·이름 바꾸기를 allow / require_approval / deny 로 판정, 반영 직전 재검증 | 이 엔진을 부르는 AI 도구(MCP·LLM) — 아직 어디에도 연결 안 됨 |
+| **변경 제안 검토·승인**(`lib/proposals.ts`·`proposalStore.ts`, `ProposalReview.tsx`): 승인 대기 제안 보관, 전후 차이 보기, 승인 시 반영 직전 재검증 | |
 | 프로젝트 허브 "문서 점검" 탭, **"문서" 탭 Human View**(먼저 읽어야 할 문서·보조 문서·확인할 것) | 규칙을 고치는 폼 화면(규칙 노트를 일반 편집기로 고친다) |
 | 규칙 켜기/끄기, 프로젝트 적용 버튼(속성 `docs:` 를 대신 써 줌) | `append-only` 점검(해석만 함 — 변경 전후 비교가 필요) |
 
@@ -103,6 +104,14 @@ AI 가 Nosidian 의 도구로 문서를 쓰려 할 때 부를 **순수 함수** 
 - **승인과 실행 분리**: `resolveForApply(요청, 승인했나, …)` 가 **반영 직전에** 판정을 처음부터 다시 한다. 승인 대기 중에 사람이 문서를 고쳤거나(`stale`) 규칙이 바뀌었으면 승인했어도 거절하고, `deny` 는 승인으로 뒤집히지 않는다.
 - 한계: Nosidian 을 거치지 않고 원본 파일을 직접 쓰는 에이전트는 이 엔진으로 통제할 수 없다(MCP 자체는 샌드박스가 아니다).
 
+## 변경 제안 검토·승인
+정책 엔진이 `require_approval` 로 돌린 쓰기를 사람이 검토하고 반영하는 흐름이다.
+- **제출**: AI 도구가 `proposalStore.submit(요청, 제안자, 설명)` 을 부른다 → `triage`(= 정책 판정 + 반영 계획) 결과가 `allow` 면 바로 반영, `require_approval` 이면 **제안으로 보관**, `deny` 면 아무것도 하지 않는다. (아직 부르는 AI 도구가 없다 — 개발 중에는 localStorage `nosidian.dev=1` 로 콘솔의 `window.__proposals` 에서 직접 넣어 본다.)
+- **보관**: vault 노트가 아니라 **기기(localStorage, vault 별)** 에 둔다 — 아직 승인되지 않은 임시 값이고 팀 동기화 대상이 아니다. 처리된 제안은 최근 20건만 남긴다.
+- **검토 화면**: 내 업무 위쪽에 "AI 의 변경 제안 N건이 승인을 기다려요 · 검토" 줄이 생기고, 누르면 제안마다 종류·경로·제안자·이유와 **전후 차이**(바뀐 줄 ±2줄, 새 문서는 전체)를 보여 준다. 이동은 `출발 → 도착`, 삭제는 "보관함으로 옮겨요". 읽은 뒤 문서가 바뀌었으면 승인 버튼이 꺼진다.
+- **승인 = 재검증 요청**: 승인하면 `resolveForApply` 로 판정을 **처음부터 다시** 한다. 통과하면 계획(`FileOp`: create·set·rename·delete)대로 쓰고 `applied`, 그새 문서가 바뀌었거나(`stale`) 규칙이 막으면(`readOnly` 등) 반영하지 않고 `failed` + 이유를 남긴다. 거절은 `rejected`.
+- 삭제는 실제로 지우지 않고 `_보관/<원래 경로>` 로 옮긴다(이미 있으면 ` (2)` 번호).
+
 ## Human View (프로젝트 허브 "문서" 탭)
 규칙을 적용한 프로젝트의 문서 탭은 파일 목록 대신 **무엇을 먼저 읽어야 하는가**로 보여 준다: ① 열린 일·결정할 일·"문서 점검" 링크(확인할 것 N), ② **먼저 읽어야 할 문서** — 프로젝트 노트와 공식 역할 문서를 프로필의 역할 순서대로(역할 이름·status·확인 N), ③ **보조·기타 문서**(접힘). 보관(`archived`) 문서는 목록에서 빠진다. 규칙을 적용하지 않은 프로젝트는 지금까지의 단순 목록이다. **AI 와 무관**: 마크다운과 규칙 노트에서 매번 계산하고 저장하지 않는다.
 
@@ -112,6 +121,10 @@ AI 가 Nosidian 의 도구로 문서를 쓰려 할 때 부를 **순수 함수** 
 | `src/lib/docrules.ts` | 규칙 해석·형식화(`parseRules`·`parseRoleLine`·`formatRoleLine`), 프로젝트별 프로필 선택(`profileFor`), 처음 만드는 노트(`rulesNoteTemplate`), 속성 한 줄 수정(`setFmKey`), AI 보호 경로(`isProtectedPath`) |
 | `src/lib/doclint.ts` | 점검(`lintProject`) — 순수 함수. 종류·대상·값만 돌려주고 문장은 화면이 만든다 |
 | `src/lib/docpolicy.ts` | AI 쓰기 정책 판정(`checkAiWrite`·`resolveForApply`·`contentHash`·`projectOf`) — 순수 함수 |
-| `src/components/DocCheck.tsx` | 프로젝트 허브 "문서 점검" 탭, 점검 결과 훅(`useProjectLint`) |
+| `src/components/DocCheck.tsx` | **변경 제안 검토·승인**(`lib/proposals.ts`·`proposalStore.ts`, `ProposalReview.tsx`): 승인 대기 제안 보관, 전후 차이 보기, 승인 시 반영 직전 재검증 | |
+| 프로젝트 허브 "문서 점검" 탭, 점검 결과 훅(`useProjectLint`) |
+| `src/lib/proposals.ts` · `proposalStore.ts` | 변경 제안: 트리아지·승인 재검증·반영 계획(순수) / 보관·반영 실행(저장소) |
+| `src/components/ProposalReview.tsx` | 내 업무 배너 + 검토 화면(전후 차이·승인·거절) |
 | `src/components/HumanDocs.tsx` | 프로젝트 허브 "문서" 탭의 Human View |
 | `src/lib/docrules.test.ts` · `docpolicy.test.ts` | 27개(규칙 해석·적용 범위·역할 판정·점검·중복 후보) + 26개(보호 경로·이동 우회·안전한 기본값·버전 검사·승인 재검증) |
+| `src/lib/proposals.test.ts` | 10개(트리아지·보관 경로·승인 재검증·정리) |

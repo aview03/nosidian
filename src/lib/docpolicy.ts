@@ -25,7 +25,7 @@ export interface AiRequest {
   to?: string
   /** modify·delete·move: AI 가 읽었던 시점의 내용 해시(contentHash). 없거나 지금과 다르면 거절한다 */
   baseHash?: string
-  /** create: 쓰려는 내용(역할을 role: 속성에서 읽는 데 쓴다) */
+  /** create·modify: 쓰려는 전체 내용(create 는 역할을 role: 속성에서 읽는 데도 쓴다) */
   content?: string
 }
 

@@ -18,6 +18,7 @@ import { TaskEditor } from './components/TaskEditor'
 import { NewProject } from './components/NewProject'
 import { NewNote } from './components/NewNote'
 import { ViewEditor } from './components/ViewEditor'
+import { ProposalReview } from './components/ProposalReview'
 import { CalendarMain, CalendarMobile, CalendarSide, DayPanel, TodayView } from './components/Calendar'
 import { NoteView } from './components/NoteView'
 import { Settings } from './components/Settings'
@@ -237,6 +238,7 @@ export default function App() {
         <NewProject />
         <NewNote />
         <ViewEditor />
+        <ProposalReview />
         <VaultSheet />
         <Dialogs />
       </div>
@@ -275,6 +277,7 @@ export default function App() {
         <NewProject />
         <NewNote />
         <ViewEditor />
+        <ProposalReview />
       <VaultSheet />
       <Dialogs />
     </div>
