@@ -166,7 +166,7 @@ function CalHead() {
     <div className="cal-head">
       <div className="cal-nav">
         <button className="icon-btn" onClick={() => cal.shift(-1)} aria-label={t('이전 달')}><Icon name="back" /></button>
-        <h2>{view === 'week' ? `${fmtShort(weekOf(sel)[0])} – ${fmtShort(weekOf(sel)[1])}` : fmtMonth(month)}</h2>
+        <h2 className={view === 'week' ? 'wk' : ''}>{view === 'week' ? `${fmtShort(weekOf(sel)[0])} – ${fmtShort(weekOf(sel)[1])}` : fmtMonth(month)}</h2>
         <button className="icon-btn" onClick={() => cal.shift(1)} aria-label={t('다음 달')}><Icon name="forward" /></button>
       </div>
       <button className="today-btn" onClick={cal.goToday}>{t('오늘')}</button>
