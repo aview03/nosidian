@@ -117,3 +117,18 @@ describe('동기화: 같은 노트를 둘이 고쳤을 때', () => {
     expect(useApp.getState().files['a.md'].dirty).toBe(false)
   })
 })
+
+describe('동기화: 노트가 아닌 파일', () => {
+  it('목록(assets)에만 올라오고 노트로 내려받지 않으며, 원격에서 사라지면 목록에서도 빠진다', async () => {
+    bump('tools/main.py', 'print(1)')
+    bump('report.docx', 'binary')
+    await useApp.getState().sync()
+    const st = useApp.getState()
+    expect(Object.keys(st.assets).sort()).toEqual(['report.docx', 'tools/main.py'])
+    expect(st.files['tools/main.py']).toBeUndefined()
+    expect(st.files['a.md']).toBeDefined()
+    remote.files.delete('report.docx')
+    await useApp.getState().sync()
+    expect(Object.keys(useApp.getState().assets)).toEqual(['tools/main.py'])
+  })
+})

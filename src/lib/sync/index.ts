@@ -2,9 +2,11 @@ import type { CloudCfg, GithubCfg, RemoteCfg } from '../types'
 import * as gh from '../github'
 import { gdrive } from './gdrive'
 import { onedrive } from './onedrive'
-import { isHidden, isImage, isNote, type Provider } from './types'
+import { capOthers } from './others'
+import { isHidden, type Provider } from './types'
 
 export * from './types'
+export { capOthers } from './others'
 
 function github(cfg: GithubCfg): Provider {
   return {
@@ -17,9 +19,11 @@ function github(cfg: GithubCfg): Provider {
       const { tree, truncated } = await gh.getTree(cfg, head.treeSha)
       return {
         truncated,
-        entries: tree
-          .filter((e) => e.type === 'blob' && !isHidden(e.path) && (isNote(e.path) || isImage(e.path)))
-          .map((e) => ({ path: e.path, rev: e.sha, id: e.sha })),
+        entries: capOthers(
+          tree
+            .filter((e) => e.type === 'blob' && !isHidden(e.path))
+            .map((e) => ({ path: e.path, rev: e.sha, id: e.sha, size: e.size })),
+        ),
       }
     },
     readText: (e) => gh.getBlobText(cfg, e.rev),

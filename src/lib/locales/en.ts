@@ -1114,5 +1114,14 @@ const dict: Record<string, string> = {
   'PC에서 다른 AI 작업이 돌고 있어요. 잠시 뒤에 다시 해 주세요': "The PC is busy with another AI task. Try again shortly.",
   'PC의 Claude Code를 쓸 수 없어요. PC 앱에서 로그인을 확인해 주세요': "The PC's Claude Code is unavailable. Check the login in the PC app.",
   'PC가 응답을 마치지 않고 끊었어요': "The PC stopped before finishing.",
+  '눌러서 받기': "Tap to download",
+  '받는 중…': "Downloading…",
+  '받기': "Download",
+  '파일을 받지 못했어요: {why}': "Could not download the file: {why}",
+  '저장소에 연결돼 있지 않아요': "Not connected to a storage",
+  '실행 파일({name})은 휴대폰에서 받지 않아요. PC에서 받아 주세요': "Executable files ({name}) are not downloaded on the phone. Get it on the PC.",
+  '파일이 너무 커서({size}) 휴대폰에서는 받을 수 없어요. PC에서 받아 주세요': "The file is too large ({size}) for the phone. Get it on the PC.",
+  '실행 파일이에요. 출처를 아는 파일만 받아 주세요.': "This is an executable. Only download files from sources you know.",
+  '큰 파일({size})이에요. 받을까요?': "This is a large file ({size}). Download it?",
 }
 export default dict

@@ -1,13 +1,14 @@
 import { t } from '../i18n'
 import type { CloudCfg } from '../types'
 import { refreshTokens } from './oauth'
-import { bytesToB64, dirOf, isHidden, isImage, isNote, SyncError, type Provider, type PushChange, type RemoteEntry } from './types'
+import { capOthers } from './others'
+import { bytesToB64, dirOf, isHidden, SyncError, type Provider, type PushChange, type RemoteEntry } from './types'
 
 const API = 'https://www.googleapis.com/drive/v3'
 const UP = 'https://www.googleapis.com/upload/drive/v3'
 const FOLDER = 'application/vnd.google-apps.folder'
 
-interface DriveFile { id: string; name: string; mimeType: string; md5Checksum?: string; version?: string }
+interface DriveFile { id: string; name: string; mimeType: string; md5Checksum?: string; version?: string; size?: string }
 const revOf = (f: DriveFile) => f.md5Checksum ?? `v${f.version}`
 const esc = (s: string) => s.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
 
@@ -88,7 +89,7 @@ export function gdrive(initial: CloudCfg, save: (c: CloudCfg) => void): Provider
         let page = ''
         do {
           const r = await api<{ files: DriveFile[]; nextPageToken?: string }>(
-            `${API}/files?pageSize=1000&fields=nextPageToken,files(id,name,mimeType,md5Checksum,version)&q=${encodeURIComponent(`'${id}' in parents and trashed=false`)}${page ? `&pageToken=${page}` : ''}`,
+            `${API}/files?pageSize=1000&fields=nextPageToken,files(id,name,mimeType,md5Checksum,version,size)&q=${encodeURIComponent(`'${id}' in parents and trashed=false`)}${page ? `&pageToken=${page}` : ''}`,
           )
           for (const f of r.files) {
             const path = prefix + f.name
@@ -96,15 +97,16 @@ export function gdrive(initial: CloudCfg, save: (c: CloudCfg) => void): Provider
             if (f.mimeType === FOLDER) {
               folders.set(path, f.id)
               stack.push({ id: f.id, prefix: path + '/' })
-            } else if ((isNote(path) || isImage(path)) && !ids.has(path)) {
+            } else if (!f.mimeType.startsWith('application/vnd.google-apps.') && !ids.has(path)) {
+              // Google 문서·시트 같은 구글 전용 형식은 파일로 내려받을 수 없어 뺀다
               ids.set(path, f.id)
-              entries.push({ path, rev: revOf(f), id: f.id })
+              entries.push({ path, rev: revOf(f), id: f.id, size: f.size ? Number(f.size) : undefined })
             }
           }
           page = r.nextPageToken ?? ''
         } while (page)
       }
-      return { entries }
+      return { entries: capOthers(entries) }
     },
 
     async readText(e) {

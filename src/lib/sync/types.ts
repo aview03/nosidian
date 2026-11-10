@@ -4,6 +4,8 @@ export interface RemoteEntry {
   rev: string
   /** 프로바이더 내부 식별자 (Drive·OneDrive 파일 id) */
   id?: string
+  /** 바이트 크기(알 수 있을 때). 노트가 아닌 파일의 목록·다운로드 확인에 쓴다 */
+  size?: number
 }
 
 export interface PushChange {
@@ -31,6 +33,10 @@ export class SyncError extends Error {
 
 export const isNote = (p: string) => /\.md$/i.test(p)
 export const isImage = (p: string) => /\.(png|jpe?g|gif|webp|svg|bmp|avif)$/i.test(p)
+/** 노트도 이미지도 아닌 파일(.py·.docx·.pdf·.zip·.exe …): 목록만 동기화하고 눌렀을 때 내려받는다 */
+export const isOther = (p: string) => !isNote(p) && !isImage(p)
+/** 목록에 올릴 다른 파일의 최대 개수(코드 저장소를 vault 로 쓸 때 목록이 폭발하지 않게) */
+export const MAX_OTHERS = 3000
 export const isHidden = (p: string) => p.split('/').some((s) => s.startsWith('.'))
 export const dirOf = (p: string) => p.split('/').slice(0, -1).join('/')
 

@@ -13,6 +13,9 @@ import { desktop } from '../lib/externalIO'
 import { useAiThread } from '../lib/aiThread'
 import { getLang } from '../lib/i18n'
 import { importFromPicker } from '../lib/importFiles'
+import { Capacitor } from '@capacitor/core'
+import { fetchOther } from '../lib/app'
+import { formatSize, gate, gateMessage, handOver, othersIn, type OtherFile } from '../lib/attachments'
 import { Icon } from './Icon'
 import { openNewFolder } from './NewNote'
 import { useActiveVault } from './VaultSheet'
@@ -168,6 +171,8 @@ function Row({ k, selecting, selected, onOpen, onSelect, drag, drop, over, child
 
 export function MemoTab({ sync }: { sync?: ReactNode }) {
   const files = useApp((s) => s.files)
+  const assets = useApp((s) => s.assets)
+  const [busyFile, setBusyFile] = useState<string | null>(null)
   const bookmarks = useApp((s) => s.settings.bookmarks)
   const dir = useMemoUi((s) => s.dir)
   const sel = useMemoUi((s) => s.sel)
@@ -181,10 +186,14 @@ export function MemoTab({ sync }: { sync?: ReactNode }) {
   const daily = dailyOf(useApp((s) => s.settings.dailyFolder))
 
   // 폴더가 사라졌으면(안의 노트를 모두 옮기거나 지움) 위로 올라간다
-  const { folders, notes } = listDir(files, dir)
+  const { folders: noteFolders, notes } = listDir(files, dir)
+  // 노트 없이 파일(.py·.docx …)만 든 폴더도 목록에 보인다
+  const others = othersIn(assets, dir)
+  const folders = [...noteFolders, ...others.folders.filter((f) => !noteFolders.some((n) => n.path === f.path)).map((f) => ({ path: f.path, name: f.name, count: f.count, mtime: 0 }))].sort((a, b) => a.name.localeCompare(b.name, 'ko'))
+  const empty = folders.length === 0 && notes.length === 0 && others.files.length === 0
   useEffect(() => {
-    if (dir && folders.length === 0 && notes.length === 0) useMemoUi.setState({ dir: dirOf(dir) })
-  }, [dir, folders.length, notes.length])
+    if (dir && empty) useMemoUi.setState({ dir: dirOf(dir) })
+  }, [dir, empty])
 
   // [쓰기]로 만든 "새 메모"는 이름을 따로 정하지 않으므로 목록으로 돌아오면 첫 줄을 이름으로 하고, 비었으면 지운다
   useEffect(() => {
@@ -302,6 +311,31 @@ export function MemoTab({ sync }: { sync?: ReactNode }) {
   }
   const root = !dir
   const marked = root ? bookmarks.filter((p) => files[p] && !files[p].deleted) : []
+  /** 파일 하나를 받는다. 큰 파일·실행 파일은 먼저 묻고, 폰이 받을 수 없는 것은 이유를 알린다 */
+  const getFile = async (f: OtherFile) => {
+    if (busyFile) return
+    const g = gate(f.path, f.size, Capacitor.isNativePlatform())
+    if (g.ok === false) return app.say(gateMessage(g, f.name, f.size))
+    if (g.ok === 'confirm' && !(await confirmAsk(f.name, gateMessage(g, f.name, f.size), t('받기')))) return
+    setBusyFile(f.path)
+    try {
+      await handOver(f.path, await fetchOther(f.path))
+    } catch (e) {
+      app.say(t('파일을 받지 못했어요: {why}', { why: e instanceof Error ? e.message : String(e) }))
+    } finally {
+      setBusyFile(null)
+    }
+  }
+  const fileRow = (f: OtherFile) => (
+    <button key={'f:' + f.path} className="memo-row memo-file" disabled={!!sel} onClick={() => void getFile(f)}>
+      <span className="memo-ico"><Icon name="import" size={20} /></span>
+      <span className="memo-main">
+        <b className="memo-title">{f.name}</b>
+        <span className="memo-snip">{busyFile === f.path ? t('받는 중…') : t('눌러서 받기')}</span>
+      </span>
+      <span className="memo-date">{formatSize(f.size)}</span>
+    </button>
+  )
   const noteRow = (n: MemoNote) => (
     <Row key={'n:' + n.path} k={n.path} selecting={!!sel} selected={!!sel?.has(key('n', n.path))} onOpen={() => app.openNote(n.path)} onSelect={() => begin(key('n', n.path))} drag={drag}>
       <span className="memo-main">
@@ -383,7 +417,13 @@ export function MemoTab({ sync }: { sync?: ReactNode }) {
             {notes.map(noteRow)}
           </section>
         )}
-        {folders.length === 0 && notes.length === 0 && (
+        {others.files.length > 0 && (
+          <section>
+            {!sel && <h3 className="memo-sec">{t('파일')}</h3>}
+            {others.files.map(fileRow)}
+          </section>
+        )}
+        {empty && (
           <div className="memo-empty">
             <p>{t('아직 메모가 없어요')}</p>
             <small>{t('오른쪽 아래 버튼으로 바로 써 보세요')}</small>

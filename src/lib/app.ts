@@ -63,7 +63,7 @@ interface AppState {
   ready: boolean
   settings: Settings
   files: Record<string, NoteFile>
-  assets: Record<string, { sha: string | null; id?: string }>
+  assets: Record<string, { sha: string | null; id?: string; size?: number }>
   index: LinkIndex
 
   tab: Tab
@@ -247,7 +247,7 @@ export const useApp = create<AppState>((set, get) => {
     if (v) {
       const [fs, as] = await Promise.all([db.allFiles(), db.allAssets()])
       for (const f of fs) files[f.path] = f
-      for (const a of as) assets[a.path] = { sha: a.sha, id: a.id }
+      for (const a of as) assets[a.path] = { sha: a.sha, id: a.id, ...(a.size != null ? { size: a.size } : {}) }
     }
     set((s) => ({
       files,
@@ -753,7 +753,7 @@ export const useApp = create<AppState>((set, get) => {
         const assets: AppState['assets'] = {}
         for (const e of entries) {
           if (isNote(e.path)) remote.set(e.path, e)
-          else assets[e.path] = { sha: e.rev, id: e.id }
+          else assets[e.path] = { sha: e.rev, id: e.id, ...(e.size != null ? { size: e.size } : {}) }
         }
         const files = { ...get().files }
         const toFetch: RemoteEntry[] = []
@@ -800,7 +800,8 @@ export const useApp = create<AppState>((set, get) => {
         }
         await Promise.all(Array.from({ length: 6 }, worker))
         await db.putFiles(changed)
-        for (const [p, a] of Object.entries(assets)) void db.putAsset({ path: p, sha: a.sha, id: a.id })
+        for (const p of Object.keys(get().assets)) if (!assets[p]) void db.delAsset(p) // 원격에서 사라진 파일·이미지
+        for (const [p, a] of Object.entries(assets)) void db.putAsset({ path: p, sha: a.sha, id: a.id, ...(a.size != null ? { size: a.size } : {}) })
         set({ files, assets })
         rebuild(true)
 
@@ -864,6 +865,14 @@ export const useApp = create<AppState>((set, get) => {
 
 // ── 자산(이미지) ──
 const assetUrls = new Map<string, Promise<string | null>>()
+/** 노트·이미지가 아닌 파일 하나를 원격 저장소에서 받아 base64 로 돌려준다(저장해 두지 않는다) */
+export async function fetchOther(path: string): Promise<string> {
+  const { settings, assets } = useApp.getState()
+  const a = assets[path]
+  if (!settings.remote || !a?.sha) throw new Error(t('저장소에 연결돼 있지 않아요'))
+  return providerOf(settings.remote).readBase64({ path, rev: a.sha, id: a.id })
+}
+
 export function loadAsset(path: string): Promise<string | null> {
   if (!path) return Promise.resolve(null)
   let p = assetUrls.get(path)

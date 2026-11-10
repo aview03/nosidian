@@ -1,11 +1,12 @@
 import { t } from '../i18n'
 import type { CloudCfg } from '../types'
 import { refreshTokens } from './oauth'
-import { bytesToB64, isHidden, isImage, isNote, SyncError, type Provider, type PushChange, type RemoteEntry } from './types'
+import { capOthers } from './others'
+import { bytesToB64, isHidden, SyncError, type Provider, type PushChange, type RemoteEntry } from './types'
 
 const G = 'https://graph.microsoft.com/v1.0/me/drive'
 
-interface Item { id: string; name: string; folder?: unknown; file?: unknown; cTag?: string; eTag?: string }
+interface Item { id: string; name: string; folder?: unknown; file?: unknown; cTag?: string; eTag?: string; size?: number }
 interface Page { value: Item[]; '@odata.nextLink'?: string }
 
 const enc = (p: string) => p.split('/').map(encodeURIComponent).join('/')
@@ -70,10 +71,10 @@ export function onedrive(initial: CloudCfg, save: (c: CloudCfg) => void): Provid
           const path = prefix + it.name
           if (isHidden(path)) continue
           if (it.folder) stack.push({ url: `${G}/items/${it.id}/children`, prefix: path + '/' })
-          else if (it.file && (isNote(path) || isImage(path))) entries.push({ path, rev: revOf(it), id: it.id })
+          else if (it.file) entries.push({ path, rev: revOf(it), id: it.id, size: it.size })
         }
       }
-      return { entries }
+      return { entries: capOthers(entries) }
     },
 
     async readText(e) {

@@ -1453,3 +1453,7 @@ input.inline.wide { width: 100%; box-sizing: border-box; height: 42px; }
 .relay-devs li { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--border); }
 .relay-devs li span { display: flex; flex-direction: column; gap: 1px; }
 .relay-devs li small { color: var(--muted); font-size: 12.5px; }
+
+/* 노트가 아닌 파일(눌러서 받기) */
+.memo-file:disabled { opacity: .55; }
+.memo-file .memo-title { font-weight: 500; }

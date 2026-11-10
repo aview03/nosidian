@@ -3,7 +3,7 @@ import { DEFAULT_VAULT_ID, type NoteFile } from './types'
 
 interface Schema extends DBSchema {
   files: { key: string; value: NoteFile }
-  assets: { key: string; value: { path: string; sha: string | null; id?: string; b64?: string; mime?: string } }
+  assets: { key: string; value: { path: string; sha: string | null; id?: string; size?: number; b64?: string; mime?: string } }
 }
 
 // vault 마다 별도 IndexedDB. 이전 버전의 단일 저장소('amsidian')는 기본 vault 가 그대로 이어받는다.
