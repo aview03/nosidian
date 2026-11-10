@@ -100,6 +100,32 @@
     }
   },
   {
+    "name": "propose_file",
+    "description": "Propose creating a NEW non-note text file (code, data, config: .py .js .json .csv .txt .html .css .yaml .sql …) in the vault storage. It is NEVER created automatically: a person must approve it in Nosidian, and nothing is uploaded before that. Text only (max 200 KB), no executables/scripts (.exe .bat .sh .ps1), no notes (use propose_change for .md), never overwrites an existing file. Use a relative path like \"tools/clean.py\".",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Relative path of the new file, e.g. \"tools/clean.py\""
+        },
+        "content": {
+          "type": "string",
+          "description": "The complete text of the file"
+        },
+        "summary": {
+          "type": "string",
+          "description": "One line telling the reviewer what the file is for"
+        }
+      },
+      "required": [
+        "path",
+        "content"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
     "name": "get_proposal_status",
     "description": "Check a proposal made with propose_change: pending, applied, rejected (by the person) or failed (the note changed meanwhile or the rules no longer allow it).",
     "inputSchema": {

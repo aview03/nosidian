@@ -126,13 +126,13 @@ describe('MCP 서버: 프로토콜', () => {
     expect(res.status).toBe(202)
     expect(await res.text()).toBe('')
   })
-  it('tools/list: 6개 도구, 입력 형식 포함, 구현(mcpTools)과 이름이 같다', async () => {
+  it('tools/list: 7개 도구, 입력 형식 포함, 구현(mcpTools)과 이름이 같다', async () => {
     const { post } = await boot()
     const body = await (await post(rpc('tools/list'))).json()
     const names = body.result.tools.map((t: { name: string }) => t.name)
-    expect(names).toEqual(['search_notes', 'read_note', 'list_projects', 'get_document_rules', 'propose_change', 'get_proposal_status'])
+    expect(names).toEqual(['search_notes', 'read_note', 'list_projects', 'get_document_rules', 'propose_change', 'propose_file', 'get_proposal_status'])
     expect(body.result.tools.every((t: { inputSchema: { type: string } }) => t.inputSchema.type === 'object')).toBe(true)
-    expect(TOOLS).toHaveLength(6)
+    expect(TOOLS).toHaveLength(7)
   })
   it('쓰기 도구가 없다: propose_change 외에 노트를 바꾸는 이름이 없다', () => {
     expect(TOOLS.map((t) => t.name).filter((n) => /write|update|delete|create|edit|save|set_/i.test(n))).toEqual([])

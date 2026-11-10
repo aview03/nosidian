@@ -100,6 +100,7 @@ const TOOL_LABEL: Record<string, string> = {
   list_projects: '프로젝트 확인',
   get_document_rules: '문서 규칙 확인',
   propose_change: '변경 제안',
+  propose_file: '파일 제안',
   get_proposal_status: '제안 상태 확인',
 }
 

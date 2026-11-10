@@ -7,6 +7,7 @@ import { diffHunks } from '../lib/merge'
 import { isStale, type Proposal } from '../lib/proposals'
 import type { Reason } from '../lib/docpolicy'
 import { useProposals } from '../lib/proposalStore'
+import { useFileProposals, type FileProposal } from '../lib/fileProposals'
 import { Icon } from './Icon'
 
 /** 정책 판정 이유를 사람이 읽는 문장으로 */
@@ -113,11 +114,46 @@ function Item({ p }: { p: Proposal }) {
   )
 }
 
+/** AI 가 제안한 새 파일(노트가 아닌 텍스트 파일): 항상 승인이 필요하고, 승인하면 저장소에 올라간다 */
+function FileItem({ p }: { p: FileProposal }) {
+  const lines = p.content.split('\n')
+  const shown = lines.slice(0, 40)
+  return (
+    <section className={`pr-item ${p.status}`}>
+      <header>
+        <b className="pr-kind">{t('새 파일')}</b>
+        <span className="pr-path">{p.path}</span>
+        <span className="pr-by">{p.by}</span>
+      </header>
+      {p.summary && <p className="pr-sum">{p.summary}</p>}
+      <p className="hint pr-why">{t('AI 가 만든 파일은 항상 승인이 필요해요. 승인하면 저장소에 올라가요.')}</p>
+      <pre className="pr-diff">
+        {shown.map((x, i) => <div key={i} className="pr-row add"><b>+</b>{x || ' '}</div>)}
+        {lines.length > shown.length && <div className="pr-row gap"><b></b>{t('… 외 {n}줄', { n: lines.length - shown.length })}</div>}
+      </pre>
+      {p.status === 'pending' && (
+        <footer>
+          <span className="grow" />
+          <button onClick={() => useFileProposals.getState().reject(p.id)}>{t('거절')}</button>
+          <button className="primary" onClick={() => void useFileProposals.getState().approve(p.id)}>{t('승인하고 올리기')}</button>
+        </footer>
+      )}
+      {p.status !== 'pending' && (
+        <p className="hint pr-done">{p.status === 'uploaded' ? t('올렸어요') : p.status === 'rejected' ? t('거절했어요') : `${t('올리지 못했어요')}${p.error ? ` — ${p.error}` : ''}`}</p>
+      )}
+    </section>
+  )
+}
+
 /** 내 업무 위쪽 알림 줄: 승인을 기다리는 제안이 있을 때만 */
 export function ProposalBanner() {
   const items = useProposals((s) => s.items)
-  useEffect(() => useProposals.getState().ensure(), [])
-  const n = items.filter((p) => p.status === 'pending').length
+  const fileItems = useFileProposals((s) => s.items)
+  useEffect(() => {
+    useFileProposals.getState().ensure()
+    return useProposals.getState().ensure()
+  }, [])
+  const n = items.filter((p) => p.status === 'pending').length + fileItems.filter((p) => p.status === 'pending').length
   if (!n) return null
   return (
     <button className="pr-banner" onClick={() => useProposals.getState().setOpen(true)}>
@@ -129,6 +165,7 @@ export function ProposalBanner() {
 export function ProposalReview() {
   const open = useProposals((s) => s.open)
   const items = useProposals((s) => s.items)
+  const fileItems = useFileProposals((s) => s.items)
   useEffect(() => {
     if (!open) return
     const f = (e: KeyboardEvent) => e.key === 'Escape' && useProposals.getState().setOpen(false)
@@ -138,6 +175,8 @@ export function ProposalReview() {
   if (!open) return null
   const close = () => useProposals.getState().setOpen(false)
   const pending = items.filter((p) => p.status === 'pending')
+  const filePending = fileItems.filter((p) => p.status === 'pending')
+  const fileDone = fileItems.filter((p) => p.status !== 'pending').sort((a, b) => (b.decidedAt ?? 0) - (a.decidedAt ?? 0))
   const done = items.filter((p) => p.status !== 'pending').sort((a, b) => (b.decidedAt ?? 0) - (a.decidedAt ?? 0))
   return (
     <div className="ee-wrap" onClick={close}>
@@ -148,12 +187,14 @@ export function ProposalReview() {
         </div>
         <div className="ee-body">
           <p className="hint pr-intro">{t('승인하면 반영 직전에 한 번 더 확인해요. AI 가 읽은 뒤 문서가 바뀌었다면 반영하지 않아요.')}</p>
-          {pending.length === 0 && <p className="hint pad">{t('승인을 기다리는 제안이 없어요.')}</p>}
+          {pending.length === 0 && filePending.length === 0 && <p className="hint pad">{t('승인을 기다리는 제안이 없어요.')}</p>}
           {pending.map((p) => <Item key={p.id} p={p} />)}
-          {done.length > 0 && (
+          {filePending.map((p) => <FileItem key={p.id} p={p} />)}
+          {done.length + fileDone.length > 0 && (
             <details className="pr-donelist">
-              <summary>{t('처리한 제안')} <span className="wrk-count">{done.length}</span></summary>
+              <summary>{t('처리한 제안')} <span className="wrk-count">{done.length + fileDone.length}</span></summary>
               {done.map((p) => <Item key={p.id} p={p} />)}
+              {fileDone.map((p) => <FileItem key={p.id} p={p} />)}
             </details>
           )}
         </div>

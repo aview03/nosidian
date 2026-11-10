@@ -14,7 +14,7 @@ import { useAiThread } from '../lib/aiThread'
 import { getLang } from '../lib/i18n'
 import { importFromPicker } from '../lib/importFiles'
 import { Capacitor } from '@capacitor/core'
-import { deleteOther, fetchOther, moveOther, uploadOthers } from '../lib/app'
+import { deleteOther, fetchOther, moveOther, replaceOther, uploadOthers } from '../lib/app'
 import { formatSize, gate, gateMessage, handOver, othersIn, renamedPath, uploadPath, type OtherFile } from '../lib/attachments'
 import { Icon } from './Icon'
 import { openNewFolder } from './NewNote'
@@ -176,6 +176,8 @@ export function MemoTab({ sync }: { sync?: ReactNode }) {
   const [uploading, setUploading] = useState(false)
   const hasRemote = useApp((s) => !!s.settings.remote)
   const picker = useRef<HTMLInputElement>(null)
+  const replacePicker = useRef<HTMLInputElement>(null)
+  const replaceTarget = useRef<OtherFile | null>(null)
   const bookmarks = useApp((s) => s.settings.bookmarks)
   const dir = useMemoUi((s) => s.dir)
   const sel = useMemoUi((s) => s.sel)
@@ -364,8 +366,12 @@ export function MemoTab({ sync }: { sync?: ReactNode }) {
   /** 파일의 더보기: 이름 바꾸기 · 폴더로 이동 · 삭제 */
   const fileMenu = async (f: OtherFile) => {
     if (busyFile) return
-    const pick = await choose(f.name, '', [{ value: 'rename', label: t('이름 바꾸기') }, { value: 'move', label: t('폴더로 이동') }, { value: 'delete', label: t('삭제') }])
+    const pick = await choose(f.name, '', [{ value: 'rename', label: t('이름 바꾸기') }, { value: 'move', label: t('폴더로 이동') }, { value: 'replace', label: t('새 버전으로 바꾸기') }, { value: 'delete', label: t('삭제') }])
     if (pick === 'delete') return removeFile(f)
+    if (pick === 'replace') {
+      replaceTarget.current = f
+      return replacePicker.current?.click()
+    }
     if (pick === 'move') return setMovingFile(f)
     if (pick !== 'rename') return
     const input = await ask(t('이름 바꾸기'), f.name, undefined, t('바꾸기'))
@@ -379,6 +385,23 @@ export function MemoTab({ sync }: { sync?: ReactNode }) {
       app.say(t('옮겼어요: {name}', { name: to }))
     } catch (e) {
       app.say(e instanceof Error ? e.message : String(e))
+    } finally {
+      setBusyFile(null)
+    }
+  }
+  /** 고른 파일로 저장소의 파일 내용을 바꾼다(같은 이름·같은 자리). 폰에서 고친 파일을 다시 올릴 때 쓴다 */
+  const replaceWith = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    const f = replaceTarget.current
+    e.target.value = ''
+    if (!file || !f || busyFile) return
+    if (!(await confirmAsk(t('"{name}"을(를) 바꿀까요?', { name: f.name }), t('고른 파일("{pick}")의 내용으로 저장소의 파일을 덮어써요. 이전 내용은 저장소에 남지 않을 수 있어요.', { pick: file.name }), t('바꾸기'), true))) return
+    setBusyFile(f.path)
+    try {
+      await replaceOther(f.path, file)
+      app.say(t('바꿨어요: {name}', { name: f.name }))
+    } catch (err) {
+      app.say(err instanceof Error ? err.message : String(err))
     } finally {
       setBusyFile(null)
     }
@@ -488,6 +511,7 @@ export function MemoTab({ sync }: { sync?: ReactNode }) {
           </section>
         )}
         <input ref={picker} type="file" multiple hidden onChange={(e) => void upload(e)} />
+        <input ref={replacePicker} type="file" hidden onChange={(e) => void replaceWith(e)} />
         {empty && (
           <div className="memo-empty">
             <p>{t('아직 메모가 없어요')}</p>

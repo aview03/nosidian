@@ -9,6 +9,7 @@ import { linkifyPaths, PRESETS, readiness, toolLabel } from '../lib/aiAssistant'
 import { answerNote, titleOfAnswer } from '../lib/aiExport'
 import { openSettingsGroup } from './Settings'
 import { pcClaude } from '../lib/pcLink'
+import { useFileProposals } from '../lib/fileProposals'
 import { getLang } from '../lib/i18n'
 import { currentEngine, localEngine, useAiThread, type Engine, type Msg, type Step } from '../lib/aiThread'
 import { isStale } from '../lib/proposals'
@@ -193,7 +194,8 @@ export function AiPanel() {
   const draft = useAiThread((s) => s.draft)
   const current = useApp((s) => s.current)
   const vault = useApp((s) => s.settings.activeVault)
-  const pending = useProposals((s) => s.items.filter((p) => p.status === 'pending').length)
+  const filePending = useFileProposals((s) => s.items.filter((p) => p.status === 'pending').length)
+  const pending = useProposals((s) => s.items.filter((p) => p.status === 'pending').length) + filePending
   const [status, setStatus] = useState<ClaudeStatus | null>(null)
   const [local, setLocal] = useState(() => localEngine())
   const scroller = useRef<HTMLDivElement>(null)

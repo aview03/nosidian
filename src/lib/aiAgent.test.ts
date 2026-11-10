@@ -35,7 +35,7 @@ describe('도구 정의', () => {
   })
   it('묻기는 읽기 도구 4개만 준다', () => {
     expect(toolsFor('ask').map((t) => t.name)).toEqual(['search_notes', 'read_note', 'list_projects', 'get_document_rules'])
-    expect(toolsFor('edit')).toHaveLength(6)
+    expect(toolsFor('edit')).toHaveLength(7)
   })
   it('진행 표시용 입력 요약: 긴 본문은 싣지 않는다', () => {
     expect(summarizeInput({ query: '행사', limit: 5 })).toBe('행사')

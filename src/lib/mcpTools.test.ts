@@ -219,7 +219,7 @@ describe('도구 정의와 구현이 같은 이름', () => {
   it('electron/mcp.cjs 의 TOOLS 와 MCP_TOOL_NAMES 가 일치', () => {
     const names = (mcpMain as { TOOLS: { name: string }[] }).TOOLS.map((t) => t.name)
     expect([...names].sort()).toEqual([...MCP_TOOL_NAMES].sort())
-    expect(names).toHaveLength(6)
+    expect(names).toHaveLength(7)
   })
   it('모든 도구는 연결된 vault 검사를 거친다(구현이 이름마다 vault 가드를 먼저 부른다)', () => {
     const x = env('', { allowedVault: 'other' })

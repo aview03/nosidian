@@ -13,10 +13,10 @@ const fs = require('fs')
 const os = require('os')
 const path = require('path')
 
-const TOOL_NAMES = ['search_notes', 'read_note', 'list_projects', 'get_document_rules', 'propose_change', 'get_proposal_status']
+const TOOL_NAMES = ['search_notes', 'read_note', 'list_projects', 'get_document_rules', 'propose_change', 'propose_file', 'get_proposal_status']
 const ALLOWED_TOOLS = TOOL_NAMES.map((n) => `mcp__nosidian__${n}`)
 /** 묻기(읽기 전용) 모드: 변경을 낼 수 있는 도구(propose_change)와 제안 조회는 허용하지 않는다 */
-const READ_TOOLS = ALLOWED_TOOLS.filter((n) => !/propose_change|get_proposal_status/.test(n))
+const READ_TOOLS = ALLOWED_TOOLS.filter((n) => !/propose_change|propose_file|get_proposal_status/.test(n))
 const TIMEOUT_MS = 240_000
 const MAX_RESULT = 200_000
 const MAX_STDERR = 20_000
@@ -25,7 +25,7 @@ const GRACE_MS = 3000
 /** 모델에게 주는 규칙(시스템 프롬프트에 덧붙인다) */
 const SYSTEM_PROMPT =
   'You are the assistant built into Nosidian, a Markdown notes and projects app. Use ONLY the Nosidian MCP tools ' +
-  '(search_notes, read_note, list_projects, get_document_rules, propose_change, get_proposal_status); you have no other tools. ' +
+  '(search_notes, read_note, list_projects, get_document_rules, propose_change, propose_file, get_proposal_status); you have no other tools. ' +
   'You cannot edit notes directly: every change must go through propose_change, and a person may have to approve it. ' +
   'Never say a change was applied unless propose_change returned outcome "applied"; if it returned "pending_approval", say the person must approve it in Nosidian. ' +
   'Before changing a note, read it with read_note, send its content_hash as base_hash, and send the complete new text as content. ' +

@@ -11,8 +11,9 @@ import { baseName } from './links'
 import type { Proposal } from './proposals'
 import type { NoteFile } from './types'
 import { buildWork } from './work'
+import { FILE_DENY_HINT, type FileDeny, type FileProposal } from './fileProposals'
 
-export const MCP_TOOL_NAMES = ['search_notes', 'read_note', 'list_projects', 'get_document_rules', 'propose_change', 'get_proposal_status'] as const
+export const MCP_TOOL_NAMES = ['search_notes', 'read_note', 'list_projects', 'get_document_rules', 'propose_change', 'propose_file', 'get_proposal_status'] as const
 
 export class ToolError extends Error {}
 
@@ -25,6 +26,9 @@ export interface McpEnv {
   search(query: string, limit: number): { path: string; score: number; snippet: string }[]
   submit(req: AiRequest, by: string, summary?: string, forceApproval?: boolean): { kind: 'apply' | 'pending' | 'denied'; verdict: { decision: string; reason: Reason; effect?: 'archive'; text?: string }; ops?: { op: string; path: string; to?: string }[]; id?: string }
   find(id: string): Proposal | undefined
+  /** 파일 제안(노트가 아닌 텍스트 파일): 항상 사람의 승인을 기다린다. 없으면 이 도구를 쓸 수 없다 */
+  submitFile?(req: { path: string; content: string }, by: string, summary?: string): { kind: 'pending'; id: string } | { kind: 'denied'; reason: FileDeny }
+  findFile?(id: string): FileProposal | undefined
   /** 읽기 전용 대화(묻기): 변경안 제출·제안 조회를 거절한다 */
   readOnly?: boolean
   /** 정책이 허용(allow)한 변경도 바로 반영하지 않고 사람의 승인을 기다리게 한다("AI로 고치기" 계획 실행). 거절(deny)은 그대로다 */
@@ -62,7 +66,7 @@ const live = (env: McpEnv, path: string) => {
 export function callTool(name: string, rawArgs: unknown, env: McpEnv, client: string): unknown {
   if (!env.allowedVault) throw new ToolError('No vault is connected to external AI tools. In Nosidian: Settings > External AI (MCP) > choose a vault.')
   if (env.allowedVault !== env.vault.id) throw new ToolError(`The connected vault is not the one open in Nosidian right now (open vault: "${env.vault.name}"). Open the connected vault in Nosidian, or change it in Settings > External AI (MCP).`)
-  if (env.readOnly && (name === 'propose_change' || name === 'get_proposal_status')) throw new ToolError('This conversation is read-only (ask mode): changes cannot be proposed. Answer from what you read.')
+  if (env.readOnly && (name === 'propose_change' || name === 'propose_file' || name === 'get_proposal_status')) throw new ToolError('This conversation is read-only (ask mode): changes cannot be proposed. Answer from what you read.')
   const args = (rawArgs && typeof rawArgs === 'object' ? rawArgs : {}) as Record<string, unknown>
   const vault = env.vault.name
 
@@ -126,8 +130,19 @@ export function callTool(name: string, rawArgs: unknown, env: McpEnv, client: st
       if (r.kind === 'pending') return { outcome: 'pending_approval', reason: r.verdict.reason, proposal_id: r.id, message: 'A person must approve this in Nosidian. Check get_proposal_status with proposal_id.', ...(hint ? { hint } : {}) }
       return { outcome: 'denied', reason: r.verdict.reason, ...(r.verdict.text ? { detail: r.verdict.text } : {}), ...(hint ? { hint } : {}) }
     }
+    case 'propose_file': {
+      if (!env.submitFile) throw new ToolError('File proposals are not available in this connection.')
+      const path = str(args.path, 'path', { required: true, max: 300 })!
+      const content = str(args.content, 'content', { required: true, max: 400_000 })!
+      const summary = str(args.summary, 'summary', { max: 300 })
+      const r = env.submitFile({ path, content }, client ? `MCP · ${client}` : 'MCP', summary)
+      if (r.kind === 'denied') return { outcome: 'denied', reason: r.reason, hint: FILE_DENY_HINT[r.reason] }
+      return { outcome: 'pending_approval', reason: 'fileApprove', proposal_id: r.id, message: 'A person must approve this file in Nosidian before it is uploaded. Check get_proposal_status with proposal_id. Never say the file was created until it is approved.' }
+    }
     case 'get_proposal_status': {
       const id = str(args.proposal_id, 'proposal_id', { required: true, max: 100 })!
+      const fp = env.findFile?.(id)
+      if (fp) return { proposal_id: fp.id, status: fp.status === 'uploaded' ? 'applied' : fp.status, action: 'file', path: fp.path, ...(fp.status === 'failed' && fp.error ? { error: fp.error } : {}), ...(fp.decidedAt ? { decided_at: new Date(fp.decidedAt).toISOString() } : {}) }
       const p = env.find(id)
       if (!p) throw new ToolError('Unknown proposal_id (it may belong to another vault, or it was cleaned up as an old, handled proposal)')
       return { proposal_id: p.id, status: p.status, action: p.req.action, path: p.req.path, ...(p.status === 'failed' && p.failReason ? { reason: p.failReason, hint: HINT[p.failReason] } : {}), ...(p.decidedAt ? { decided_at: new Date(p.decidedAt).toISOString() } : {}) }

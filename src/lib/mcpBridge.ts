@@ -5,6 +5,7 @@ import { useApp } from './app'
 import { search } from '../components/Search'
 import { callTool, type McpEnv } from './mcpTools'
 import { useProposals } from './proposalStore'
+import { useFileProposals } from './fileProposals'
 
 const KEY = 'nosidian.mcp.vault'
 
@@ -41,6 +42,8 @@ export function buildEnv(internal = false, readOnly = false, forceApproval = fal
       return { kind: r.kind === 'denied' ? 'denied' : r.kind, verdict: r.verdict, ops: r.kind === 'apply' ? r.ops : undefined, id: 'id' in r ? r.id : undefined }
     },
     find: (pid) => useProposals.getState().find(pid),
+    submitFile: (req, by, summary) => useFileProposals.getState().submit(req, by, summary),
+    findFile: (pid) => useFileProposals.getState().find(pid),
     readOnly,
     forceApproval,
   }

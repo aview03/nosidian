@@ -104,11 +104,11 @@ describe('고정된 안전 옵션', () => {
     expect(after('--setting-sources')).toBe('project')
     expect(args).toContain('--no-session-persistence')
   })
-  it('허용 도구는 Nosidian MCP 도구 6개뿐이고, 노트를 직접 쓰는 도구가 없다', () => {
+  it('허용 도구는 Nosidian MCP 도구 7개뿐이고, 노트를 직접 쓰는 도구가 없다', () => {
     const i = args.indexOf('--allowedTools')
-    const allowed = args.slice(i + 1, i + 1 + 6)
+    const allowed = args.slice(i + 1, i + 1 + 7)
     expect(allowed).toEqual(c.ALLOWED_TOOLS)
-    expect(args[i + 7]).toMatch(/^--/) // 목록 뒤에 다른 값이 섞이지 않는다
+    expect(args[i + 8]).toMatch(/^--/) // 목록 뒤에 다른 값이 섞이지 않는다
     expect(allowed.every((n) => n.startsWith('mcp__nosidian__'))).toBe(true)
     expect(allowed.filter((n) => /write|update|delete|edit|save/i.test(n))).toEqual([])
   })

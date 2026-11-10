@@ -197,3 +197,58 @@ describe('파일 이름 바꾸기·이동(moveOther)', () => {
     expect(useApp.getState().assets['b.zip']).toBeDefined()
   })
 })
+
+describe('AI 파일 제안(propose_file) → 승인 → 올리기', () => {
+  it('제안만으로는 저장소에 아무것도 올라가지 않고, 승인하면 올라가며, 거절·중복·실패를 구분한다', async () => {
+    const { useFileProposals } = await import('./fileProposals')
+    const { callTool } = await import('./mcpTools')
+    const { buildEnv } = await import('./mcpBridge')
+    const { replaceOther } = await import('./app')
+    ;(await import('./i18n')).setLang('ko')
+    localStorage.clear()
+    useFileProposals.setState({ loaded: false, items: [] })
+    useApp.setState({ settings: { ...useApp.getState().settings, activeVault: 'v1', vaults: [{ id: 'v1', name: 't' } as never] } })
+    const env = () => buildEnv(true, false, false)
+    const call = (args: unknown) => callTool('propose_file', args, env(), 'c') as Record<string, unknown>
+
+    const r = call({ path: 'tools/clean.py', content: 'print("hi")\n', summary: '정리 스크립트' })
+    expect(r).toMatchObject({ outcome: 'pending_approval' })
+    expect(remote.files.has('tools/clean.py')).toBe(false) // 승인 전에는 올라가지 않는다
+    const id = r.proposal_id as string
+    expect(callTool('get_proposal_status', { proposal_id: id }, env(), 'c')).toMatchObject({ status: 'pending', action: 'file', path: 'tools/clean.py' })
+
+    expect(call({ path: 'run.exe', content: 'x' })).toMatchObject({ outcome: 'denied', reason: 'badExt' })
+    expect(call({ path: 'tools/clean.py', content: 'again' })).toMatchObject({ outcome: 'denied', reason: 'exists' }) // 대기 중인 제안과 겹침
+
+    await useFileProposals.getState().approve(id)
+    expect(remote.files.has('tools/clean.py')).toBe(true)
+    expect(useApp.getState().assets['tools/clean.py']?.size).toBe(12)
+    expect(callTool('get_proposal_status', { proposal_id: id }, env(), 'c')).toMatchObject({ status: 'applied' })
+    expect(call({ path: 'tools/clean.py', content: 'x' })).toMatchObject({ outcome: 'denied', reason: 'exists' }) // 덮어쓰지 않는다
+
+    const r2 = call({ path: 'data/rows.csv', content: 'a,b\n1,2\n' }) as { proposal_id: string }
+    useFileProposals.getState().reject(r2.proposal_id)
+    expect(callTool('get_proposal_status', { proposal_id: r2.proposal_id }, env(), 'c')).toMatchObject({ status: 'rejected' })
+    expect(remote.files.has('data/rows.csv')).toBe(false)
+
+    // 올리기가 실패하면 failed 로 남고 목록에는 안 생긴다
+    const r3 = call({ path: 'x/y.json', content: '{}' }) as { proposal_id: string }
+    const orig = fake.push
+    fake.push = async () => { throw new SyncError('boom', 500) }
+    try {
+      await useFileProposals.getState().approve(r3.proposal_id)
+    } finally {
+      fake.push = orig
+    }
+    expect(useFileProposals.getState().find(r3.proposal_id)).toMatchObject({ status: 'failed', error: 'boom' })
+    expect(useApp.getState().assets['x/y.json']).toBeUndefined()
+
+    // 묻기(읽기 전용)에서는 제안할 수 없다
+    expect(() => callTool('propose_file', { path: 'a.py', content: 'x' }, { ...env(), readOnly: true }, 'c')).toThrow(/read-only/)
+
+    // 새 버전으로 바꾸기: 같은 경로에 덮어쓴다
+    await replaceOther('tools/clean.py', new File([new Uint8Array([1, 2, 3, 4])], 'clean-v2.py'))
+    expect(useApp.getState().assets['tools/clean.py']?.size).toBe(4)
+    await expect(replaceOther('nope.py', new File([new Uint8Array([1])], 'n.py'))).rejects.toThrow('목록에 없는')
+  })
+})

@@ -1146,5 +1146,18 @@ const dict: Record<string, string> = {
   '같은 이름의 파일이 이미 있어요': "A file with that name already exists",
   '파일이 커서({size}) 이름 바꾸기·이동을 지원하지 않아요': "The file is too large ({size}) to rename or move",
   '파일 이동: {name}': "Move file: {name}",
+  '새 버전으로 바꾸기': "Replace with new version",
+  '"{name}"을(를) 바꿀까요?': "Replace \"{name}\"?",
+  '고른 파일("{pick}")의 내용으로 저장소의 파일을 덮어써요. 이전 내용은 저장소에 남지 않을 수 있어요.': "The file in the storage will be overwritten with \"{pick}\". The previous content may not be kept.",
+  '바꿨어요: {name}': "Replaced: {name}",
+  '빈 파일은 올릴 수 없어요': "Empty files cannot be uploaded",
+  '파일 교체: {name}': "Replace file: {name}",
+  '새 파일': "New file",
+  'AI 가 만든 파일은 항상 승인이 필요해요. 승인하면 저장소에 올라가요.': "Files made by AI always need approval. Approving uploads it to the storage.",
+  '… 외 {n}줄': "… {n} more lines",
+  '승인하고 올리기': "Approve and upload",
+  '올렸어요': "Uploaded",
+  '올리지 못했어요': "Could not upload",
+  '파일 제안': "File proposal",
 }
 export default dict

@@ -3,7 +3,7 @@ import { store as db, onDbChange } from './db'
 import { buildIndex, baseName, dirName, type LinkIndex } from './links'
 import { DEFAULT_SETTINGS, DEFAULT_VAULT_ID, SYNC_LABEL, defaultVaultName, type CloudCfg, type NoteFile, type RemoteCfg, type Settings, type VaultMeta } from './types'
 import { createProvider, isNote, bytesToB64, type Provider, type RemoteEntry } from './sync'
-import { MAX_MOVE_BYTES, formatSize, uploadPath, uploadProblem } from './attachments'
+import { MAX_MOVE_BYTES, MAX_UPLOAD_BYTES, formatSize, uploadPath, uploadProblem } from './attachments'
 import { resumeWebAuth } from './sync/oauth'
 import { demoNotes } from './demo'
 import { t, setLang, resolveLang, getLang } from './i18n'
@@ -897,6 +897,33 @@ export async function uploadOthers(list: File[], dir: string): Promise<{ done: s
     }
   }
   return { done, failed }
+}
+
+/** 승인된 AI 파일(텍스트)을 저장소에 올린다. 같은 경로에 이미 있으면 덮어쓰지 않고 실패한다 */
+export async function uploadAiFile(path: string, content: string): Promise<void> {
+  const { settings, assets, files } = useApp.getState()
+  if (!settings.remote) throw new Error(t('저장소에 연결돼 있지 않아요'))
+  const lower = path.toLowerCase()
+  if ([...Object.keys(assets), ...Object.keys(files)].some((p) => p.toLowerCase() === lower)) throw new Error(t('같은 이름의 파일이 이미 있어요'))
+  const bytes = new TextEncoder().encode(content)
+  const revs = await providerOf(settings.remote).push([{ path, content: '', b64: bytesToB64(bytes.buffer as ArrayBuffer) }], t('파일 추가: {name}', { name: path.split('/').pop()! }))
+  const rev = revs.get(path) ?? null
+  useApp.setState((s) => ({ assets: { ...s.assets, [path]: { sha: rev, size: bytes.length } } }))
+  void db.putAsset({ path, sha: rev, size: bytes.length })
+}
+
+/** 올린 파일의 내용을 고른 파일(새 버전)로 바꾼다. 같은 경로에 덮어쓴다 */
+export async function replaceOther(path: string, file: File): Promise<void> {
+  const { settings, assets } = useApp.getState()
+  if (!settings.remote) throw new Error(t('저장소에 연결돼 있지 않아요'))
+  if (!assets[path]) throw new Error(t('목록에 없는 파일이에요'))
+  if (file.size === 0) throw new Error(t('빈 파일은 올릴 수 없어요'))
+  if (file.size > MAX_UPLOAD_BYTES) throw new Error(t('{name}은(는) 너무 커요(최대 {max})', { name: file.name, max: formatSize(MAX_UPLOAD_BYTES) }))
+  const b64 = bytesToB64(await file.arrayBuffer())
+  const revs = await providerOf(settings.remote).push([{ path, content: '', b64 }], t('파일 교체: {name}', { name: path.split('/').pop()! }))
+  const rev = revs.get(path) ?? null
+  useApp.setState((s) => ({ assets: { ...s.assets, [path]: { sha: rev, size: file.size } } }))
+  void db.putAsset({ path, sha: rev, size: file.size })
 }
 
 /**
