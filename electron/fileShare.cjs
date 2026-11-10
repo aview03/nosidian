@@ -366,24 +366,35 @@ function register({ ipcMain, app, dialog, safeStorage, BrowserWindow }) {
     return t
   }
 
-  async function ensure() {
-    if (relay) return relay
-    const tls = await loadTls()
-    relay = createShare({
-      store: {
-        read: () => {
-          try {
-            return JSON.parse(fs.readFileSync(file, 'utf8'))
-          } catch {
-            return null
-          }
-        },
-        write: (v) => fs.writeFileSync(file, JSON.stringify(v), { mode: 0o600 }),
-      },
-      tls,
-      hostName: os.hostname(),
-    })
-    return relay
+  let initializing = null
+  /** 서버 상태를 한 번만 만든다(동시에 여러 곳에서 불려도 인증서는 하나). 앱이 준비되기 전에는 인증서 개인키를 복호화하지 않는다 —
+   *  실패하면 인증서가 새로 만들어져 이미 짝을 맺은 폰의 고정 지문이 깨진다 */
+  function ensure() {
+    if (relay) return Promise.resolve(relay)
+    if (!initializing) {
+      initializing = (async () => {
+        await app.whenReady()
+        const tls = await loadTls()
+        relay = createShare({
+          store: {
+            read: () => {
+              try {
+                return JSON.parse(fs.readFileSync(file, 'utf8'))
+              } catch {
+                return null
+              }
+            },
+            write: (v) => fs.writeFileSync(file, JSON.stringify(v), { mode: 0o600 }),
+          },
+          tls,
+          hostName: os.hostname(),
+        })
+        return relay
+      })().finally(() => {
+        initializing = null
+      })
+    }
+    return initializing
   }
 
   async function start() {
