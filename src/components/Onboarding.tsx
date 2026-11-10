@@ -8,7 +8,7 @@ import { importFromPicker } from '../lib/importFiles'
 import { authorize, REDIRECT_HINT } from '../lib/sync/oauth'
 import { PERSONAS, PERSONA_INFO, type PersonaId } from '../lib/persona'
 import { Orb } from './Orb'
-import { setPersona } from '../lib/personaApply'
+import { applyPersonaLayout, setPersona } from '../lib/personaApply'
 
 export function parseRepo(input: string) {
   const m = input.trim().replace(/\.git$/, '').match(/(?:github\.com[/:])?([\w.-]+)\/([\w.-]+)\/?$/)
@@ -153,7 +153,7 @@ function Guide({ step, setStep, children }: { step: Step; setStep(s: Step): void
   const save = () => {
     const app = useApp.getState()
     if (name.trim()) app.patchSettings({ myName: name.trim() })
-    if (role) setPersona(role)
+    if (role) { setPersona(role); applyPersonaLayout(role) } // 첫 실행에서 고른 역할은 바로 화면 구성에 쓴다
   }
   const call = name.trim()
   const lang = useApp((x) => x.settings.lang)

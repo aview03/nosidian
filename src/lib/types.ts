@@ -66,7 +66,6 @@ export interface Settings {
   remindMin: number // 일정 N분 전 알림 (0 = 끔)
   myName: string // 내 이름(쉼표로 여러 개): 내 업무에서 담당자가 나인 일만 모아 볼 때 쓴다
   persona: string | null // 내가 하는 일(역할): 내 업무 홈의 기본 구성을 고르는 데 쓴다. null = 아직 안 정함
-  personaApply: boolean // 역할을 바꿀 때 내 업무 홈을 그 역할 구성으로 자동으로 맞출지
   vaults: VaultMeta[]
   activeVault: string | null
   // ── 활성 vault 값의 사본 (화면 코드가 그대로 읽는다. 바뀌면 vaults 에도 반영) ──
@@ -90,7 +89,6 @@ export const DEFAULT_SETTINGS: Settings = {
   remindMin: 0,
   myName: '',
   persona: null,
-  personaApply: true,
   vaults: [],
   activeVault: null,
   remote: null,

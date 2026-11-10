@@ -5,7 +5,7 @@ import { t, getLang } from '../lib/i18n'
 import { tx } from '../lib/tx'
 import { LangSelect } from './LangSelect'
 import { PERSONAS, PERSONA_INFO, matchesPreset } from '../lib/persona'
-import { applyPersonaLayout, personaOf, setPersona } from '../lib/personaApply'
+import { applyPersonaLayout, personaOf, resetWorkLayout, setPersona } from '../lib/personaApply'
 import { useWorkUi } from '../lib/workOps'
 import { Select } from './Select'
 import { LlmCard } from './LlmSettings'
@@ -45,26 +45,27 @@ export function openMyNameSetting() {
 /** 내 프로필: 이름 + 내가 하는 일(역할). 설정 맨 위 */
 function ProfileCard() {
   const persona = useApp((x) => personaOf(x.settings.persona))
-  const apply = useApp((x) => x.settings.personaApply)
-  const layout = useWorkUi((x) => x.layout)
   const options = [{ value: '', label: t('정하지 않음') }, ...PERSONAS.map((p) => ({ value: p as string, label: t(PERSONA_INFO[p].label), hint: t(PERSONA_INFO[p].hint) }))]
+  /** 역할을 고르면 내 업무 화면도 그 구성으로 맞출지 묻는다 */
+  const pick = async (v: string) => {
+    const id = personaOf(v || null)
+    setPersona(id)
+    if (!id || matchesPreset(id, useWorkUi.getState().layout)) return
+    const ok = await confirmAsk(t('내 업무 화면을 {role} 구성으로 맞출까요?', { role: t(PERSONA_INFO[id].label) }), undefined, t('예'), false, { cancelLabel: t('아니오'), note: t('지금 구성한 화면은 사라질 수 있어요.') })
+    if (ok) applyPersonaLayout(id)
+  }
+  const reset = async () => {
+    if (await confirmAsk(t('내 업무 화면을 처음 구성으로 되돌릴까요?'), undefined, t('초기화'), true)) resetWorkLayout(persona)
+  }
   return (
     <section className="card profile">
       <h3>{t('내 프로필')}</h3>
       <MyNameField />
       <p className="hint small">{t('내 업무에는 담당자(owner:)가 내 이름인 일만 모여요. 쉼표로 별명도 넣을 수 있어요.')}</p>
       <div className="kv"><span>{t('내가 하는 일')}</span>
-        <Select<string> value={persona ?? ''} options={options} title={t('내가 하는 일')} onChange={(v) => setPersona(personaOf(v || null))} />
+        <Select<string> value={persona ?? ''} options={options} title={t('내가 하는 일')} onChange={(v) => void pick(v)} />
       </div>
-      <label className="auto-check consent">
-        <input type="checkbox" checked={apply} onChange={(e) => useApp.getState().patchSettings({ personaApply: e.target.checked })} />
-        <span>{t('역할에 맞춰 내 업무 화면 구성하기')}<small>{t('끄면 역할은 표시만 하고, 내 업무 구성은 그대로 둬요.')}</small></span>
-      </label>
-      {persona && (
-        <div className="kv"><span>{matchesPreset(persona, layout) ? t('지금 구성이 이 역할의 기본 구성이에요') : t('내가 바꾼 구성이에요')}</span>
-          <button disabled={matchesPreset(persona, layout)} onClick={() => applyPersonaLayout(persona)}>{t('기본 구성으로 되돌리기')}</button>
-        </div>
-      )}
+      <button className="link-btn small-reset" onClick={() => void reset()}>{t('내 업무 화면 초기화')}</button>
     </section>
   )
 }
@@ -154,9 +155,7 @@ function SyncCard() {
           <div className="kv"><span>{t('연결')}</span><b>{SYNC_LABEL[r.kind]} · {r.kind === 'github' ? `${r.owner}/${r.repo}` : r.folder}</b></div>
           <div className="kv"><span>{t('마지막 동기화')}</span><b>{ago(s.lastSync)}</b></div>
           <div className="kv"><span>{t('올리기 대기')}</span><b>{t('{n}개', { n: dirty })}{conflicts ? ' · ' + t('충돌 {n}', { n: conflicts }) : ''}</b></div>
-          <div className="btn-row">
-            <button className="primary" disabled={syncing} onClick={() => void app.sync()}>{syncing ? t('동기화 중…') : t('지금 동기화')}</button>
-          </div>
+          <button className="primary big" disabled={syncing} onClick={() => void app.sync()}>{syncing ? t('동기화 중…') : t('지금 동기화')}</button>
           <details className="more">
             <summary>{t('고급')}</summary>
             {r.kind === 'github' && <div className="kv"><span>{t('브랜치')}</span><b>{r.branch}</b></div>}
@@ -177,7 +176,7 @@ function SyncCard() {
         <>
           <p className="hint">{t('지금은 이 기기에만 저장돼요. 연결하면 다른 기기와 맞출 수 있어요.')}</p>
           {!connecting ? (
-            <div className="btn-row"><button className="primary" onClick={() => setConnecting(true)}>{t('연결하기')}</button></div>
+            <button className="primary big" onClick={() => setConnecting(true)}>{t('연결하기')}</button>
           ) : (
             <>
               <div className="set-sub">{t('어디에 보관할까요?')}</div>

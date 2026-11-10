@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useApp } from './app'
 import { PERSONAS, PERSONA_INFO, TILE_GROUPS, TILE_HINT, groupOfTile, isPersona, matchesPreset, presetLayout } from './persona'
-import { applyPersonaLayout, personaOf, setPersona } from './personaApply'
+import { applyPersonaLayout, personaOf, resetWorkLayout, setPersona } from './personaApply'
 import { BUILTIN_TILES, customId, defaultLayout, disableTile, enableTile, reorderVisible, resolveTiles } from './tiles'
 import { useWorkUi } from './workOps'
 
@@ -85,28 +85,32 @@ describe('켜진 것 위, 꺼진 것 아래', () => {
 describe('역할 저장(설정)', () => {
   beforeEach(() => {
     localStorage.clear()
-    useApp.setState({ settings: { ...useApp.getState().settings, persona: null, personaApply: true }, files: {} })
+    useApp.setState({ settings: { ...useApp.getState().settings, persona: null }, files: {} })
     useWorkUi.setState({ layout: defaultLayout() })
   })
-  it('역할을 고르면 저장되고, 자동 적용이 켜져 있으면 내 업무 구성도 바뀐다', () => {
+  it('역할만 저장하고 구성은 바꾸지 않는다(구성은 따로 묻는다)', () => {
+    const before = useWorkUi.getState().layout
     setPersona('student')
     expect(useApp.getState().settings.persona).toBe('student')
+    expect(useWorkUi.getState().layout).toEqual(before)
+  })
+  it('applyPersonaLayout 은 그 역할의 구성으로 맞춘다', () => {
+    applyPersonaLayout('student')
     expect(shown(useWorkUi.getState().layout)).toEqual(PERSONA_INFO.student.tiles)
   })
-  it('자동 적용을 끄면 역할만 저장하고 구성은 그대로 둔다. 버튼으로는 언제든 적용할 수 있다', () => {
-    useApp.getState().patchSettings({ personaApply: false })
-    const before = useWorkUi.getState().layout
-    setPersona('developer')
-    expect(useApp.getState().settings.persona).toBe('developer')
-    expect(useWorkUi.getState().layout).toEqual(before)
-    applyPersonaLayout('developer')
-    expect(shown(useWorkUi.getState().layout)).toEqual(PERSONA_INFO.developer.tiles)
-  })
   it('"정하지 않음"(null)은 구성을 바꾸지 않는다', () => {
-    setPersona('planner')
+    applyPersonaLayout('planner')
     const l = useWorkUi.getState().layout
     setPersona(null)
     expect(useApp.getState().settings.persona).toBeNull()
     expect(useWorkUi.getState().layout).toEqual(l)
+  })
+  it('초기화: 역할이 있으면 그 역할 구성, 없으면 기본 구성', () => {
+    useWorkUi.setState({ layout: { ...defaultLayout(), hidden: [], order: [...BUILTIN_TILES].reverse() } })
+    resetWorkLayout('marketer')
+    expect(shown(useWorkUi.getState().layout)).toEqual(PERSONA_INFO.marketer.tiles)
+    useWorkUi.setState({ layout: { ...defaultLayout(), hidden: [], order: [...BUILTIN_TILES].reverse() } })
+    resetWorkLayout(null)
+    expect(shown(useWorkUi.getState().layout)).toEqual(shown(defaultLayout()))
   })
 })

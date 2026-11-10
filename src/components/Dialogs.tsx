@@ -42,6 +42,7 @@ export function Dialogs() {
           >
             <h3>{v.title}</h3>
             {v.message && <p>{v.message}</p>}
+            {v.note && <p className="modal-note">{v.note}</p>}
             {v.kind === 'prompt' && <input ref={input} defaultValue={v.value} autoCapitalize="off" />}
             {v.kind === 'choice' ? (
               <div className="modal-actions choice">
@@ -52,7 +53,7 @@ export function Dialogs() {
               </div>
             ) : (
               <div className="modal-actions">
-                <button type="button" onClick={() => close(v.kind === 'confirm' ? false : null)}>{t('취소')}</button>
+                <button type="button" onClick={() => close(v.kind === 'confirm' ? false : null)}>{v.cancelLabel ?? t('취소')}</button>
                 <button type="submit" className={v.danger ? 'danger-fill' : 'primary'}>{v.okLabel}</button>
               </div>
             )}

@@ -982,5 +982,12 @@ const dict: Record<string, string> = {
   '내 업무에는 담당자(owner:)가 내 이름인 일만 모여요. 쉼표로 별명도 넣을 수 있어요.': 'My Work collects tasks whose owner: is your name. You can add nicknames separated by commas.',
   '끄면 역할은 표시만 하고, 내 업무 구성은 그대로 둬요.': 'When off, the role is only a label and your layout stays as is.',
   '기본 구성으로 되돌리기': 'Reset to default layout',
+  '내 업무 화면을 {role} 구성으로 맞출까요?': 'Arrange My Work for {role}?',
+  '지금 구성한 화면은 사라질 수 있어요.': 'Your current layout may be lost.',
+  '예': 'Yes',
+  '아니오': 'No',
+  '내 업무 화면을 처음 구성으로 되돌릴까요?': 'Reset My Work to its starting layout?',
+  '초기화': 'Reset',
+  '내 업무 화면 초기화': 'Reset My Work layout',
 }
 export default dict

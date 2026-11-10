@@ -1293,3 +1293,6 @@ details.adv-card[open] > summary { margin-bottom: 8px; }
 .set-nav-row { border-radius: 0; padding: 10px 16px; border-bottom: 1px solid var(--border); }
 .set-nav-row.on { background: var(--accent-soft); }
 .set-ico { border-radius: var(--r); }
+
+.small-reset { font-size: 12.5px; color: var(--muted); padding: 8px 0 2px; min-height: 0; }
+.modal-note { margin: -4px 0 0; font-size: 12.5px; color: var(--muted); }
