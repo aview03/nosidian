@@ -177,6 +177,18 @@ describe('읽기 전용 대화(묻기)', () => {
   })
 })
 
+describe('일부만 읽은 노트', () => {
+  it('앞부분만 읽은 노트의 수정은 거절하고(나머지를 지우지 않게), 다른 작업은 그대로', () => {
+    const x = env('ai_write: direct\n', { partialPaths: new Set(['p/보조/메모.md']) })
+    const base = contentHash(x.files['p/보조/메모.md'].content)
+    expect(() => callTool('propose_change', { action: 'modify', path: 'p/보조/메모.md', content: '앞부분만', base_hash: base }, x.e, 'c')).toThrow(/truncated/)
+    expect(x.log).toHaveLength(0)
+    // 다른 노트의 수정·이 노트의 삭제(보관)는 막지 않는다
+    expect(callTool('propose_change', { action: 'modify', path: 'p/SPEC.md', content: '새', base_hash: contentHash(x.files['p/SPEC.md'].content) }, x.e, 'c')).toMatchObject({ outcome: expect.any(String) })
+    expect(callTool('propose_change', { action: 'delete', path: 'p/보조/메모.md', base_hash: base }, x.e, 'c')).toMatchObject({ outcome: 'applied' })
+  })
+})
+
 describe('경로 정리', () => {
   it('앞의 ./·역슬래시·앞 슬래시를 정리하고 .. 와 빈 조각은 거절', () => {
     expect(cleanPath('./a/b.md')).toBe('a/b.md')

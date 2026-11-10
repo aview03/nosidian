@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { chatTurn } from './llmNet'
 import { setLang } from './i18n'
 import { useApp } from './app'
 import { PANEL_DEFAULT, startAiThread, turnsOf, useAiThread, type Msg } from './aiThread'
@@ -7,6 +8,10 @@ import type { ClaudeEvent } from './externalIO'
 import type { Proposal } from './proposals'
 
 setLang('ko')
+
+// 모델 호출(네트워크)만 가짜로 바꾼다. 도구 실행·정책·제안 처리는 실제 코드가 돈다.
+vi.mock('./llmNet', () => ({ chatTurn: vi.fn(), migrateLlmKey: async () => false, listModels: vi.fn(), chat: vi.fn(), keyStoreStatus: async () => ({ available: false, has: false }), storeKey: vi.fn(), clearStoredKey: vi.fn() }))
+const turnMock = vi.mocked(chatTurn)
 
 type Handler = (e: ClaudeEvent) => void
 let handler: Handler | null = null
@@ -28,7 +33,8 @@ beforeEach(() => {
   localStorage.clear()
   install()
   useApp.setState({ current: 'p/개요.md' })
-  useAiThread.setState({ open: false, wide: false, width: PANEL_DEFAULT, mode: 'ask', withNote: true, messages: [], draft: '', running: false, vault: null, loaded: false })
+  useAiThread.setState({ open: false, wide: false, width: PANEL_DEFAULT, mode: 'ask', engine: 'claude', withNote: true, messages: [], draft: '', running: false, vault: null, loaded: false })
+  turnMock.mockReset()
   useProposals.setState({ items: [], vault: null, loaded: true })
   startAiThread()
 })
@@ -179,5 +185,109 @@ describe('AI 스레드: 보관과 패널 상태', () => {
     expect(startAiThread()).toBeUndefined()
     await useAiThread.getState().send('q')
     expect(useAiThread.getState().messages).toEqual([])
+  })
+})
+
+describe('로컬 모델(Ollama) 엔진', () => {
+  const OLLAMA = { kind: 'ollama', baseUrl: 'http://localhost:11434', model: 'qwen3.5:4b' }
+  const note = (path: string, content: string) => ({ path, content, sha: null, dirty: false, mtime: 0 })
+  function setup(files: Record<string, string> = { 'p/개요.md': '# 개요\n견적서 초안', '_workspace/문서규칙.md': '---\nrules: on\nai_write: propose\n---\n' }) {
+    localStorage.setItem('nosidian.llm', JSON.stringify(OLLAMA))
+    useApp.setState({
+      files: Object.fromEntries(Object.entries(files).map(([k, v]) => [k, note(k, v)])),
+      settings: { ...useApp.getState().settings, activeVault: 'v1', vaults: [{ id: 'v1', name: '테스트', remote: null, bookmarks: [], recent: [], lastSync: null }] as never },
+    })
+    useAiThread.setState({ engine: 'ollama', vault: 'v1', loaded: false })
+    useProposals.setState({ items: [], vault: 'v1', loaded: true })
+  }
+
+  it('엔진 선택은 기억되고, 저장된 모델 정보로 사용 가능 여부와 전송 위치를 알려 준다', async () => {
+    const { localEngine } = await import('./aiThread')
+    expect(localEngine(null)).toMatchObject({ ready: false, problem: 'noConfig' })
+    expect(localEngine(OLLAMA as never)).toEqual({ ready: true, label: 'Ollama · qwen3.5:4b', cloud: false })
+    expect(localEngine({ ...OLLAMA, baseUrl: 'https://llm.example.com' } as never).cloud).toBe(true)
+    expect(localEngine({ kind: 'anthropic', baseUrl: 'https://api.anthropic.com', model: 'm', apiKey: 'k' })).toMatchObject({ ready: false, problem: 'noTools' })
+    expect(localEngine({ ...OLLAMA, model: '' } as never)).toMatchObject({ ready: false, problem: 'noModel' })
+    useAiThread.getState().setEngine('ollama')
+    expect(localStorage.getItem('nosidian.ai.engine')).toBe('"ollama"')
+  })
+  it('도구를 부르고 답하는 한 번의 흐름: 검색 → 답변, 진행 단계와 도구 결과가 모델에 돌아간다', async () => {
+    setup()
+    turnMock
+      .mockResolvedValueOnce({ text: '', toolCalls: [{ name: 'search_notes', args: { query: '견적서' } }] })
+      .mockResolvedValueOnce({ text: '`p/개요.md` 에 있어요', toolCalls: [] })
+    await useAiThread.getState().send('견적서 어디 있어?')
+    await vi.waitFor(() => expect(useAiThread.getState().running).toBe(false))
+    const [user, ai] = useAiThread.getState().messages
+    expect(user).toMatchObject({ engine: 'ollama', mode: 'ask' })
+    expect(ai).toMatchObject({ status: 'done', text: '`p/개요.md` 에 있어요', turns: 2 })
+    expect(ai.steps).toEqual([{ name: 'search_notes', input: '견적서' }])
+    expect(run).not.toHaveBeenCalled() // Claude CLI 는 부르지 않는다
+    // 두 번째 모델 호출에는 첫 도구 결과가 들어 있다(실제 mcpTools.search_notes 가 실행되어 열린 vault 에서 찾았다)
+    const msgs = turnMock.mock.calls[1][1]
+    expect(JSON.parse(msgs.at(-1)!.content)).toMatchObject({ vault: '테스트', count: 1 })
+    expect(turnMock.mock.calls[0][2]).toMatchObject({ think: false, numCtx: 16384 })
+  })
+  it('묻기에서는 변경 제안 도구를 모델에게 주지 않는다', async () => {
+    setup()
+    turnMock.mockResolvedValueOnce({ text: '답', toolCalls: [] })
+    await useAiThread.getState().send('q')
+    await vi.waitFor(() => expect(useAiThread.getState().running).toBe(false))
+    expect(turnMock.mock.calls[0][2]!.tools!.map((t) => t.name)).toEqual(['search_notes', 'read_note', 'list_projects', 'get_document_rules'])
+  })
+  it('변경 제안 모드: 공식 문서가 아니어도 규칙 밖이므로 승인 대기 제안이 만들어져 답변에 붙는다', async () => {
+    setup()
+    useAiThread.setState({ mode: 'edit' })
+    const content = '# 개요\n견적서 초안\n새 줄'
+    turnMock
+      .mockResolvedValueOnce({ text: '', toolCalls: [{ name: 'read_note', args: { path: 'p/개요.md' } }] })
+      .mockImplementationOnce(async (_c, messages) => {
+        const read = JSON.parse(messages.at(-1)!.content)
+        return { text: '', toolCalls: [{ name: 'propose_change', args: { action: 'modify', path: 'p/개요.md', content, base_hash: read.content_hash, summary: '새 줄 추가' } }] }
+      })
+      .mockResolvedValueOnce({ text: '제안했어요. 승인이 필요해요.', toolCalls: [] })
+    await useAiThread.getState().send('새 줄을 추가해 줘')
+    await vi.waitFor(() => expect(useAiThread.getState().running).toBe(false))
+    const ai = useAiThread.getState().messages[1]
+    expect(ai.status).toBe('done')
+    expect(ai.proposals).toHaveLength(1)
+    const p = useProposals.getState().items[0]
+    expect(p).toMatchObject({ status: 'pending', req: { action: 'modify', path: 'p/개요.md' }, summary: '새 줄 추가' })
+    expect(p.by).toContain('qwen3.5:4b')
+    expect(useApp.getState().files['p/개요.md'].content).not.toContain('새 줄') // 승인 전에는 반영되지 않는다
+  })
+  it('설정에 모델이 없으면 오류 메시지로 안내하고 모델을 부르지 않는다', async () => {
+    useAiThread.setState({ engine: 'ollama' })
+    await useAiThread.getState().send('q')
+    expect(useAiThread.getState().messages[1]).toMatchObject({ status: 'error' })
+    expect(useAiThread.getState().messages[1].error).toMatch(/AI 연결/)
+    expect(useAiThread.getState().running).toBe(false)
+    expect(turnMock).not.toHaveBeenCalled()
+  })
+  it('중지하면 진행 중인 모델 호출을 끊고 취소로 끝난다', async () => {
+    setup()
+    let signal: AbortSignal | undefined
+    turnMock.mockImplementationOnce((_c, _m, _o, s) => new Promise((_resolve, reject) => { signal = s; s!.addEventListener('abort', () => reject(new Error('취소했어요'))) }))
+    const sent = useAiThread.getState().send('q') // 화면처럼 기다리지 않고 부른다(끝날 때까지 이어진다)
+    await vi.waitFor(() => expect(signal).toBeDefined())
+    useAiThread.getState().cancel()
+    await sent
+    expect(useAiThread.getState().running).toBe(false)
+    expect(useAiThread.getState().messages[1]).toMatchObject({ status: 'error', error: '취소했어요' })
+    expect(cancel).not.toHaveBeenCalled() // Claude CLI 쪽 취소는 부르지 않는다
+  })
+  it('모델 오류(서버 꺼짐 등)는 오류 메시지로 끝난다', async () => {
+    setup()
+    turnMock.mockRejectedValueOnce(new Error('연결하지 못했어요'))
+    await useAiThread.getState().send('q')
+    await vi.waitFor(() => expect(useAiThread.getState().running).toBe(false))
+    expect(useAiThread.getState().messages[1]).toMatchObject({ status: 'error', error: '연결하지 못했어요' })
+  })
+  it('Claude CLI 가 없어도(안드로이드 아님·PC 에서 CLI 미설치) 로컬 모델로는 보낼 수 있다', async () => {
+    setup()
+    ;(window as unknown as { amsidianDesktop: unknown }).amsidianDesktop = {}
+    turnMock.mockResolvedValueOnce({ text: '답', toolCalls: [] })
+    await useAiThread.getState().send('q')
+    await vi.waitFor(() => expect(useAiThread.getState().messages[1]?.status).toBe('done'))
   })
 })

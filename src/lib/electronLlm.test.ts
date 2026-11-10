@@ -9,7 +9,7 @@ const main = mainRaw as {
   isPrivateHost(h: string): boolean
   injectKey(h: Record<string, string>, key: string | null): Record<string, string> | null
   createKeyStore(o: { file: string; safeStorage: unknown }): { available(): boolean; has(): boolean; set(k: string): void; get(): string | null; clear(): void }
-  request(req: unknown, keys: unknown): Promise<{ status: number; text: string; error?: string }>
+  request(req: unknown, keys: unknown, ac?: unknown): Promise<{ status: number; text: string; error?: string; cancelled?: boolean }>
 }
 
 describe('메인 프로세스 요청 검사(electron/llm.cjs)', () => {
@@ -114,6 +114,28 @@ describe('API 키 보관소', () => {
       const failed = await main.request({ url: 'http://127.0.0.1:1/', method: 'GET', headers: { Authorization: 'Bearer {{KEY}}' } }, ks)
       expect(JSON.stringify(failed)).not.toContain('sk-live-123')
     } finally {
+      server.close()
+    }
+  })
+})
+
+describe('요청 취소', () => {
+  it('진행 중인 요청을 끊으면 "취소했어요" 로 끝나고(시간 초과와 구분), 서버 응답을 기다리지 않는다', async () => {
+    // @ts-expect-error 타입 선언 없이 Node 내장 모듈을 쓴다
+    const http: any = await import('node:http')
+    const server = http.createServer(() => { /* 응답하지 않는다 */ })
+    await new Promise<void>((r) => server.listen(0, '127.0.0.1', r))
+    try {
+      const ac = new AbortController() as AbortController & { cancelled?: boolean }
+      const t0 = Date.now()
+      const p = main.request({ url: `http://127.0.0.1:${server.address().port}/`, method: 'GET', headers: {} }, null, ac)
+      setTimeout(() => { ac.cancelled = true; ac.abort() }, 50)
+      const r = await p
+      expect(r).toMatchObject({ status: 0, cancelled: true })
+      expect(r.error).toBe('취소했어요')
+      expect(Date.now() - t0).toBeLessThan(2000)
+    } finally {
+      server.closeAllConnections?.()
       server.close()
     }
   })

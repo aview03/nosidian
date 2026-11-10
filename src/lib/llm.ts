@@ -25,10 +25,39 @@ export const KEY_PLACEHOLDER = '{{KEY}}'
 /** 요청을 만들 때 쓸 설정: 키가 보안 저장소에 있으면 자리표시자를 쓴다 */
 export const forRequest = (cfg: LlmConfig): LlmConfig => (cfg.keyStored ? { ...cfg, apiKey: KEY_PLACEHOLDER } : cfg)
 
-export interface ChatMessage {
-  role: 'system' | 'user' | 'assistant'
-  content: string
+/** 모델이 부르려는 도구 한 번 */
+export interface ToolCall {
+  /** OpenAI 호환 서버가 주는 호출 id(결과를 이 id 로 돌려줘야 한다). Ollama 는 없다 */
+  id?: string
+  name: string
+  args: Record<string, unknown>
 }
+
+/** 모델에게 알려 주는 도구 정의(이름·설명·JSON Schema) */
+export interface ToolSpec {
+  name: string
+  description: string
+  inputSchema: Record<string, unknown>
+}
+
+export interface ChatMessage {
+  role: 'system' | 'user' | 'assistant' | 'tool'
+  content: string
+  /** assistant: 이 턴에 모델이 부른 도구들 */
+  toolCalls?: ToolCall[]
+  /** tool: 어느 호출의 결과인지(OpenAI 호환: 호출 id, Ollama: 도구 이름) */
+  toolCallId?: string
+  toolName?: string
+}
+
+/** 모델의 한 턴: 글과(있다면) 도구 호출들 */
+export interface ModelTurn {
+  text: string
+  toolCalls: ToolCall[]
+}
+
+/** 도구 호출(function calling)을 지원하는 제공자: Ollama · OpenAI 호환(OpenAI·사용자 지정) */
+export const supportsTools = (kind: ProviderKind) => kind === 'ollama' || kind === 'openai' || kind === 'custom'
 
 export interface HttpRequest {
   url: string
@@ -89,7 +118,30 @@ const json = (o: unknown) => JSON.stringify(o)
 export interface ChatOpts {
   temperature?: number
   maxTokens?: number
+  /** 도구 호출을 허용할 도구들(Ollama·OpenAI 호환만) */
+  tools?: ToolSpec[]
+  /** Ollama: 생각(thinking) 모델의 사고 과정을 켜고 끈다(끄면 훨씬 빠르다) */
+  think?: boolean
+  /** Ollama: 문맥 길이(num_ctx). 기본값이 작아 노트를 읽으면 잘릴 수 있다 */
+  numCtx?: number
 }
+
+const hasToolBits = (messages: ChatMessage[], opts: ChatOpts) => !!opts.tools?.length || messages.some((m) => m.role === 'tool' || m.toolCalls?.length)
+
+/** 제공자에 보낼 메시지 모양으로. 일반 메시지는 {role, content} 그대로다 */
+function wireMessages(kind: ProviderKind, messages: ChatMessage[]): unknown[] {
+  return messages.map((m) => {
+    if (m.role === 'tool') return kind === 'ollama' ? { role: 'tool', content: m.content, ...(m.toolName ? { tool_name: m.toolName } : {}) } : { role: 'tool', tool_call_id: m.toolCallId ?? '', content: m.content }
+    if (m.role === 'assistant' && m.toolCalls?.length) {
+      return kind === 'ollama'
+        ? { role: 'assistant', content: m.content, tool_calls: m.toolCalls.map((c) => ({ function: { name: c.name, arguments: c.args } })) }
+        : { role: 'assistant', content: m.content, tool_calls: m.toolCalls.map((c) => ({ id: c.id ?? '', type: 'function', function: { name: c.name, arguments: JSON.stringify(c.args) } })) }
+    }
+    return { role: m.role, content: m.content }
+  })
+}
+
+const wireTools = (tools: ToolSpec[]) => tools.map((t) => ({ type: 'function', function: { name: t.name, description: t.description, parameters: t.inputSchema } }))
 
 /** 대화 요청을 제공자 형식으로 */
 export function buildChat(cfg: LlmConfig, messages: ChatMessage[], opts: ChatOpts = {}): HttpRequest {
@@ -97,12 +149,30 @@ export function buildChat(cfg: LlmConfig, messages: ChatMessage[], opts: ChatOpt
   const key = cfg.apiKey?.trim()
   const model = cfg.model.trim()
   const common = { 'Content-Type': 'application/json' }
+  if (!supportsTools(cfg.kind) && hasToolBits(messages, opts)) throw new LlmError('이 제공자는 아직 도구 호출을 지원하지 않아요 (Ollama·OpenAI 호환만)')
   switch (cfg.kind) {
     case 'ollama':
-      return { url: `${base}/api/chat`, method: 'POST', headers: common, body: json({ model, messages, stream: false, options: { ...(opts.temperature !== undefined ? { temperature: opts.temperature } : {}), ...(opts.maxTokens ? { num_predict: opts.maxTokens } : {}) } }) }
+      return {
+        url: `${base}/api/chat`,
+        method: 'POST',
+        headers: common,
+        body: json({
+          model,
+          messages: wireMessages('ollama', messages),
+          stream: false,
+          ...(opts.tools?.length ? { tools: wireTools(opts.tools) } : {}),
+          ...(opts.think !== undefined ? { think: opts.think } : {}),
+          options: { ...(opts.temperature !== undefined ? { temperature: opts.temperature } : {}), ...(opts.maxTokens ? { num_predict: opts.maxTokens } : {}), ...(opts.numCtx ? { num_ctx: opts.numCtx } : {}) },
+        }),
+      }
     case 'openai':
     case 'custom':
-      return { url: `${base}/chat/completions`, method: 'POST', headers: { ...common, ...(key ? { Authorization: `Bearer ${key}` } : {}) }, body: json({ model, messages, ...(opts.temperature !== undefined ? { temperature: opts.temperature } : {}), ...(opts.maxTokens ? { max_tokens: opts.maxTokens } : {}) }) }
+      return {
+        url: `${base}/chat/completions`,
+        method: 'POST',
+        headers: { ...common, ...(key ? { Authorization: `Bearer ${key}` } : {}) },
+        body: json({ model, messages: wireMessages(cfg.kind, messages), ...(opts.tools?.length ? { tools: wireTools(opts.tools) } : {}), ...(opts.temperature !== undefined ? { temperature: opts.temperature } : {}), ...(opts.maxTokens ? { max_tokens: opts.maxTokens } : {}) }),
+      }
     case 'anthropic': {
       const system = messages.filter((m) => m.role === 'system').map((m) => m.content).join('\n\n')
       return {
@@ -153,6 +223,38 @@ export function parseChat(cfg: LlmConfig, body: unknown): string {
   }
   if (!text.trim()) throw new LlmError(errorText(body) || '응답이 비어 있어요')
   return text
+}
+
+/** 인자가 JSON 글자로 오면 객체로. 깨졌으면 원문을 __raw 에 담아 돌려준다(도구 쪽이 오류로 알려 준다) */
+function parseArgs(v: unknown): Record<string, unknown> {
+  if (v && typeof v === 'object' && !Array.isArray(v)) return v as Record<string, unknown>
+  if (typeof v === 'string') {
+    if (!v.trim()) return {}
+    try {
+      const j = JSON.parse(v) as unknown
+      if (j && typeof j === 'object' && !Array.isArray(j)) return j as Record<string, unknown>
+    } catch {
+      /* 아래에서 처리 */
+    }
+    return { __raw: v }
+  }
+  return {}
+}
+
+/** 응답에서 모델의 한 턴(글 + 도구 호출들)을 꺼낸다. 글도 도구 호출도 없으면 LlmError */
+export function parseTurn(cfg: LlmConfig, body: unknown): ModelTurn {
+  if (!supportsTools(cfg.kind)) return { text: parseChat(cfg, body), toolCalls: [] }
+  const b = obj(body)
+  const msg = cfg.kind === 'ollama' ? obj(b.message) : obj(obj(arr(b.choices)[0]).message)
+  const text = typeof msg.content === 'string' ? msg.content : ''
+  const toolCalls: ToolCall[] = arr(msg.tool_calls)
+    .map((c) => {
+      const f = obj(obj(c).function)
+      return { ...(typeof obj(c).id === 'string' && obj(c).id ? { id: String(obj(c).id) } : {}), name: String(f.name ?? ''), args: parseArgs(f.arguments) }
+    })
+    .filter((c) => c.name)
+  if (!text.trim() && !toolCalls.length) throw new LlmError(errorText(body) || '응답이 비어 있어요')
+  return { text, toolCalls }
 }
 
 /** 서버에 있는 모델 목록 요청(연결 확인을 겸한다) */

@@ -6,11 +6,12 @@ import { t } from '../lib/i18n'
 import { desktop, type ClaudeStatus } from '../lib/externalIO'
 import { baseName } from '../lib/links'
 import { linkifyPaths, PRESETS, readiness, toolLabel } from '../lib/aiAssistant'
-import { useAiThread, type Msg } from '../lib/aiThread'
+import { localEngine, useAiThread, type Engine, type Msg } from '../lib/aiThread'
 import { isStale } from '../lib/proposals'
 import { useProposals } from '../lib/proposalStore'
 import { Icon } from './Icon'
 import { Reader } from './Reader'
+import { Select } from './Select'
 import { Diff, KIND, reasonText } from './ProposalReview'
 
 /** 변경 제안 카드: 패널 안에서 차이를 보고 승인·거절한다(승인하면 반영 직전에 한 번 더 확인한다) */
@@ -48,6 +49,7 @@ function UserMsg({ m }: { m: Msg }) {
       <div className="ai-u-text">{m.text}</div>
       <div className="ai-u-meta">
         {m.mode === 'edit' ? t('변경 제안') : t('묻기')}
+        {m.engine === 'ollama' && <> · {t('로컬 모델')}</>}
         {m.note && <> · {baseName(m.note)}</>}
       </div>
     </div>
@@ -87,11 +89,13 @@ function AiMsg({ m }: { m: Msg }) {
 }
 
 export function AiPanel() {
+  const pc = !!desktop()
   const claude = desktop()?.claude
   const open = useAiThread((s) => s.open)
   const wide = useAiThread((s) => s.wide)
   const width = useAiThread((s) => s.width)
   const mode = useAiThread((s) => s.mode)
+  const engine = useAiThread((s) => s.engine)
   const withNote = useAiThread((s) => s.withNote)
   const messages = useAiThread((s) => s.messages)
   const running = useAiThread((s) => s.running)
@@ -100,27 +104,31 @@ export function AiPanel() {
   const vault = useApp((s) => s.settings.activeVault)
   const pending = useProposals((s) => s.items.filter((p) => p.status === 'pending').length)
   const [status, setStatus] = useState<ClaudeStatus | null>(null)
+  const [local, setLocal] = useState(() => localEngine())
   const scroller = useRef<HTMLDivElement>(null)
   const stick = useRef(true) // 사용자가 위로 올려 읽는 중이면 자동 스크롤하지 않는다
   const box = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
-    if (!open || !claude) return
+    if (!open || !pc) return
     useAiThread.getState().ensure()
     useProposals.getState().ensure()
-    void claude.detect().then(setStatus)
+    void claude?.detect().then(setStatus)
+    setLocal(localEngine()) // 설정에서 모델을 바꿨을 수 있다
     setTimeout(() => box.current?.focus(), 50)
-  }, [open, claude, vault])
+  }, [open, pc, claude, vault])
 
   useEffect(() => {
     const el = scroller.current
     if (el && stick.current) el.scrollTop = el.scrollHeight
   }, [messages, open])
 
-  if (!claude || !open) return null
-  const ready = readiness(status)
+  if (!pc || !open) return null
+  const ready = engine === 'ollama' ? (local.ready ? 'ok' : 'noLocal') : claude ? readiness(status) : 'notFound'
   const canSend = ready === 'ok' && !running && draft.trim().length > 0
   const noteName = current ? baseName(current) : ''
+  // Claude 를 쓸 수 없을 때, 로컬 모델이 준비되어 있으면 바로 바꾸게 한다
+  const switchBtn = local.ready ? <button className="wrk-viewedit" onClick={() => useAiThread.getState().setEngine('ollama')}>{t('로컬 모델로 전환')}</button> : null
   const panelWidth = wide ? Math.min(Math.round(width * 1.7), Math.round(window.innerWidth * 0.7)) : width
 
   const send = () => canSend && void useAiThread.getState().send(draft)
@@ -170,9 +178,15 @@ export function AiPanel() {
       </div>
 
       {ready === 'unknown' && <p className="hint small ai-note">{t('Claude Code CLI 를 확인하는 중…')}</p>}
-      {ready === 'notFound' && <p className="hint small ai-note ai-warn">{t('이 PC 에서 Claude Code CLI(claude)를 찾지 못했어요. 설치한 뒤 터미널에서 claude 로 로그인하면 쓸 수 있어요.')}</p>}
-      {ready === 'onlyCmd' && <p className="hint small ai-note ai-warn">{t('npm 으로 설치한 Claude Code(claude.cmd)는 아직 지원하지 않아요. 공식 설치 프로그램(claude.exe)으로 설치해 주세요.')}</p>}
-      {ready === 'notLoggedIn' && <p className="hint small ai-note ai-warn">{t('Claude 에 로그인되어 있지 않아요. 터미널에서 claude auth login 을 실행한 뒤 다시 열어 주세요.')}</p>}
+      {ready === 'notFound' && <p className="hint small ai-note ai-warn">{t('이 PC 에서 Claude Code CLI(claude)를 찾지 못했어요. 설치한 뒤 터미널에서 claude 로 로그인하면 쓸 수 있어요.')}{switchBtn}</p>}
+      {ready === 'onlyCmd' && <p className="hint small ai-note ai-warn">{t('npm 으로 설치한 Claude Code(claude.cmd)는 아직 지원하지 않아요. 공식 설치 프로그램(claude.exe)으로 설치해 주세요.')}{switchBtn}</p>}
+      {ready === 'notLoggedIn' && <p className="hint small ai-note ai-warn">{t('Claude 에 로그인되어 있지 않아요. 터미널에서 claude auth login 을 실행한 뒤 다시 열어 주세요.')}{switchBtn}</p>}
+      {ready === 'noLocal' && (
+        <p className="hint small ai-note ai-warn">
+          {local.problem === 'noTools' ? t('저장된 AI 연결은 아직 도구 호출을 지원하지 않아요. Ollama 나 OpenAI 호환 모델을 고르세요.') : local.problem === 'noModel' ? t('AI 연결에서 모델을 골라 저장해 주세요.') : t('설정 > AI 연결에서 Ollama 같은 모델을 저장하면 API 키 없이 로컬 모델로 답할 수 있어요.')}
+          <button className="wrk-viewedit" onClick={() => useApp.getState().go('settings')}>{t('설정 열기')}</button>
+        </p>
+      )}
 
       <div className="ai-composer">
         {current && (
@@ -207,7 +221,15 @@ export function AiPanel() {
             <button className={mode === 'edit' ? 'on' : ''} onClick={() => useAiThread.getState().setMode('edit')} title={t('노트 변경을 제안해요(승인해야 반영돼요)')}>{t('변경 제안')}</button>
           </div>
           <span className="grow" />
-          <span className="ai-engine" title={t('내 PC 의 Claude Code 로 답해요. 질문과 읽은 노트 내용은 Anthropic 으로 전송돼요.')}>Claude · PC</span>
+          <Select<Engine>
+            className="ai-engine-sel"
+            value={engine}
+            title={engine === 'claude' ? t('내 PC 의 Claude Code 로 답해요. 질문과 읽은 노트 내용은 Anthropic 으로 전송돼요.') : local.cloud ? t('설정한 클라우드 모델로 답해요. 질문과 읽은 노트 내용이 그 서버로 전송돼요.') : t('내 기기의 로컬 모델로 답해요. 노트 내용이 밖으로 나가지 않아요.')}
+            ariaLabel={t('답변 엔진')}
+            disabled={running}
+            onChange={(v) => useAiThread.getState().setEngine(v)}
+            options={[{ value: 'claude', label: 'Claude · PC', hint: t('Anthropic 으로 전송') }, { value: 'ollama', label: local.label || t('로컬 모델 (설정 필요)'), hint: local.ready ? (local.cloud ? t('클라우드로 전송') : t('내 기기에서만 처리')) : t('설정 필요') }]}
+          />
           {running ? (
             <button className="ai-send stop" onClick={() => useAiThread.getState().cancel()} aria-label={t('중지')} title={t('중지')}>■</button>
           ) : (

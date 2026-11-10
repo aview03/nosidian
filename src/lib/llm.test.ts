@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildChat, buildListModels, describeFailure, forRequest, isPrivateHost, LlmError, loadLlmConfig, parseChat, parseModels, saveLlmConfig, validateConfig, type LlmConfig } from './llm'
+import { buildChat, buildListModels, describeFailure, forRequest, isPrivateHost, parseTurn, supportsTools, type ChatMessage, type ToolSpec, LlmError, loadLlmConfig, parseChat, parseModels, saveLlmConfig, validateConfig, type LlmConfig } from './llm'
 
 const cfg = (o: Partial<LlmConfig> = {}): LlmConfig => ({ kind: 'ollama', baseUrl: 'http://localhost:11434', model: 'llama3', ...o })
 const MSGS = [{ role: 'system' as const, content: '규칙을 지켜' }, { role: 'user' as const, content: '안녕' }, { role: 'assistant' as const, content: '네' }, { role: 'user' as const, content: '요약해' }]
@@ -123,5 +123,63 @@ describe('보안 저장소의 키(keyStored)', () => {
     expect(loadLlmConfig()).toEqual({ kind: 'openai', baseUrl: 'https://api.openai.com/v1', model: 'g', keyStored: true })
     expect(localStorage.getItem('nosidian.llm')).not.toContain('apiKey')
     saveLlmConfig(null)
+  })
+})
+
+describe('도구 호출(function calling)', () => {
+  const TOOLS: ToolSpec[] = [{ name: 'search_notes', description: '검색', inputSchema: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] } }]
+  const convo: ChatMessage[] = [
+    { role: 'user', content: '행사 찾아 줘' },
+    { role: 'assistant', content: '', toolCalls: [{ id: 'call_1', name: 'search_notes', args: { query: '행사' } }] },
+    { role: 'tool', content: '{"count":1}', toolCallId: 'call_1', toolName: 'search_notes' },
+  ]
+  it('지원 제공자: Ollama·OpenAI 호환만', () => {
+    expect(['ollama', 'openai', 'custom'].every((k) => supportsTools(k as never))).toBe(true)
+    expect(supportsTools('anthropic')).toBe(false)
+    expect(supportsTools('gemini')).toBe(false)
+  })
+  it('Ollama 요청: tools·think·num_ctx, 도구 호출은 인자를 객체로, 도구 결과는 tool_name 으로', () => {
+    const r = buildChat(cfg(), convo, { tools: TOOLS, think: false, numCtx: 16384, temperature: 0.2 })
+    const b = JSON.parse(r.body!)
+    expect(b.think).toBe(false)
+    expect(b.options).toMatchObject({ num_ctx: 16384, temperature: 0.2 })
+    expect(b.tools).toEqual([{ type: 'function', function: { name: 'search_notes', description: '검색', parameters: TOOLS[0].inputSchema } }])
+    expect(b.messages[1]).toEqual({ role: 'assistant', content: '', tool_calls: [{ function: { name: 'search_notes', arguments: { query: '행사' } } }] })
+    expect(b.messages[2]).toEqual({ role: 'tool', content: '{"count":1}', tool_name: 'search_notes' })
+  })
+  it('OpenAI 호환 요청: 인자는 JSON 글자, 결과는 tool_call_id 로', () => {
+    const r = buildChat({ kind: 'custom', baseUrl: 'http://localhost:1234/v1', model: 'm' }, convo, { tools: TOOLS })
+    const b = JSON.parse(r.body!)
+    expect(b.tools[0].function.name).toBe('search_notes')
+    expect(b.messages[1].tool_calls).toEqual([{ id: 'call_1', type: 'function', function: { name: 'search_notes', arguments: '{"query":"행사"}' } }])
+    expect(b.messages[2]).toEqual({ role: 'tool', tool_call_id: 'call_1', content: '{"count":1}' })
+  })
+  it('도구를 안 쓰는 요청은 이전과 같다(think·tools 없음)', () => {
+    const b = JSON.parse(buildChat(cfg(), [{ role: 'user', content: 'q' }]).body!)
+    expect(b).not.toHaveProperty('tools')
+    expect(b).not.toHaveProperty('think')
+    expect(b.messages).toEqual([{ role: 'user', content: 'q' }])
+  })
+  it('Anthropic·Gemini 는 도구 호출을 거절한다(조용히 무시하지 않는다)', () => {
+    for (const kind of ['anthropic', 'gemini'] as const) {
+      const c: LlmConfig = { kind, baseUrl: 'https://x.example', model: 'm', apiKey: 'k' }
+      expect(() => buildChat(c, [{ role: 'user', content: 'q' }], { tools: TOOLS })).toThrow(/도구 호출/)
+      expect(() => buildChat(c, convo)).toThrow(/도구 호출/)
+      expect(() => buildChat(c, [{ role: 'user', content: 'q' }])).not.toThrow()
+    }
+  })
+  it('응답 해석(Ollama): 글, 도구 호출, 둘 다 없으면 오류', () => {
+    expect(parseTurn(cfg(), { message: { content: '답' } })).toEqual({ text: '답', toolCalls: [] })
+    expect(parseTurn(cfg(), { message: { content: '', tool_calls: [{ function: { name: 'search_notes', arguments: { query: 'a' } } }] } })).toEqual({ text: '', toolCalls: [{ name: 'search_notes', args: { query: 'a' } }] })
+    expect(() => parseTurn(cfg(), { message: { content: '  ' } })).toThrow(LlmError)
+    expect(() => parseTurn(cfg(), { error: 'model not found' })).toThrow('model not found')
+  })
+  it('응답 해석(OpenAI 호환): id 와 JSON 글자 인자, 깨진 인자는 __raw 로', () => {
+    const c = cfg({ kind: 'custom' })
+    const t = parseTurn(c, { choices: [{ message: { content: null, tool_calls: [{ id: 'c1', function: { name: 'read_note', arguments: '{"path":"a.md"}' } }, { id: 'c2', function: { name: 'read_note', arguments: '{깨짐' } }, { id: 'c3', function: { name: '', arguments: '{}' } }] } }] })
+    expect(t.toolCalls).toEqual([{ id: 'c1', name: 'read_note', args: { path: 'a.md' } }, { id: 'c2', name: 'read_note', args: { __raw: '{깨짐' } }])
+  })
+  it('도구 미지원 제공자의 응답은 글만 읽는다', () => {
+    expect(parseTurn(cfg({ kind: 'anthropic' }), { content: [{ type: 'text', text: '가' }] })).toEqual({ text: '가', toolCalls: [] })
   })
 })

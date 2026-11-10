@@ -86,12 +86,12 @@ function check(req) {
   return null
 }
 
-async function request(req, keys) {
+async function request(req, keys, ac) {
   const bad = check(req)
   if (bad) return { status: 0, text: '', error: bad }
   const headers = injectKey(req.headers, keys ? keys.get() : null)
   if (!headers) return { status: 0, text: '', error: '저장된 API 키를 읽을 수 없어요. 설정에서 다시 저장해 주세요' }
-  const ac = new AbortController()
+  ac = ac || new AbortController()
   const timer = setTimeout(() => ac.abort(), TIMEOUT_MS)
   try {
     const res = await fetch(req.url, { method: req.method, headers, body: req.method === 'POST' ? req.body : undefined, redirect: 'error', signal: ac.signal })
@@ -110,6 +110,7 @@ async function request(req, keys) {
     }
     return { status: res.status, text: Buffer.concat(chunks).toString('utf8') }
   } catch (e) {
+    if (ac.cancelled) return { status: 0, text: '', error: '취소했어요', cancelled: true }
     const msg = e && e.name === 'AbortError' ? '응답이 너무 오래 걸려요' : e && e.cause && e.cause.code ? `연결하지 못했어요 (${e.cause.code})` : '연결하지 못했어요'
     return { status: 0, text: '', error: msg }
   } finally {
@@ -119,7 +120,25 @@ async function request(req, keys) {
 
 function registerLlm(ipcMain, opts) {
   const keys = opts && opts.file ? createKeyStore(opts) : null
-  ipcMain.handle('llm:request', (_e, req) => request(req, keys))
+  // 진행 중인 요청을 id 로 기억해 두었다가 취소할 수 있게 한다(앱 안 AI 의 "중지")
+  const inflight = new Map()
+  ipcMain.handle('llm:request', async (_e, req, id) => {
+    const ac = new AbortController()
+    const key = typeof id === 'string' && id.length <= 80 ? id : null
+    if (key) inflight.set(key, ac)
+    try {
+      return await request(req, keys, ac)
+    } finally {
+      if (key) inflight.delete(key)
+    }
+  })
+  ipcMain.handle('llm:cancel', (_e, id) => {
+    const ac = typeof id === 'string' ? inflight.get(id) : null
+    if (!ac) return false
+    ac.cancelled = true
+    ac.abort()
+    return true
+  })
   ipcMain.handle('llm:key:status', () => ({ available: !!keys && keys.available(), has: !!keys && keys.has() }))
   ipcMain.handle('llm:key:set', (_e, key) => {
     if (!keys) throw new Error('보안 저장소를 쓸 수 없습니다')

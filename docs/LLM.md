@@ -37,7 +37,7 @@
 PC 에서 `OLLAMA_HOST=0.0.0.0:11434` 로 Ollama 를 실행하고, Windows 방화벽에서 같은 사설망만 허용한다. 11434 포트를 인터넷에 직접 열지 않는다(인증이 없다). 밖에서는 Tailscale 같은 VPN 을 쓴다. PC 가 꺼져 있으면 폰에서도 쓸 수 없다.
 
 ## 앱 안 AI 와의 관계
-앱 안 AI(질문·요약·변경 제안)는 현재 **Claude Code CLI** 로 동작한다([MCP.md](MCP.md)의 "앱 안 AI"). 이 문서의 연결 설정(Ollama·클라우드)을 쓰는 앱 안 AI 는 아직 없다 — 같은 MCP 도구와 정책 엔진을 쓰는 **도구 호출 반복(agent loop)** 을 얹어야 한다.
+앱 안 AI(AI 패널)는 엔진을 고른다: **Claude Code CLI**([MCP.md](MCP.md)의 "앱 안 AI") 또는 **이 문서의 연결 설정(Ollama·OpenAI 호환)**. 후자는 앱이 **도구 호출 반복(agent loop, `lib/aiAgent.ts`)** 을 돌려 같은 MCP 도구·정책 엔진·승인 흐름을 쓴다. 도구 호출은 Ollama·OpenAI 호환(`supportsTools`)만 지원한다. 요청 취소(`llm:cancel`)·`think`·`num_ctx` 옵션을 `llm.ts`·`llmNet.ts`·`electron/llm.cjs` 가 지원한다.
 
 ## 아직 없는 것
-스트리밍 응답 · 도구 호출(function calling) 지원 판별 · 앱 안 AI 기능(질문·요약·변경 제안 만들기) · 연결 여러 개 저장 · Android 키 보안 저장(Keystore) · 클라우드 3종의 실서버 시험.
+스트리밍 응답 · 모델이 도구 호출을 지원하는지 미리 판별(지금은 첫 호출에서 드러남) · Anthropic·Gemini 의 도구 호출 · 앱 안 AI 기능(질문·요약·변경 제안 만들기) · 연결 여러 개 저장 · Android 키 보안 저장(Keystore) · 클라우드 3종의 실서버 시험.

@@ -153,7 +153,7 @@ export default function App() {
       else if (mod && e.key.toLowerCase() === 's') { e.preventDefault(); if (app.external && app.tab === 'note') void app.saveExternal(); else void app.sync() }
       else if (mod && !e.shiftKey && e.key.toLowerCase() === 'f') { e.preventDefault(); app.openFind() }
       else if (mod && e.shiftKey && e.key.toLowerCase() === 'f') { e.preventDefault(); app.go('search') }
-      else if (mod && e.shiftKey && e.key.toLowerCase() === 'a' && desktop()?.claude) { e.preventDefault(); useAiThread.getState().toggle() }
+      else if (mod && e.shiftKey && e.key.toLowerCase() === 'a' && desktop()) { e.preventDefault(); useAiThread.getState().toggle() }
       else if (e.altKey && e.key === 'ArrowLeft') { e.preventDefault(); app.back() }
       else if (e.altKey && e.key === 'ArrowRight') { e.preventDefault(); app.forward() }
       else if (e.key === 'Escape') { if (!app.palette && !app.sheet && !app.vaultSheet) app.closeFind(); app.setPalette(null); app.setSheet(null); app.setVaultSheet(false) }
@@ -224,7 +224,7 @@ export default function App() {
           <button className={leftOpen && leftTab === 'files' && mainTab === 'note' ? 'on' : ''} onClick={() => pickLeft('files')} title={t('메모')}><Icon name="note" /></button>
           <button className={leftOpen && railActive('search') ? 'on' : ''} onClick={() => pickLeft('search')} title={t('검색 (Ctrl+Shift+F)')}><Icon name="search" /></button>
           <div className="grow" />
-          {desktop()?.claude && <button className={aiOpen ? 'on' : ''} onClick={() => useAiThread.getState().toggle()} title={t('AI (Ctrl+Shift+A)')} aria-label={t('AI 패널 열기/닫기')}><Icon name="spark" /></button>}
+          {desktop() && <button className={aiOpen ? 'on' : ''} onClick={() => useAiThread.getState().toggle()} title={t('AI (Ctrl+Shift+A)')} aria-label={t('AI 패널 열기/닫기')}><Icon name="spark" /></button>}
           <SyncBtn cls="rail-btn" />
           <button onClick={() => useApp.getState().patchSettings({ leftOpen: !leftOpen })} title={leftOpen ? t('사이드바 접기') : t('사이드바 펴기')} aria-label={t('왼쪽 사이드바 접기/펴기')}><Icon name="panel-left" /></button>
           <button className={railActive('settings') ? 'on' : ''} onClick={() => useApp.getState().go('settings')} title={t('설정')}><Icon name="settings" /></button>

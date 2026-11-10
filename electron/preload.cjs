@@ -3,7 +3,9 @@ const { contextBridge, ipcRenderer, webUtils } = require('electron')
 
 contextBridge.exposeInMainWorld('amsidianDesktop', {
   /** AI 서버(Ollama 등) 요청을 메인 프로세스가 대신 보낸다(CORS 회피, 주소 규칙은 메인에서 다시 검사) */
-  llmRequest: (req) => ipcRenderer.invoke('llm:request', req),
+  llmRequest: (req, id) => ipcRenderer.invoke('llm:request', req, id),
+  /** 진행 중인 AI 서버 요청을 id 로 취소 */
+  llmCancel: (id) => ipcRenderer.invoke('llm:cancel', id),
   /** AI 서버 API 키 보관(운영체제 보안 저장소). 키는 메인 프로세스에서만 읽힌다 — 렌더러는 저장·삭제·있는지만 안다 */
   llmKey: {
     status: () => ipcRenderer.invoke('llm:key:status'),

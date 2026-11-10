@@ -11,51 +11,8 @@ const PROTOCOLS = ['2025-06-18', '2025-03-26', '2024-11-05']
 const MAX_BODY = 1024 * 1024
 const CALL_TIMEOUT_MS = 30_000
 
-/** 도구 정의(이름·설명·입력 형식). 구현은 src/lib/mcpTools.ts 에 같은 이름으로 있다 */
-const TOOLS = [
-  {
-    name: 'search_notes',
-    description: 'Search notes in the connected Nosidian vault. Supports plain terms plus tag:, path:, file: filters (e.g. `tag:project path:행사 견적`). Returns path, title, a snippet and a score.',
-    inputSchema: { type: 'object', properties: { query: { type: 'string', description: 'Search query' }, limit: { type: 'integer', minimum: 1, maximum: 50, description: 'Max results (default 20)' } }, required: ['query'], additionalProperties: false },
-  },
-  {
-    name: 'read_note',
-    description: 'Read one note. Returns its content and `content_hash`. Keep the hash: modify/delete/move proposals must send it back as `base_hash` so changes made by a person after you read the note are never overwritten.',
-    inputSchema: { type: 'object', properties: { path: { type: 'string', description: 'Note path, e.g. "프로젝트/행사 준비/프로젝트 개요.md"' } }, required: ['path'], additionalProperties: false },
-  },
-  {
-    name: 'list_projects',
-    description: 'List projects (notes with `type: project`) with status, owner, due date, folder and whether document rules apply (and which profile).',
-    inputSchema: { type: 'object', properties: {}, additionalProperties: false },
-  },
-  {
-    name: 'get_document_rules',
-    description: 'Show the document rules and AI write policy of the vault: whether rules are on, `ai_write` / `ai_new_file`, profiles with their roles (official/aux, file names, required headings), allowed statuses and protected paths. Read this before proposing changes.',
-    inputSchema: { type: 'object', properties: {}, additionalProperties: false },
-  },
-  {
-    name: 'propose_change',
-    description: 'Propose a change to a note. You cannot write directly: every change goes through the vault policy. The outcome is `applied` (policy allowed it), `pending_approval` (a person must approve it in Nosidian — poll get_proposal_status) or `denied` (see `reason`). Actions: create (path, content), modify (path, content = the FULL new text, base_hash), delete (path, base_hash; moves the note to _보관/), move (path, to, base_hash; also renames).',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        action: { type: 'string', enum: ['create', 'modify', 'delete', 'move'] },
-        path: { type: 'string' },
-        to: { type: 'string', description: 'move only: the new path' },
-        content: { type: 'string', description: 'create/modify: full text of the note' },
-        base_hash: { type: 'string', description: 'modify/delete/move: the content_hash returned by read_note' },
-        summary: { type: 'string', description: 'One line explaining the change to the reviewer' },
-      },
-      required: ['action', 'path'],
-      additionalProperties: false,
-    },
-  },
-  {
-    name: 'get_proposal_status',
-    description: 'Check a proposal made with propose_change: pending, applied, rejected (by the person) or failed (the note changed meanwhile or the rules no longer allow it).',
-    inputSchema: { type: 'object', properties: { proposal_id: { type: 'string' } }, required: ['proposal_id'], additionalProperties: false },
-  },
-]
+/** 도구 정의(이름·설명·입력 형식). electron/mcp-tools.json 한 곳에 두고, 앱 안 에이전트(Ollama 등)도 같은 파일을 쓴다. 구현은 src/lib/mcpTools.ts 에 같은 이름으로 있다 */
+const TOOLS = require('./mcp-tools.json')
 
 const INSTRUCTIONS =
   'Nosidian is a Markdown notes/projects app. This server exposes one vault chosen by the user. Read with search_notes/read_note, check get_document_rules, and change notes ONLY with propose_change (a person may need to approve). Never assume a change was applied until the outcome says so.'

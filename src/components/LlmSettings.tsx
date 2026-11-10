@@ -2,7 +2,8 @@
 // 아직 어떤 기능도 이 연결을 부르지 않는다 — 앞으로 앱 안 AI 기능이 같은 설정을 읽는다. 키는 vault·동기화에 넣지 않는다.
 import { useEffect, useState } from 'react'
 import { t } from '../lib/i18n'
-import { loadLlmConfig, PROVIDERS, providerOf, saveLlmConfig, validateConfig, type LlmConfig, type ProviderKind } from '../lib/llm'
+import { loadLlmConfig, PROVIDERS, providerOf, saveLlmConfig, supportsTools, validateConfig, type LlmConfig, type ProviderKind } from '../lib/llm'
+import { desktop } from '../lib/externalIO'
 import { chat, clearStoredKey, keyStoreStatus, listModels, storeKey } from '../lib/llmNet'
 import { Select } from './Select'
 
@@ -97,6 +98,7 @@ export function LlmCard() {
         <input className="inline" type="password" autoComplete="off" value={cfg.apiKey ?? ''} placeholder={cfg.keyStored ? t('보안 저장소에 저장됨 — 바꾸려면 새 키 입력') : prov.needsKey ? t('필수') : t('필요하면 입력')} onChange={(e) => set({ apiKey: e.target.value })} />
       </div>
       {prov.hint && <p className="hint small">{t(prov.hint)}</p>}
+      {supportsTools(cfg.kind) && desktop() && <p className="hint small">{t('PC 의 AI 패널에서 이 모델로 답할 수 있어요(도구 호출을 지원하는 모델 필요). 노트는 이 서버로만 전송돼요.')}</p>}
       {problems.includes('httpPublic') && <p className="hint small llm-err">{t('공개 인터넷 주소는 https 로만 연결할 수 있어요 (http 는 같은 사설망·내 기기만)')}</p>}
       <div className="llm-actions">
         <button disabled={problems.length > 0 || status.kind === 'busy'} onClick={() => void test()}>{status.kind === 'busy' ? t('시험하는 중…') : t('연결 시험')}</button>

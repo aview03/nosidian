@@ -1050,7 +1050,8 @@ html.popup-win .ee { max-width: none; max-height: none; height: 100%; border-rad
 .ai-q { display: block; width: 100%; resize: none; border: none; outline: none; background: transparent; color: var(--text); font: inherit; font-size: 14.5px; line-height: 1.5; padding: 0; min-height: 44px; max-height: 180px; box-sizing: border-box; }
 .ai-bar { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
 .ai-mode button { min-height: 28px; padding: 0 10px; font-size: 12.5px; }
-.ai-engine { font-size: 11.5px; color: var(--muted); white-space: nowrap; }
+.ai-engine-sel.sel-btn, .sel-btn.ai-engine-sel { width: auto; max-width: 170px; height: 28px; min-height: 28px; padding: 0 8px; font-size: 12px; color: var(--muted); border-color: transparent; background: transparent; }
+.ai-note .wrk-viewedit { margin-left: 8px; }
 .ai-send { width: 32px; height: 32px; min-height: 32px; padding: 0; border-radius: 50%; font-size: 16px; line-height: 1; background: var(--text); color: var(--bg); border: none; }
 .ai-send:disabled { opacity: .35; }
 .ai-send.stop { background: var(--accent); color: var(--on-accent); font-size: 12px; }

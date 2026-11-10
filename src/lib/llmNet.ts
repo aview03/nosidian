@@ -3,11 +3,12 @@
 //  - Android: Capacitor 네이티브 HTTP(웹뷰의 https 출처에서 http 사설망 서버로 보낼 때 막히는 혼합 콘텐츠·CORS 를 피한다).
 //  - 그 밖(브라우저): fetch — 서버가 CORS 를 허용해야 한다.
 import { Capacitor, CapacitorHttp } from '@capacitor/core'
-import { buildChat, buildListModels, describeFailure, forRequest, LlmError, loadLlmConfig, parseChat, parseModels, saveLlmConfig, validateConfig, type ChatMessage, type ChatOpts, type HttpRequest, type LlmConfig } from './llm'
+import { buildChat, buildListModels, describeFailure, forRequest, LlmError, loadLlmConfig, parseChat, parseModels, parseTurn, saveLlmConfig, validateConfig, type ChatMessage, type ChatOpts, type HttpRequest, type LlmConfig, type ModelTurn } from './llm'
 
 interface DesktopLlm {
+  llmCancel?: (id: string) => Promise<boolean>
   llmKey?: { status(): Promise<{ available: boolean; has: boolean }>; set(key: string): Promise<void>; clear(): Promise<void> }
-  llmRequest?: (req: HttpRequest) => Promise<{ status: number; text: string; error?: string }>
+  llmRequest?: (req: HttpRequest, id?: string) => Promise<{ status: number; text: string; error?: string; cancelled?: boolean }>
 }
 
 export interface RawResponse {
@@ -15,19 +16,28 @@ export interface RawResponse {
   text: string
 }
 
-export async function send(req: HttpRequest): Promise<RawResponse> {
+export async function send(req: HttpRequest, signal?: AbortSignal): Promise<RawResponse> {
   const desktop = (window as unknown as { amsidianDesktop?: DesktopLlm }).amsidianDesktop
+  if (signal?.aborted) throw new LlmError('취소했어요')
   if (desktop?.llmRequest) {
-    const r = await desktop.llmRequest(req)
-    if (r.error) throw new LlmError(r.error)
-    return { status: r.status, text: r.text }
+    // 취소하면 메인 프로세스가 진행 중인 요청을 끊는다
+    const id = `r${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`
+    const onAbort = () => void desktop.llmCancel?.(id)
+    signal?.addEventListener('abort', onAbort)
+    try {
+      const r = await desktop.llmRequest(req, id)
+      if (r.error) throw new LlmError(r.error)
+      return { status: r.status, text: r.text }
+    } finally {
+      signal?.removeEventListener('abort', onAbort)
+    }
   }
   if (Capacitor.isNativePlatform()) {
     const r = await CapacitorHttp.request({ url: req.url, method: req.method, headers: req.headers, data: req.body ? JSON.parse(req.body) : undefined, responseType: 'text', connectTimeout: 15000, readTimeout: 120000 })
     return { status: r.status, text: typeof r.data === 'string' ? r.data : JSON.stringify(r.data) }
   }
   try {
-    const res = await fetch(req.url, { method: req.method, headers: req.headers, body: req.body })
+    const res = await fetch(req.url, { method: req.method, headers: req.headers, body: req.body, signal })
     return { status: res.status, text: await res.text() }
   } catch {
     throw new LlmError('연결하지 못했어요 (브라우저에서는 서버가 CORS 를 허용해야 해요)')
@@ -51,8 +61,8 @@ function problemText(p: ReturnType<typeof validateConfig>[number]): string {
   }
 }
 
-async function call(req: HttpRequest): Promise<unknown> {
-  const r = await send(req)
+async function call(req: HttpRequest, signal?: AbortSignal): Promise<unknown> {
+  const r = await send(req, signal)
   const body = parse(r.text)
   if (r.status < 200 || r.status >= 300) throw new LlmError(describeFailure(r.status, body), r.status)
   return body
@@ -63,6 +73,13 @@ export async function listModels(cfg: LlmConfig): Promise<string[]> {
   const bad = validateConfig(cfg, { needModel: false })
   if (bad.length) throw new LlmError(problemText(bad[0]))
   return parseModels(cfg, await call(buildListModels(forRequest(cfg))))
+}
+
+/** 모델에게 한 턴을 시킨다: 글과(있다면) 도구 호출들을 돌려준다. signal 로 중단할 수 있다 */
+export async function chatTurn(cfg: LlmConfig, messages: ChatMessage[], opts?: ChatOpts, signal?: AbortSignal): Promise<ModelTurn> {
+  const bad = validateConfig(cfg)
+  if (bad.length) throw new LlmError(problemText(bad[0]))
+  return parseTurn(cfg, await call(buildChat(forRequest(cfg), messages, opts), signal))
 }
 
 /** 대화 한 번(스트리밍 없음) */

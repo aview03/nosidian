@@ -106,6 +106,9 @@ export function errorText(code: string, message?: string): string {
     case 'cancelled': return t('취소했어요')
     case 'login': return t('Claude 에 로그인되어 있지 않아요')
     case 'notFound': return t('Claude Code CLI 를 찾을 수 없어요')
+    case 'noEngine': return t('설정 > AI 연결에서 도구 호출을 지원하는 모델(Ollama·OpenAI 호환)을 저장해 주세요')
+    case 'empty': return t('모델이 빈 답을 줬어요')
+    case 'loop': return t('같은 도구를 계속 부르고 있어서 멈췄어요')
     default: return t('AI 실행에 실패했어요')
   }
 }

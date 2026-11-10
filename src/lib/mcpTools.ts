@@ -27,6 +27,8 @@ export interface McpEnv {
   find(id: string): Proposal | undefined
   /** 읽기 전용 대화(묻기): 변경안 제출·제안 조회를 거절한다 */
   readOnly?: boolean
+  /** 앞부분만 읽은 노트(모델에게 일부만 줬다). 이 노트의 수정(modify)은 거절한다 — 잘린 내용으로 덮어쓰지 않게 */
+  partialPaths?: Set<string>
 }
 
 const MAX_READ = 200_000
@@ -114,6 +116,7 @@ export function callTool(name: string, rawArgs: unknown, env: McpEnv, client: st
       const summary = str(args.summary, 'summary', { max: 300 })
       if ((action === 'create' || action === 'modify') && content === undefined) throw new ToolError(`\`content\` is required for ${action}`)
       if (action === 'move' && !to) throw new ToolError('`to` is required for move')
+      if (action === 'modify' && env.partialPaths?.has(path)) throw new ToolError('You only read the beginning of this note (it was truncated), so modifying it would delete the rest. Do not modify it; explain the change to the user instead.')
       const req: AiRequest = { action: action as AiRequest['action'], path, ...(to ? { to } : {}), ...(content !== undefined ? { content } : {}), ...(baseHash ? { baseHash } : {}) }
       const r = env.submit(req, client ? `MCP · ${client}` : 'MCP', summary)
       const hint = HINT[r.verdict.reason]
