@@ -366,6 +366,21 @@ function register({ ipcMain, app, dialog, safeStorage, BrowserWindow }) {
     return t
   }
 
+  /** 이 PC 의 인증서(공유 폴더 서버와 호스트 동기화 서버가 같은 것을 쓴다 → 폰이 고정한 지문이 하나). 앱이 준비된 뒤에만 읽고, 한 번만 만든다 */
+  let tlsPromise = null
+  const getTls = () => {
+    if (!tlsPromise) {
+      tlsPromise = (async () => {
+        await app.whenReady()
+        return loadTls()
+      })()
+      tlsPromise.catch(() => {
+        tlsPromise = null // 실패하면 다음에 다시 시도한다
+      })
+    }
+    return tlsPromise
+  }
+
   let initializing = null
   /** 서버 상태를 한 번만 만든다(동시에 여러 곳에서 불려도 인증서는 하나). 앱이 준비되기 전에는 인증서 개인키를 복호화하지 않는다 —
    *  실패하면 인증서가 새로 만들어져 이미 짝을 맺은 폰의 고정 지문이 깨진다 */
@@ -373,8 +388,7 @@ function register({ ipcMain, app, dialog, safeStorage, BrowserWindow }) {
     if (relay) return Promise.resolve(relay)
     if (!initializing) {
       initializing = (async () => {
-        await app.whenReady()
-        const tls = await loadTls()
+        const tls = await getTls()
         relay = createShare({
           store: {
             read: () => {
@@ -473,6 +487,7 @@ function register({ ipcMain, app, dialog, safeStorage, BrowserWindow }) {
     if (r.state().enabled) await start()
   })
   app.on('before-quit', () => void relay?.close())
+  return { getTls }
 }
 
 module.exports = { createShare, register, makeTls, cleanRel, badShareDir, fingerprintOf, DEFAULT_PORT, MAX_FILE }

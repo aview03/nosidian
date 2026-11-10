@@ -1485,3 +1485,12 @@ input.inline.wide { width: 100%; box-sizing: border-box; height: 42px; }
 .hc-snaps li { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--border); }
 .hc-snaps li span { display: flex; flex-direction: column; font-size: 13px; }
 .hc-snaps li small { color: var(--muted); }
+
+.hc-srv { display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--border); padding-top: 10px; margin-top: 4px; }
+.hc-dev { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.hc-dev > span:first-child { display: flex; flex-direction: column; min-width: 0; }
+.hc-dev small { color: var(--muted); font-size: 12.5px; }
+.hc-perms { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.hc-perm { min-height: 30px; padding: 0 12px; font-size: 12.5px; border: 1px solid var(--border); border-radius: var(--r); background: transparent; color: var(--muted); }
+.hc-perm.on { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+.hc-perm:disabled { opacity: .5; }

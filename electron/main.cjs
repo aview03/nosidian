@@ -140,8 +140,8 @@ if (!app.requestSingleInstanceLock()) {
   const mcpHost = require('./mcpHost.cjs').register({ ipcMain, app, getWindow: () => win })
   const claudeRunner = require('./claudeCli.cjs').register({ ipcMain, getWindow: () => win, startMcp: mcpHost.startInternal })
   require('./aiRelay.cjs').register({ ipcMain, app, claudeRunner, llm })
-  require('./fileShare.cjs').register({ ipcMain, app, dialog, safeStorage, BrowserWindow })
-  require('./hostIpc.cjs').register({ ipcMain, app, dialog, BrowserWindow })
+  const share = require('./fileShare.cjs').register({ ipcMain, app, dialog, safeStorage, BrowserWindow })
+  require('./hostIpc.cjs').register({ ipcMain, app, dialog, BrowserWindow, getTls: share.getTls })
   ipcMain.handle('open-file:take', () => pendingFiles.splice(0))
   // 열어 본 문서를 원본 위치에 저장 (마크다운/텍스트 확장자의 절대 경로만)
   ipcMain.handle('open-file:save', (_e, p, content) => {

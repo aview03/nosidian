@@ -1,9 +1,10 @@
 // 설정 > 노트와 동기화 (PC 앱): "이 PC의 폴더로 맞추기(클라우드 없이)".
 //  1) 호스트 폴더 고르기 → 2) 미리보기(PC 앱 Vault 와 폴더의 차이) → 3) 사용자가 확인하고 시작 → 스냅샷을 만들고 반영.
 // 확인 전에는 아무것도 덮어쓰거나 지우지 않는다. 최초 연결에는 삭제가 없다. 되돌리려면 "연결 끊기"(노트는 그대로)와 스냅샷 복원.
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import QRCode from 'qrcode'
 import { t } from '../lib/i18n'
-import { desktop, type HostStatus } from '../lib/externalIO'
+import { desktop, type HostServerStatus, type HostStatus } from '../lib/externalIO'
 import { useApp } from '../lib/app'
 import { confirmAsk } from '../lib/dialog'
 import { applyHostConnect, leaveHost, previewHostConnect, restoreVaultFromSnapshot, type Choice, type ConnectPlan } from '../lib/hostConnect'
@@ -185,6 +186,7 @@ export function HostPanel() {
       {st?.rebuilt && <p className="hint small ai-warn">{t('이 폴더의 관리 정보가 손상돼 새로 만들었어요.')}</p>}
       {st?.unavailable && <p className="hint small ai-warn">{st.error}</p>}
       <p className="hint small">{t('폴더의 파일을 탐색기에서 고치거나 옮기면 다음 동기화 때 반영돼요. 파일을 자동으로 열거나 실행하지 않아요.')}</p>
+      <HostServerSection />
       {snaps.length > 0 && (
         <details className="more">
           <summary>{t('스냅샷에서 복원 ({n})', { n: snaps.length })}</summary>
@@ -225,5 +227,100 @@ export function HostPanel() {
         {t('폴더 연결 끊기 (노트는 그대로)')}
       </button>
     </div>
+  )
+}
+
+const ago = (ts: number) => {
+  if (!ts) return t('아직 없어요')
+  const m = Math.round((Date.now() - ts) / 60000)
+  if (m < 1) return t('방금')
+  if (m < 60) return t('{n}분 전', { n: m })
+  if (m < 1440) return t('{n}시간 전', { n: Math.round(m / 60) })
+  return new Date(ts).toLocaleDateString()
+}
+
+/**
+ * 휴대폰과 맞추기(이 PC가 호스트): 켜면 같은 와이파이의 내 휴대폰이 QR(또는 연결 문자열)로 짝을 맺고 이 폴더를 읽는다.
+ * **쓰기는 기기별로 여기서 직접 허용해야** 한다(기본은 읽기만). 삭제 권한은 별도이고 이번 버전에서는 켤 수 없다. 언제든 끄거나 해제한다.
+ */
+function HostServerSection() {
+  const api = desktop()?.hostsrv
+  const [st, setSt] = useState<HostServerStatus | null>(null)
+  const [qr, setQr] = useState('')
+  const say = useApp.getState().say
+  const refresh = useCallback(async () => {
+    if (!api) return
+    const r = await api.get()
+    if (r.ok) setSt(r)
+  }, [api])
+  useEffect(() => {
+    void refresh()
+    const id = setInterval(() => void refresh(), 4000)
+    return () => clearInterval(id)
+  }, [refresh])
+  const pair = st?.pair ?? ''
+  useEffect(() => {
+    if (!pair) return void setQr('')
+    void QRCode.toDataURL(pair, { margin: 1, width: 176, errorCorrectionLevel: 'M', color: { dark: '#1d1b1f', light: '#ffffff' } }).then(setQr)
+  }, [pair])
+  if (!api || !st) return null
+  const apply = (r: Awaited<ReturnType<typeof api.get>>) => {
+    if (r.ok) setSt(r)
+    else say(r.error)
+  }
+  const toggleWrite = async (d: HostServerStatus['devices'][number]) => {
+    if (!d.perms.write) {
+      const ok = await confirmAsk(t('"{name}"에 쓰기를 허용할까요?', { name: d.name }), t('이 기기는 이 폴더의 노트와 파일을 만들거나 고칠 수 있게 돼요. 지우는 것과 실행 파일 올리기는 안 돼요. 언제든 여기서 끌 수 있어요.'), t('허용'))
+      if (!ok) return
+    }
+    apply(await api.setPerms(d.id, { write: !d.perms.write }))
+  }
+  return (
+    <section className="hc-srv">
+      <div className="auto-sub">{t('휴대폰과 맞추기')}</div>
+      <div className="kv"><span>{t('사용')}</span>
+        <div className="seg">
+          <button className={st.enabled ? 'on' : ''} onClick={async () => apply(await api.set({ enabled: true }))}>{t('켜기')}</button>
+          <button className={!st.enabled ? 'on' : ''} onClick={async () => apply(await api.set({ enabled: false }))}>{t('끄기')}</button>
+        </div>
+      </div>
+      {!st.enabled && <p className="hint small">{t('켜면 같은 와이파이의 내 휴대폰이 이 폴더를 읽을 수 있어요. 기본은 읽기만이고, 쓰기는 기기마다 여기서 직접 허용해야 해요.')}</p>}
+      {st.enabled && (
+        <>
+          {st.error && <p className="hint small ai-warn">{st.error}</p>}
+          {st.running && st.ips.length === 0 && <p className="hint small ai-warn">{t('와이파이에 연결돼 있지 않아요. 같은 와이파이에 연결해 주세요.')}</p>}
+          {st.running && st.code && st.pair && (
+            <div className="relay-pair">
+              {qr && <img src={qr} width={176} height={176} alt={t('연결 QR')} />}
+              <div className="relay-code">
+                <small>{t('휴대폰 앱에서 이 PC에 연결')}</small>
+                <b>{st.code}</b>
+                <small>{t('5분 안에, 한 번만 쓸 수 있어요')}</small>
+                <button className="btn-link" onClick={() => void navigator.clipboard.writeText(st.pair ?? '').then(() => say(t('복사했어요')))}>{t('연결 문자열 복사')}</button>
+                <button className="btn-link" onClick={async () => apply(await api.newCode())}>{t('새 코드 만들기')}</button>
+              </div>
+            </div>
+          )}
+          <div className="relay-devs">
+            <div className="auto-sub">{t('연결된 휴대폰')}</div>
+            {st.devices.length === 0 ? <p className="hint small">{t('아직 없어요')}</p> : (
+              <ul>
+                {st.devices.map((d) => (
+                  <li key={d.id} className="hc-dev">
+                    <span><b>{d.name}</b><small>{t('마지막 사용 {when}', { when: ago(d.lastSeen) })}{d.writes ? ' · ' + t('쓴 횟수 {n}', { n: d.writes }) : ''}</small></span>
+                    <span className="hc-perms">
+                      <button className={`hc-perm${d.perms.write ? ' on' : ''}`} onClick={() => void toggleWrite(d)} aria-pressed={d.perms.write}>{d.perms.write ? t('쓰기 허용됨') : t('읽기만')}</button>
+                      <button className="hc-perm" disabled title={t('삭제 권한은 아직 쓸 수 없어요')}>{t('삭제 불가')}</button>
+                      <button className="btn-link" onClick={async () => apply(await api.revoke(d.id))}>{t('해제')}</button>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          <p className="hint small">{t('읽기만 허용된 기기는 파일을 볼 수만 있어요. 쓰기를 허용해도 실행 파일(.exe 등)은 폰에서 올릴 수 없고, 이 PC가 파일을 열거나 실행하지 않아요. 같은 와이파이 안에서만 연결돼요.')}</p>
+        </>
+      )}
+    </section>
   )
 }

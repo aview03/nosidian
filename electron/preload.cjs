@@ -48,6 +48,13 @@ contextBridge.exposeInMainWorld('amsidianDesktop', {
     snapshotVault: (id) => ipcRenderer.invoke('host:snapshotVault', id),
     gc: () => ipcRenderer.invoke('host:gc'),
   },
+  hostsrv: {
+    get: () => ipcRenderer.invoke('hostsrv:get'),
+    set: (patch) => ipcRenderer.invoke('hostsrv:set', patch),
+    newCode: () => ipcRenderer.invoke('hostsrv:newCode'),
+    revoke: (id) => ipcRenderer.invoke('hostsrv:revoke', id),
+    setPerms: (id, patch) => ipcRenderer.invoke('hostsrv:setPerms', id, patch),
+  },
   share: {
     get: () => ipcRenderer.invoke('share:get'),
     set: (patch) => ipcRenderer.invoke('share:set', patch),

@@ -1250,5 +1250,17 @@ const dict: Record<string, string> = {
   '드라이브 전체는 쓸 수 없어요. 폴더를 하나 골라 주세요': "A whole drive cannot be used. Choose a folder.",
   '시스템 폴더는 쓸 수 없어요': "System folders cannot be used",
   '이 폴더는 쓸 수 없어요': "This folder cannot be used",
+  '"{name}"에 쓰기를 허용할까요?': "Allow \"{name}\" to write?",
+  '이 기기는 이 폴더의 노트와 파일을 만들거나 고칠 수 있게 돼요. 지우는 것과 실행 파일 올리기는 안 돼요. 언제든 여기서 끌 수 있어요.': "This device will be able to create and edit notes and files in this folder. It cannot delete anything or upload executables. You can turn it off here any time.",
+  '허용': "Allow",
+  '휴대폰과 맞추기': "Sync with my phone",
+  '켜면 같은 와이파이의 내 휴대폰이 이 폴더를 읽을 수 있어요. 기본은 읽기만이고, 쓰기는 기기마다 여기서 직접 허용해야 해요.': "When on, your phone on the same Wi-Fi can read this folder. Read-only by default; writing must be allowed per device here.",
+  '휴대폰 앱에서 이 PC에 연결': "Connect to this PC in the phone app",
+  '쓴 횟수 {n}': "Writes {n}",
+  '쓰기 허용됨': "Write allowed",
+  '읽기만': "Read-only",
+  '삭제 불가': "No delete",
+  '삭제 권한은 아직 쓸 수 없어요': "Delete permission is not available yet",
+  '읽기만 허용된 기기는 파일을 볼 수만 있어요. 쓰기를 허용해도 실행 파일(.exe 등)은 폰에서 올릴 수 없고, 이 PC가 파일을 열거나 실행하지 않아요. 같은 와이파이 안에서만 연결돼요.': "Read-only devices can only view files. Even with write allowed, executables (.exe etc.) cannot be uploaded from the phone, and this PC never opens or runs files. Works only on the same Wi-Fi.",
 }
 export default dict

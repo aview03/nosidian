@@ -160,7 +160,31 @@ export interface HostApi {
   snapshotVault(id: string): Promise<HostRes<{ vault: Record<string, string> | null }>>
   gc(): Promise<HostRes<{ trashed: number; tombs: number }>>
 }
+export interface HostServerStatus {
+  hostConfigured: boolean
+  enabled: boolean
+  running: boolean
+  port: number
+  ips: string[]
+  code: string | null
+  /** 연결 문자열("nsh1:ip,ip:port:code:지문") — QR·복사에 쓴다 */
+  pair: string | null
+  fingerprint: string
+  /** 삭제 권한을 켤 수 있는 빌드인가(이번 버전에서는 false) */
+  allowDelete: boolean
+  devices: { id: string; name: string; createdAt: number; lastSeen: number; perms: { write: boolean; delete: boolean }; writes: number; lastWriteAt: number }[]
+  error: string | null
+}
+/** 호스트 동기화 서버(이 PC 가 호스트): 켜기·기기별 권한은 PC 화면에서만 */
+export interface HostServerApi {
+  get(): Promise<HostRes<HostServerStatus>>
+  set(patch: { enabled?: boolean }): Promise<HostRes<HostServerStatus>>
+  newCode(): Promise<HostRes<HostServerStatus>>
+  revoke(id: string): Promise<HostRes<HostServerStatus>>
+  setPerms(id: string, patch: { write?: boolean; delete?: boolean }): Promise<HostRes<HostServerStatus>>
+}
 export interface DesktopApi {
+  hostsrv?: HostServerApi
   host?: HostApi
   share?: ShareApi
   relay?: RelayApi
