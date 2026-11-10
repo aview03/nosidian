@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { DOCRULES_PATH, readRules } from './docrules'
 import { contentHash, type AiRequest } from './docpolicy'
-import { approve, archivePath, isStale, newProposal, planOps, prune, triage, type Proposal } from './proposals'
+import { approve, approveAll, archivePath, isStale, newProposal, planOps, prune, triage, type Proposal } from './proposals'
 import { buildWork } from './work'
 import type { NoteFile } from './types'
 
@@ -93,5 +93,74 @@ describe('정리', () => {
     const mk = (id: string, status: Proposal['status'], at: number): Proposal => ({ id, createdAt: at, decidedAt: at, by: 'x', req: { action: 'create', path: id }, reason: 'ok', status })
     const list = [mk('a', 'pending', 1), mk('b', 'applied', 2), mk('c', 'rejected', 3), mk('d', 'failed', 4)]
     expect(prune(list, 2).map((p) => p.id)).toEqual(['a', 'c', 'd'])
+  })
+})
+
+describe('묶음 승인: 전부 아니면 전무', () => {
+  /** 한 작업이 만든 제안 세 건: B 수정 + A 보관 + 링크 노트 수정 */
+  function group(fm = 'ai_write: propose\nai_new_file: approve\n') {
+    const files: Record<string, NoteFile> = {}
+    for (const [p, c] of Object.entries({
+      'p/프로젝트.md': '---\ntype: project\ndocs: 기본\n---\n# P\n',
+      'p/SPEC.md': '# 정책\n옛\n',
+      'p/보조/A.md': '# A\nA 내용\n',
+      'p/보조/B.md': '# B\nB 내용\n',
+      [DOCRULES_PATH]: RULES(fm),
+    })) files[p] = note(p, c)
+    const rules = readRules(files)
+    const projects = buildWork(files).projects
+    const mk = (id: string, req: AiRequest) => {
+      const t = triage(req, rules, projects, files)
+      return newProposal(req, t.verdict, 'AI', undefined, 1, id)
+    }
+    const h = (path: string) => contentHash(files[path].content)
+    const list = [
+      mk('p1', { action: 'modify', path: 'p/보조/B.md', baseHash: h('p/보조/B.md'), content: '# B\nB 내용\nA 내용(합침)\n' }),
+      mk('p2', { action: 'delete', path: 'p/보조/A.md', baseHash: h('p/보조/A.md') }),
+      mk('p3', { action: 'modify', path: 'p/SPEC.md', baseHash: h('p/SPEC.md'), content: '# 정책\n[[B]] 로 이동\n' }),
+    ]
+    return { files, rules, projects, list }
+  }
+  it('모두 통과하면 반영 계획을 순서대로 합쳐 돌려준다(보관은 삭제가 아니라 이동)', () => {
+    const g = group('ai_write: direct\nai_new_file: approve\n')
+    // direct 에서는 바로 반영(allow)되므로 승인 대기 제안으로 만든다
+    const list = g.list.map((p) => ({ ...p, status: 'pending' as const }))
+    const r = approveAll(list, g.rules, g.projects, g.files)
+    expect(r).toMatchObject({ ok: true, ids: ['p1', 'p2', 'p3'] })
+    if (r.ok) expect(r.ops).toEqual([{ op: 'set', path: 'p/보조/B.md', content: '# B\nB 내용\nA 내용(합침)\n' }, { op: 'rename', path: 'p/보조/A.md', to: '_보관/p/보조/A.md' }, { op: 'set', path: 'p/SPEC.md', content: '# 정책\n[[B]] 로 이동\n' }])
+  })
+  it('한 건이라도 그새 문서가 바뀌었으면 전체를 반영하지 않고, 어느 제안이 문제인지 알려 준다', () => {
+    const g = group('ai_write: direct\nai_new_file: approve\n')
+    const list = g.list.map((p) => ({ ...p, status: 'pending' as const }))
+    const edited = { ...g.files, 'p/보조/A.md': note('p/보조/A.md', '# A\n사람이 고침\n') }
+    expect(approveAll(list, g.rules, g.projects, edited)).toEqual({ ok: false, id: 'p2', reason: 'stale', text: undefined })
+  })
+  it('규칙이 그새 막으면 전체 거절', () => {
+    const g = group('ai_write: direct\n')
+    const list = g.list.map((p) => ({ ...p, status: 'pending' as const }))
+    const locked = group('ai_write: read\n')
+    const r = approveAll(list, locked.rules, locked.projects, locked.files)
+    expect(r).toMatchObject({ ok: false, reason: 'readOnly' })
+  })
+  it('같은 노트를 바꾸는 제안이 둘 이상이면(순서에 따라 결과가 달라지므로) 거절한다', () => {
+    const g = group('ai_write: direct\nai_new_file: approve\n')
+    const h = contentHash(g.files['p/보조/B.md'].content)
+    const mk = (id: string, content: string): Proposal => ({ id, createdAt: 1, by: 'AI', req: { action: 'modify', path: 'p/보조/B.md', baseHash: h, content }, reason: 'officialApprove', status: 'pending' })
+    expect(approveAll([mk('x1', '첫째'), mk('x2', '둘째')], g.rules, g.projects, g.files)).toMatchObject({ ok: false, reason: 'overlap', text: 'p/보조/B.md' })
+  })
+  it('이동 도착지가 다른 제안의 대상과 겹쳐도 거절', () => {
+    const g = group('ai_write: direct\nai_new_file: approve\n')
+    const hA = contentHash(g.files['p/보조/A.md'].content)
+    const hB = contentHash(g.files['p/보조/B.md'].content)
+    const a: Proposal = { id: 'm1', createdAt: 1, by: 'AI', req: { action: 'move', path: 'p/보조/A.md', to: 'p/보조/C.md', baseHash: hA }, reason: 'ok', status: 'pending' }
+    const b: Proposal = { id: 'm2', createdAt: 1, by: 'AI', req: { action: 'move', path: 'p/보조/B.md', to: 'p/보조/C.md', baseHash: hB }, reason: 'ok', status: 'pending' }
+    expect(approveAll([a, b], g.rules, g.projects, g.files)).toMatchObject({ ok: false, reason: 'overlap', text: 'p/보조/C.md' })
+  })
+  it('이미 처리된 제안은 빼고 대기 중인 것만 본다, 대기 중인 것이 없으면 실패', () => {
+    const g = group('ai_write: direct\nai_new_file: approve\n')
+    const list = g.list.map((p, i) => ({ ...p, status: i === 0 ? ('applied' as const) : ('pending' as const) }))
+    const r = approveAll(list, g.rules, g.projects, g.files)
+    expect(r).toMatchObject({ ok: true, ids: ['p2', 'p3'] })
+    expect(approveAll(g.list.map((p) => ({ ...p, status: 'applied' as const })), g.rules, g.projects, g.files).ok).toBe(false)
   })
 })

@@ -37,7 +37,7 @@ function register({ ipcMain, app, getWindow }) {
   const pending = new Map()
 
   /** 본 창(렌더러)에 도구 호출을 넘기고 답을 기다린다 */
-  function callRenderer(tool, args, client, internal, readOnly) {
+  function callRenderer(tool, args, client, internal, readOnly, forceApproval) {
     const win = getWindow()
     if (!win || win.isDestroyed()) return Promise.reject(new Error('The Nosidian window is closed. Open the Nosidian app (and keep it open) to use these tools.'))
     const id = crypto.randomUUID()
@@ -47,7 +47,7 @@ function register({ ipcMain, app, getWindow }) {
         reject(new Error('Nosidian did not answer in time'))
       }, REPLY_TIMEOUT_MS)
       pending.set(id, { resolve, reject, timer })
-      win.webContents.send('mcp:call', { id, tool, args, client, internal: internal === true, readOnly: readOnly === true })
+      win.webContents.send('mcp:call', { id, tool, args, client, internal: internal === true, readOnly: readOnly === true, forceApproval: forceApproval === true })
     })
   }
 
@@ -115,8 +115,9 @@ function register({ ipcMain, app, getWindow }) {
    */
   async function startInternal(opts) {
     const readOnly = !!(opts && opts.readOnly)
+    const forceApproval = !!(opts && opts.forceApproval)
     const token = crypto.randomBytes(24).toString('hex')
-    const s = createMcpServer({ token, version: app.getVersion(), callTool: (tool, args, client) => callRenderer(tool, args, client, true, readOnly) })
+    const s = createMcpServer({ token, version: app.getVersion(), callTool: (tool, args, client) => callRenderer(tool, args, client, true, readOnly, forceApproval) })
     const port = await s.listen(0)
     return { url: `http://127.0.0.1:${port}/mcp`, token, close: () => s.close() }
   }

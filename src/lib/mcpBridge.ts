@@ -27,7 +27,7 @@ export function saveMcpVault(id: string | null) {
 
 /** 지금 상태로 도구 환경을 만든다(호출 때마다 새로 읽어 최신 노트·vault 를 본다) */
 /** internal: 앱 안 AI(claude CLI) 호출 — 지금 열려 있는 vault 하나에 닿는다(외부 AI 용 vault 설정과 무관) */
-export function buildEnv(internal = false, readOnly = false): McpEnv {
+export function buildEnv(internal = false, readOnly = false, forceApproval = false): McpEnv {
   const app = useApp.getState()
   const id = app.settings.activeVault
   const v = app.settings.vaults.find((x) => x.id === id)
@@ -37,11 +37,12 @@ export function buildEnv(internal = false, readOnly = false): McpEnv {
     files: app.files,
     search: (q, limit) => search(q, limit),
     submit: (req, by, summary) => {
-      const r = useProposals.getState().submit(req, by, summary)
+      const r = useProposals.getState().submit(req, by, summary, forceApproval)
       return { kind: r.kind === 'denied' ? 'denied' : r.kind, verdict: r.verdict, ops: r.kind === 'apply' ? r.ops : undefined, id: 'id' in r ? r.id : undefined }
     },
     find: (pid) => useProposals.getState().find(pid),
     readOnly,
+    forceApproval,
   }
 }
 
@@ -49,9 +50,9 @@ export function buildEnv(internal = false, readOnly = false): McpEnv {
 export function startMcpBridge(): (() => void) | undefined {
   const mcp = desktop()?.mcp
   if (!mcp) return undefined
-  return mcp.onCall(async ({ id, tool, args, client, internal, readOnly }) => {
+  return mcp.onCall(async ({ id, tool, args, client, internal, readOnly, forceApproval }) => {
     try {
-      await mcp.reply(id, { ok: callTool(tool, args, buildEnv(internal === true, readOnly === true), internal ? '앱 안 Claude' : client) })
+      await mcp.reply(id, { ok: callTool(tool, args, buildEnv(internal === true, readOnly === true, forceApproval === true), internal ? '앱 안 Claude' : client) })
     } catch (e) {
       await mcp.reply(id, { error: e instanceof Error ? e.message : String(e) })
     }

@@ -15,7 +15,7 @@ const turnMock = vi.mocked(chatTurn)
 
 type Handler = (e: ClaudeEvent) => void
 let handler: Handler | null = null
-const run = vi.fn(async (_req: { prompt: string; mode?: 'ask' | 'edit' }) => ({ ok: true }))
+const run = vi.fn(async (_req: { prompt: string; mode?: 'ask' | 'edit'; forceApproval?: boolean }) => ({ ok: true }))
 const cancel = vi.fn(async () => true)
 
 function install() {
@@ -135,6 +135,79 @@ describe('AI 스레드: 모드·맥락', () => {
   it('turnsOf: 완료된 (질문, 답변) 쌍만', () => {
     const m = (role: 'user' | 'ai', text: string, status?: Msg['status']): Msg => ({ id: text, role, text, at: 1, status })
     expect(turnsOf([m('user', 'a'), m('ai', 'A', 'done'), m('user', 'b'), m('ai', '', 'running')])).toEqual([{ q: 'a', a: 'A' }])
+  })
+})
+
+describe('AI 스레드: 문서 점검 → AI로 고치기', () => {
+  it('askFix: 패널을 열고, 화면에는 점검 제목을 보이고, 모델에는 분석 프롬프트를 읽기 전용으로 보낸다(저장된 모드 선택은 그대로)', async () => {
+    useAiThread.setState({ mode: 'edit' })
+    await useAiThread.getState().askFix('점검 · 중복 문서 후보: a.md ↔ b.md', '[Task] 분석하라 do NOT call propose_change')
+    const s = useAiThread.getState()
+    expect(s.open).toBe(true)
+    expect(s.mode).toBe('edit') // 사용자가 고른 모드는 바뀌지 않는다
+    expect(s.messages[0]).toMatchObject({ role: 'user', text: '점검 · 중복 문서 후보: a.md ↔ b.md', mode: 'ask', note: null })
+    expect(s.messages[1]).toMatchObject({ role: 'ai', fix: 'plan', status: 'running' })
+    const req = run.mock.calls[0][0]
+    expect(req.mode).toBe('ask')
+    expect(req.prompt).toContain('[Task] 분석하라')
+    expect(req.prompt).not.toContain('p/개요.md') // 열린 노트 칩은 보내지 않는다(문제에 포함된 노트만)
+  })
+  it('applyPlan: 계획(분석 답변)이 끝난 뒤에만, 변경 제안 모드로 계획 전체를 보낸다', async () => {
+    await useAiThread.getState().askFix('점검 · 필수 제목 누락: SPEC.md', 'P')
+    const planId = useAiThread.getState().messages[1].id
+    await useAiThread.getState().applyPlan(planId) // 아직 실행 중 → 무시
+    expect(run).toHaveBeenCalledTimes(1)
+    emit({ type: 'result', ok: true, text: '1. 규칙 절을 채운다\n2. 결정 필요: 범위', turns: 3, costUsd: 0 })
+    await useAiThread.getState().applyPlan(planId)
+    expect(run).toHaveBeenCalledTimes(2)
+    const req = run.mock.calls[1][0]
+    expect(req.mode).toBe('edit')
+    expect(req.prompt).toContain('1. 규칙 절을 채운다')
+    expect(req.prompt).toContain('Submit ALL steps')
+    const msgs = useAiThread.getState().messages
+    expect(msgs[2]).toMatchObject({ role: 'user', text: '정리 계획대로 변경 제안 만들기', mode: 'edit' })
+    expect(msgs[3]).toMatchObject({ role: 'ai', fix: 'apply', status: 'running' })
+  })
+  it('분석에는 승인 강제를 쓰지 않고, 계획 실행에는 쓴다(Claude)', async () => {
+    await useAiThread.getState().askFix('t', 'p')
+    expect(run.mock.calls[0][0].forceApproval).toBeFalsy()
+    emit({ type: 'result', ok: true, text: '계획', turns: 1, costUsd: 0 })
+    await useAiThread.getState().applyPlan(useAiThread.getState().messages[1].id)
+    expect(run.mock.calls[1][0].forceApproval).toBe(true)
+  })
+  it('계획 바로 다음의 읽기 전용 후속 질문(결정을 알려 주는 말)은 계획의 연장이라 고친 계획에도 실행 버튼이 붙고, 변경 제안 모드를 고르거나 일반 질문으로 시작하면 연장이 아니다', async () => {
+    await useAiThread.getState().askFix('t', 'p')
+    emit({ type: 'result', ok: true, text: '계획 v1 (결정 필요: 어느 쪽?)', turns: 1, costUsd: 0 })
+    await useAiThread.getState().send('v2 가 맞아요')
+    expect(useAiThread.getState().messages[3]).toMatchObject({ role: 'ai', fix: 'plan' })
+    expect(run.mock.calls[1][0].mode).toBe('ask') // 후속 질문도 읽기 전용
+    emit({ type: 'result', ok: true, text: '계획 v2', turns: 1, costUsd: 0 })
+    expect(useAiThread.getState().messages[3].status).toBe('done')
+    // 변경 제안 모드의 질문은 계획의 연장이 아니다
+    useAiThread.setState({ mode: 'edit' })
+    await useAiThread.getState().send('그냥 바꿔 줘')
+    expect(useAiThread.getState().messages[5].fix).toBeUndefined()
+    emit({ type: 'result', ok: true, text: '답', turns: 1, costUsd: 0 })
+    // 직전이 계획이 아닌 일반 답변이면(묻기여도) 연장이 아니다
+    useAiThread.setState({ mode: 'ask' })
+    await useAiThread.getState().send('일반 질문')
+    expect(useAiThread.getState().messages[7].fix).toBeUndefined()
+  })
+  it('applyPlan 은 분석 답변이 아닌 메시지·실패한 분석에는 동작하지 않는다', async () => {
+    await useAiThread.getState().send('그냥 질문')
+    emit({ type: 'result', ok: true, text: '답', turns: 1, costUsd: 0 })
+    await useAiThread.getState().applyPlan(useAiThread.getState().messages[1].id) // fix 가 아님
+    expect(run).toHaveBeenCalledTimes(1)
+    await useAiThread.getState().askFix('t', 'p')
+    emit({ type: 'error', code: 'exit', message: '실패' })
+    await useAiThread.getState().applyPlan(useAiThread.getState().messages[3].id) // 실패한 분석
+    expect(run).toHaveBeenCalledTimes(2)
+  })
+  it('분석 중에는 또 askFix 를 보내지 않는다', async () => {
+    await useAiThread.getState().askFix('a', 'p')
+    await useAiThread.getState().askFix('b', 'p')
+    expect(run).toHaveBeenCalledTimes(1)
+    expect(useAiThread.getState().messages).toHaveLength(2)
   })
 })
 
@@ -288,6 +361,25 @@ describe('로컬 모델(Ollama) 엔진', () => {
     expect(useProposals.getState().items.filter((p) => p.req.path === 'p/큰.md')).toEqual([])
     expect(useApp.getState().files['p/큰.md'].content).toBe(big)
     expect(useAiThread.getState().messages[1].text).toContain('수정하지 못했어요')
+  })
+  it('계획 실행(로컬 모델): 정책이 허용하는 보조 문서 수정도 승인 대기 제안이 된다', async () => {
+    setup({ 'p/보조/A.md': '# A\n내용\n', 'p/프로젝트.md': '---\ntype: project\ndocs: 기본\n---\n', '_workspace/문서규칙.md': '---\nrules: on\nai_write: direct\n---\n## 프로필: 기본\n- 보조 :: dir=보조/; aux\n' })
+    // 1) 분석 — 도구 없이 계획만 낸다
+    turnMock.mockResolvedValueOnce({ text: '1. A 를 고친다', toolCalls: [] })
+    await useAiThread.getState().askFix('점검', '분석')
+    await vi.waitFor(() => expect(useAiThread.getState().running).toBe(false))
+    expect(useAiThread.getState().messages[1]).toMatchObject({ fix: 'plan', status: 'done' })
+    // 2) 실행 — 모델이 보조 문서를 수정하려 한다
+    const content = '# A\n고침\n'
+    turnMock
+      .mockResolvedValueOnce({ text: '', toolCalls: [{ name: 'read_note', args: { path: 'p/보조/A.md' } }] })
+      .mockImplementationOnce(async (_c, messages) => ({ text: '', toolCalls: [{ name: 'propose_change', args: { action: 'modify', path: 'p/보조/A.md', content, base_hash: JSON.parse(messages.at(-1)!.content).content_hash } }] }))
+      .mockResolvedValueOnce({ text: '제안했어요', toolCalls: [] })
+    await useAiThread.getState().applyPlan(useAiThread.getState().messages[1].id)
+    await vi.waitFor(() => expect(useAiThread.getState().running).toBe(false))
+    expect(useApp.getState().files['p/보조/A.md'].content).toBe('# A\n내용\n') // 바로 반영되지 않았다
+    expect(useProposals.getState().items[0]).toMatchObject({ status: 'pending', reason: 'planApprove' })
+    expect(useAiThread.getState().messages[3].proposals).toHaveLength(1)
   })
   it('설정에 모델이 없으면 오류 메시지로 안내하고 모델을 부르지 않는다', async () => {
     useAiThread.setState({ engine: 'ollama' })

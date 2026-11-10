@@ -87,6 +87,34 @@ export function approve(p: Proposal, rules: DocRules, projects: Project[], files
   return { ok: true, ops: planOps(p.req, r.verdict, files) }
 }
 
+export type GroupApproval =
+  | { ok: true; ops: FileOp[]; ids: string[] }
+  | { ok: false; /** 반영할 수 없는 제안(있으면) */ id?: string; reason: Reason | 'overlap'; text?: string }
+
+/**
+ * 여러 제안을 하나의 변경으로 승인한다: 모든 제안을 현재 문서 상태에서 **먼저 전부** 재검증하고, 하나라도 안 되면 아무것도 반영하지 않는다(전부 아니면 전무).
+ * 같은 노트를 건드리는 제안이 둘 이상이면(순서에 따라 결과가 달라지므로) 거절한다 — 그때는 하나씩 확인해야 한다.
+ * 한 AI 작업이 만든 제안들(예: A 를 B 에 합치고, A 를 보관하고, 링크를 고침)이 일부만 반영되는 것을 막으려는 것이다.
+ */
+export function approveAll(list: Proposal[], rules: DocRules, projects: Project[], files: Record<string, NoteFile>): GroupApproval {
+  const pending = list.filter((p) => p.status === 'pending')
+  if (!pending.length) return { ok: false, reason: 'stale' }
+  const ops: FileOp[] = []
+  for (const p of pending) {
+    const r = approve(p, rules, projects, files)
+    if (!r.ok) return { ok: false, id: p.id, reason: r.reason, text: r.text }
+    ops.push(...r.ops)
+  }
+  const seen = new Set<string>()
+  for (const o of ops) {
+    for (const path of o.op === 'rename' ? [o.path, o.to] : [o.path]) {
+      if (seen.has(path)) return { ok: false, reason: 'overlap', text: path }
+      seen.add(path)
+    }
+  }
+  return { ok: true, ops, ids: pending.map((p) => p.id) }
+}
+
 /** 제안을 검토 화면에서 어떻게 보일지: 지금 문서가 읽은 뒤 바뀌었는지(바뀌었으면 승인해도 반영되지 않는다) */
 export function isStale(p: Proposal, files: Record<string, NoteFile>): boolean {
   if (p.req.action === 'create') return !!files[p.req.path] && !files[p.req.path].deleted

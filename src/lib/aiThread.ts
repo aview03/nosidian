@@ -8,6 +8,7 @@
 import { create } from 'zustand'
 import { useApp } from './app'
 import { buildPrompt, errorText, type AiMode, type Turn } from './aiAssistant'
+import { planApplyPrompt } from './aiFix'
 import { desktop, type ClaudeEvent } from './externalIO'
 import { useProposals } from './proposalStore'
 import { AgentError, runAgent } from './aiAgent'
@@ -66,6 +67,8 @@ export interface Msg {
   turns?: number
   /** 이번 실행으로 생긴 변경 제안 id */
   proposals?: string[]
+  /** plan = 문서 점검 분석(정리 계획) 답변, apply = 계획을 변경 제안으로 낸 답변 */
+  fix?: 'plan' | 'apply'
 }
 
 export const PANEL_MIN = 320
@@ -131,6 +134,16 @@ export function turnsOf(msgs: Msg[]): Turn[] {
   return out
 }
 
+export interface SendOpts {
+  /** 모델에게 실제로 보낼 글(없으면 question) */
+  prompt?: string
+  /** 이번 한 번만 쓸 모드(저장된 모드 선택은 바꾸지 않는다) */
+  mode?: AiMode
+  /** 열려 있는 노트를 함께 보낼지(없으면 칩 설정) */
+  withNote?: boolean
+  fix?: 'plan' | 'apply'
+}
+
 interface AiThread {
   open: boolean
   /** 넓게 보기(기본 폭의 약 1.7배) */
@@ -158,8 +171,12 @@ interface AiThread {
   setEngine(e: Engine): void
   setWithNote(v: boolean): void
   setDraft(t: string): void
-  /** 질문을 보낸다 */
-  send(question: string): Promise<void>
+  /** 질문을 보낸다. question 은 화면에 보이는 글, opts.prompt 가 있으면 그것을 모델에게 보낸다 */
+  send(question: string, opts?: SendOpts): Promise<void>
+  /** 문서 점검 문제를 AI 로 분석한다(읽기 전용으로 정리 계획까지) — 패널을 열고 보낸다 */
+  askFix(title: string, prompt: string): Promise<void>
+  /** 분석한 정리 계획을 변경 제안으로 낸다(변경 제안 모드로 한 번) */
+  applyPlan(msgId: string): Promise<void>
   cancel(): void
   /** 새 채팅 */
   clear(): void
@@ -183,7 +200,7 @@ export const useAiThread = create<AiThread>((set, get) => {
     commit([...msgs.slice(0, i), f(msgs[i]), ...msgs.slice(i + 1)])
   }
   /** 설정에 저장된 모델(Ollama 등)로 에이전트 루프를 돌린다. 도구는 Claude CLI 와 같은 것(mcpTools)을 같은 정책으로 실행한다 */
-  const runLocal = async (q: string, note: string | null, mode: AiMode, history: Turn[]) => {
+  const runLocal = async (q: string, note: string | null, mode: AiMode, history: Turn[], force = false) => {
     const finish = (f: (m: Msg) => Msg) => {
       set({ running: false })
       abortLocal = null
@@ -206,7 +223,7 @@ export const useAiThread = create<AiThread>((set, get) => {
         {
           turn: (messages, tools, signal) => chatTurn(cfg, messages, { tools, think: false, numCtx: 16384, temperature: 0.2, maxTokens: 2048, timeoutMs: 300_000 }, signal),
           // 도구 호출마다 최신 노트·vault 로 환경을 새로 만든다(열린 vault 하나, 묻기면 읽기 전용)
-          exec: (name, args) => callTool(name, args, { ...buildEnv(true, ro), partialPaths: partial }, client),
+          exec: (name, args) => callTool(name, args, { ...buildEnv(true, ro, force), partialPaths: partial }, client),
           onStep: (step) => patchLast((m) => ({ ...m, steps: [...(m.steps ?? []), step] })),
           markPartial: (path) => partial.add(path),
         },
@@ -259,7 +276,7 @@ export const useAiThread = create<AiThread>((set, get) => {
     setWithNote: (withNote) => set({ withNote }),
     setDraft: (draft) => set({ draft }),
 
-    send: async (question) => {
+    send: async (question, opts) => {
       const claude = desktop()?.claude
       const engine = get().engine
       const q = question.trim()
@@ -267,20 +284,35 @@ export const useAiThread = create<AiThread>((set, get) => {
       if (engine === 'claude' && !claude) return
       get().ensure()
       set({ draft: '' })
-      const note = get().withNote ? useApp.getState().current : null
-      const mode = get().mode
+      const note = (opts?.withNote ?? get().withNote) ? useApp.getState().current : null
+      const mode = opts?.mode ?? get().mode
       const history = turnsOf(get().messages)
+      const asked = opts?.prompt ?? q
       snapshot = new Set(useProposals.getState().items.map((p) => p.id))
       const now = Date.now()
-      commit([...get().messages, { id: uid(), role: 'user', text: q, at: now, note, mode, engine }, { id: uid(), role: 'ai', text: '', at: now, status: 'running', steps: [] }])
+      // 정리 계획 바로 다음의 후속 질문(결정을 알려 주거나 계획을 고쳐 달라는 말)은 계획의 연장이다: 고친 계획에도 실행 버튼이 붙는다
+      const prev = get().messages.at(-1)
+      const fix = opts?.fix ?? (prev?.role === 'ai' && prev.fix === 'plan' && prev.status === 'done' && mode === 'ask' ? ('plan' as const) : undefined)
+      commit([...get().messages, { id: uid(), role: 'user', text: q, at: now, note, mode, engine }, { id: uid(), role: 'ai', text: '', at: now, status: 'running', steps: [], ...(fix ? { fix } : {}) }])
       set({ running: true })
-      if (engine === 'ollama') return runLocal(q, note, mode, history)
+      const force = opts?.fix === 'apply' // 계획 실행: 정책이 허용해도 최종 승인을 받는다
+      if (engine === 'ollama') return runLocal(asked, note, mode, history, force)
       try {
-        await claude!.run({ prompt: buildPrompt({ question: q, note, mode, history }), mode })
+        await claude!.run({ prompt: buildPrompt({ question: asked, note, mode, history }), mode, forceApproval: force })
       } catch (e) {
         set({ running: false })
         patchLast((m) => ({ ...m, status: 'error', error: e instanceof Error ? e.message : String(e) }))
       }
+    },
+    askFix: async (title, prompt) => {
+      get().setOpen(true)
+      if (get().running) return
+      await get().send(title, { prompt, mode: 'ask', withNote: false, fix: 'plan' })
+    },
+    applyPlan: async (msgId) => {
+      const m = get().messages.find((x) => x.id === msgId)
+      if (!m || m.fix !== 'plan' || m.status !== 'done' || get().running) return
+      await get().send('정리 계획대로 변경 제안 만들기', { prompt: planApplyPrompt(m.text), mode: 'edit', withNote: false, fix: 'apply' })
     },
     cancel: () => {
       if (get().engine === 'ollama') abortLocal?.abort()

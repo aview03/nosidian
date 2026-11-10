@@ -7,6 +7,9 @@ import { baseName } from '../lib/links'
 import { DEFAULT_PROFILE, DOCRULES_PATH, profileFor, readRules, rulesNoteTemplate, setFmKey } from '../lib/docrules'
 import { lintProject, type LintItem } from '../lib/doclint'
 import type { Project } from '../lib/work'
+import { desktop } from '../lib/externalIO'
+import { fixPrompt, fixTitle } from '../lib/aiFix'
+import { useAiThread } from '../lib/aiThread'
 
 /** 프로젝트 노트 속성의 docs: 를 바꾼다(null 이면 지움) */
 function setProjectDocs(project: Project, value: string | null) {
@@ -61,7 +64,7 @@ export function DocCheck({ project }: { project: Project }) {
   const docsValue = typeof project.fm.docs === 'string' ? project.fm.docs : ''
   const hasDefault = rules.profiles.some((p) => p.name.toLowerCase() === DEFAULT_PROFILE.toLowerCase())
 
-  const ruleBtn = <button className="wrk-viewedit" onClick={() => open(DOCRULES_PATH)}>{t('규칙 파일 열기')}</button>
+  const ruleBtn = <button className="btn-link" onClick={() => open(DOCRULES_PATH)}>{t('규칙 파일 열기')}</button>
   const ruleFile = <div className="dchk-foot">{ruleBtn}</div>
 
   // 규칙이 꺼져 있음
@@ -98,11 +101,17 @@ export function DocCheck({ project }: { project: Project }) {
   const warn = report.items.filter((i) => i.severity === 'warn')
   const info = report.items.filter((i) => i.severity === 'info')
   const official = report.docs.filter((d) => d.role?.official).length
+  const canAi = !!desktop() // PC 에서만 AI 패널이 있다
   const row = (it: LintItem, i: number) => (
-    <button key={it.kind + it.path + i} className="wrk-projrow" onClick={() => open(it.path)}>
-      <span className="wrk-pname">{it.kind === 'missingDoc' ? t('빠진 문서') : rel(it.path) || baseName(it.path)}</span>
-      <span className="wrk-pmeta"><span>{messageOf(it, rel)}</span></span>
-    </button>
+    <div key={it.kind + it.path + i} className="dchk-item">
+      <button className="wrk-projrow" onClick={() => open(it.path)}>
+        <span className="wrk-pname">{it.kind === 'missingDoc' ? t('빠진 문서') : rel(it.path) || baseName(it.path)}</span>
+        <span className="wrk-pmeta"><span>{messageOf(it, rel)}</span></span>
+      </button>
+      {canAi && (
+        <button className="dchk-ai" title={t('AI 가 관련 노트를 읽고 정리 계획을 먼저 보여 줘요. 계획을 확인하기 전에는 아무것도 바뀌지 않아요.')} onClick={() => void useAiThread.getState().askFix(fixTitle(it, rel), fixPrompt(it, { projectName: project.name, folder: project.folder }, rel))}>{t('AI로 고치기')}</button>
+      )}
+    </div>
   )
 
   return (
@@ -130,7 +139,7 @@ export function DocCheck({ project }: { project: Project }) {
       <p className="hint dchk-note">{t('중복은 이름·제목·본문이 겹치는 "후보"만 보여 줘요. 의미가 같고 글자가 다른 문서는 찾지 못해요.')}</p>
       <div className="dchk-foot">
         {ruleBtn}
-        <button className="wrk-viewedit" onClick={() => setProjectDocs(project, 'off')}>{t('이 프로젝트에서 끄기')}</button>
+        <button className="btn-link" onClick={() => setProjectDocs(project, 'off')}>{t('이 프로젝트에서 끄기')}</button>
       </div>
     </section>
   )

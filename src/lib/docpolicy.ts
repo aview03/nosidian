@@ -47,6 +47,7 @@ export type Reason =
   | 'officialDelete' // 공식 문서는 AI 가 지울 수 없음
   | 'officialMove' // 공식 문서는 AI 가 옮기거나 이름을 바꿀 수 없음
   | 'leavesProject' // 다른 프로젝트·적용 범위 밖으로 옮김
+  | 'planApprove' // 문서 점검 "AI로 고치기" 계획 실행으로 낸 변경: 정책이 허용하더라도 사람의 최종 승인을 받는다
   | 'ok'
 
 export interface Verdict {

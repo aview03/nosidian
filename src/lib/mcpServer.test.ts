@@ -20,8 +20,9 @@ async function boot(callTool: (t: string, a: object, c: string) => Promise<unkno
   const port = await s.listen(0)
   current = s
   const url = `http://127.0.0.1:${port}/mcp`
+  // 서버를 매번 열고 닫는데 OS 가 같은 포트 번호를 다시 줄 수 있다 — fetch 의 연결 풀이 이미 닫힌 서버로 가는 연결을 재사용하지 않게 매 요청 연결을 닫는다
   const post = (body: unknown, headers: Record<string, string> = {}, raw = false) =>
-    fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${TOKEN}`, ...headers }, body: raw ? (body as string) : JSON.stringify(body) })
+    fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${TOKEN}`, Connection: 'close', ...headers }, body: raw ? (body as string) : JSON.stringify(body) })
   return { port, url, post }
 }
 const rpc = (method: string, params?: unknown) => ({ jsonrpc: '2.0', id: 1, method, ...(params ? { params } : {}) })
@@ -78,6 +79,37 @@ describe('MCP 서버: 접근 통제', () => {
     expect(tokenOk('Bearer ' + TOKEN.slice(1), TOKEN)).toBe(false)
     expect(tokenOk(undefined, TOKEN)).toBe(false)
     expect(tokenOk('Bearer x', '')).toBe(false)
+  })
+})
+
+describe('MCP 서버: 비정상 클라이언트', () => {
+  it('본문을 보내다가 연결을 끊어도 서버는 죽지 않고(처리되지 않은 오류 없음) 다음 요청을 받는다', async () => {
+    const { port, post } = await boot()
+    // @ts-expect-error 타입 선언 없이 Node 내장 모듈을 쓴다
+    const net: any = await import('node:net')
+    for (let i = 0; i < 5; i++) {
+      await new Promise<void>((resolve) => {
+        const sock = net.connect(port, '127.0.0.1', () => {
+          sock.write(`POST /mcp HTTP/1.1
+
+Host: 127.0.0.1:${port}
+
+Authorization: Bearer ${TOKEN}
+
+Content-Type: application/json
+
+Content-Length: 100000
+
+
+
+{"jsonrpc":"2.0"`)
+          setTimeout(() => { sock.destroy(); resolve() }, 20) // 본문 중간에 끊는다
+        })
+        sock.on('error', () => resolve())
+      })
+    }
+    await new Promise((r) => setTimeout(r, 100)) // 서버가 끊김을 처리할 시간
+    expect((await post(rpc('ping'))).status).toBe(200)
   })
 })
 

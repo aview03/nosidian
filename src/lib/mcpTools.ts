@@ -23,10 +23,12 @@ export interface McpEnv {
   allowedVault: string | null
   files: Record<string, NoteFile>
   search(query: string, limit: number): { path: string; score: number; snippet: string }[]
-  submit(req: AiRequest, by: string, summary?: string): { kind: 'apply' | 'pending' | 'denied'; verdict: { decision: string; reason: Reason; effect?: 'archive'; text?: string }; ops?: { op: string; path: string; to?: string }[]; id?: string }
+  submit(req: AiRequest, by: string, summary?: string, forceApproval?: boolean): { kind: 'apply' | 'pending' | 'denied'; verdict: { decision: string; reason: Reason; effect?: 'archive'; text?: string }; ops?: { op: string; path: string; to?: string }[]; id?: string }
   find(id: string): Proposal | undefined
   /** 읽기 전용 대화(묻기): 변경안 제출·제안 조회를 거절한다 */
   readOnly?: boolean
+  /** 정책이 허용(allow)한 변경도 바로 반영하지 않고 사람의 승인을 기다리게 한다("AI로 고치기" 계획 실행). 거절(deny)은 그대로다 */
+  forceApproval?: boolean
   /** 앞부분만 읽은 노트(모델에게 일부만 줬다). 이 노트의 수정(modify)은 거절한다 — 잘린 내용으로 덮어쓰지 않게 */
   partialPaths?: Set<string>
 }
@@ -118,7 +120,7 @@ export function callTool(name: string, rawArgs: unknown, env: McpEnv, client: st
       if (action === 'move' && !to) throw new ToolError('`to` is required for move')
       if (action === 'modify' && env.partialPaths?.has(path)) throw new ToolError('You only read the beginning of this note (it was truncated), so modifying it would delete the rest. Do not modify it; explain the change to the user instead.')
       const req: AiRequest = { action: action as AiRequest['action'], path, ...(to ? { to } : {}), ...(content !== undefined ? { content } : {}), ...(baseHash ? { baseHash } : {}) }
-      const r = env.submit(req, client ? `MCP · ${client}` : 'MCP', summary)
+      const r = env.submit(req, client ? `MCP · ${client}` : 'MCP', summary, env.forceApproval)
       const hint = HINT[r.verdict.reason]
       if (r.kind === 'apply') return { outcome: 'applied', reason: r.verdict.reason, ...(r.verdict.effect === 'archive' ? { archived: true } : {}), applied: r.ops ?? [] }
       if (r.kind === 'pending') return { outcome: 'pending_approval', reason: r.verdict.reason, proposal_id: r.id, message: 'A person must approve this in Nosidian. Check get_proposal_status with proposal_id.', ...(hint ? { hint } : {}) }
@@ -151,6 +153,7 @@ const HINT: Partial<Record<Reason, string>> = {
   notInTemplate: 'Only files named in the rules profile may be created by AI. See get_document_rules.',
   newFileApprove: 'New notes need a person\'s approval.',
   officialApprove: 'Official documents need a person\'s approval (ai_write: propose).',
+  planApprove: 'This change comes from an approved cleanup plan, so it still needs the person\'s final approval in Nosidian.',
   officialDelete: 'Official documents cannot be deleted by AI.',
   officialMove: 'Official documents cannot be moved or renamed by AI.',
   leavesProject: 'Moving a note out of its project (or the rules\' scope) needs approval.',

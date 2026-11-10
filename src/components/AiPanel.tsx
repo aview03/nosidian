@@ -6,12 +6,14 @@ import { t } from '../lib/i18n'
 import { desktop, type ClaudeStatus } from '../lib/externalIO'
 import { baseName } from '../lib/links'
 import { linkifyPaths, PRESETS, readiness, toolLabel } from '../lib/aiAssistant'
-import { localEngine, useAiThread, type Engine, type Msg } from '../lib/aiThread'
+import { localEngine, useAiThread, type Engine, type Msg, type Step } from '../lib/aiThread'
 import { isStale } from '../lib/proposals'
 import { useProposals } from '../lib/proposalStore'
 import { Icon } from './Icon'
 import { Reader } from './Reader'
 import { Select } from './Select'
+import orbAnim from '../assets/ai-thinking.webp'
+import orbStill from '../assets/ai-thinking-still.webp'
 import { Diff, KIND, reasonText } from './ProposalReview'
 
 /** 변경 제안 카드: 패널 안에서 차이를 보고 승인·거절한다(승인하면 반영 직전에 한 번 더 확인한다) */
@@ -43,6 +45,28 @@ function ProposalCard({ id }: { id: string }) {
   )
 }
 
+/** AI 가 일하는 중임을 보여 준다: 빛나는 구(움직이는 이미지) + 지금 하는 일. 움직임을 줄인 설정이면 정지 이미지로 */
+function Orb({ size, still }: { size: number; still?: boolean }) {
+  return (
+    <picture>
+      <source media="(prefers-reduced-motion: reduce)" srcSet={orbStill} />
+      <img className="ai-orb" src={still ? orbStill : orbAnim} alt="" width={size} height={size} draggable={false} />
+    </picture>
+  )
+}
+
+function Thinking({ step }: { step?: Step }) {
+  return (
+    <div className="ai-think" role="status" aria-live="polite">
+      <Orb size={56} />
+      <div className="ai-think-text">
+        <span className="ai-think-title">{t('생각하는 중…')}</span>
+        {step && <span className="ai-think-step">{toolLabel(step.name)}{step.input ? ` · ${step.input}` : ''}</span>}
+      </div>
+    </div>
+  )
+}
+
 function UserMsg({ m }: { m: Msg }) {
   return (
     <div className="ai-u">
@@ -56,16 +80,19 @@ function UserMsg({ m }: { m: Msg }) {
   )
 }
 
-function AiMsg({ m }: { m: Msg }) {
+function AiMsg({ m, last }: { m: Msg; last: boolean }) {
   const files = useApp((s) => s.files)
+  const items = useProposals((s) => s.items)
+  const running = useAiThread((s) => s.running)
+  const pendingIds = (m.proposals ?? []).filter((id) => items.find((p) => p.id === id)?.status === 'pending')
   const steps = m.steps ?? []
-  const running = m.status === 'running'
+  const busy = m.status === 'running'
   const text = linkifyPaths(m.text, (p) => !!files[p] && !files[p].deleted)
   return (
     <div className="ai-a">
       {steps.length > 0 && (
-        running ? (
-          <ul className="ai-steps">{steps.slice(-4).map((s, i) => <li key={i}><b>{toolLabel(s.name)}</b>{s.input && <span>{s.input}</span>}</li>)}</ul>
+        busy ? (
+          <ul className="ai-steps">{steps.slice(0, -1).slice(-3).map((s, i) => <li key={i}><b>{toolLabel(s.name)}</b>{s.input && <span>{s.input}</span>}</li>)}</ul>
         ) : (
           <details className="ai-steps-done">
             <summary>{t('진행 {n}단계', { n: steps.length })}</summary>
@@ -73,18 +100,33 @@ function AiMsg({ m }: { m: Msg }) {
           </details>
         )
       )}
-      {running && <p className="ai-wait" aria-live="polite">{t('생각하는 중…')}</p>}
+      {busy && <Thinking step={steps.at(-1)} />}
       {m.status === 'error' && <p className="hint ai-err">{m.error}</p>}
       {m.status === 'done' && m.text && steps.length === 0 && <p className="hint small ai-notool">{t('노트를 읽지 않고 답했어요 — 내용이 사실과 다를 수 있어요')}</p>}
       {m.status === 'done' && m.text && (
         <>
           <div className="ai-text"><Reader path="AI" content={text} compact /></div>
           <div className="ai-foot">
-            <button className="wrk-viewedit" onClick={() => void navigator.clipboard.writeText(m.text).then(() => useApp.getState().say(t('복사했어요')))}>{t('복사')}</button>
+            <button className="btn-link" onClick={() => void navigator.clipboard.writeText(m.text).then(() => useApp.getState().say(t('복사했어요')))}>{t('복사')}</button>
           </div>
         </>
       )}
+      {m.status === 'done' && m.fix === 'plan' && last && (
+        <div className="ai-plan">
+          <span className="hint small">{t('계획을 확인한 뒤 누르세요. 누르기 전에는 아무것도 바뀌지 않아요. "결정 필요" 항목은 아래 입력창에 답하면 계획을 고쳐 드려요.')}</span>
+          <button className="primary" disabled={running} onClick={() => void useAiThread.getState().applyPlan(m.id)}>{t('이 계획대로 변경 제안 만들기')}</button>
+        </div>
+      )}
       {(m.proposals ?? []).map((id) => <ProposalCard key={id} id={id} />)}
+      {pendingIds.length >= 2 && (
+        <div className="ai-group">
+          <p className="hint small">{t('이 제안들은 한 묶음이에요. 함께 승인하면 전부 반영하거나, 하나라도 안 되면 아무것도 반영하지 않아요.')}</p>
+          <div className="ai-group-btns">
+            <button onClick={() => useProposals.getState().rejectGroup(pendingIds)}>{t('모두 거절')}</button>
+            <button className="primary" onClick={() => useProposals.getState().approveGroup(pendingIds)}>{t('모두 승인 ({n}건)', { n: pendingIds.length })}</button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -129,7 +171,7 @@ export function AiPanel() {
   const canSend = ready === 'ok' && !running && draft.trim().length > 0
   const noteName = current ? baseName(current) : ''
   // Claude 를 쓸 수 없을 때, 로컬 모델이 준비되어 있으면 바로 바꾸게 한다
-  const switchBtn = local.ready ? <button className="wrk-viewedit" onClick={() => useAiThread.getState().setEngine('ollama')}>{t('로컬 모델로 전환')}</button> : null
+  const switchBtn = local.ready ? <button className="btn-link" onClick={() => useAiThread.getState().setEngine('ollama')}>{t('로컬 모델로 전환')}</button> : null
   const panelWidth = wide ? Math.min(Math.round(width * 1.7), Math.round(window.innerWidth * 0.7)) : width
 
   const send = () => canSend && void useAiThread.getState().send(draft)
@@ -168,6 +210,7 @@ export function AiPanel() {
       >
         {messages.length === 0 && (
           <div className="ai-empty">
+            <Orb size={72} still />
             <p>{t('이 vault 의 노트에 대해 물어보세요.')}</p>
             {PRESETS.map((p) => {
               const text = p.text(withNote ? current : null)
@@ -175,7 +218,7 @@ export function AiPanel() {
             })}
           </div>
         )}
-        {messages.map((m) => (m.role === 'user' ? <UserMsg key={m.id} m={m} /> : <AiMsg key={m.id} m={m} />))}
+        {messages.map((m, i) => (m.role === 'user' ? <UserMsg key={m.id} m={m} /> : <AiMsg key={m.id} m={m} last={i === messages.length - 1} />))}
       </div>
 
       {ready === 'unknown' && <p className="hint small ai-note">{t('Claude Code CLI 를 확인하는 중…')}</p>}
@@ -185,7 +228,7 @@ export function AiPanel() {
       {ready === 'noLocal' && (
         <p className="hint small ai-note ai-warn">
           {local.problem === 'noTools' ? t('저장된 AI 연결은 아직 도구 호출을 지원하지 않아요. Ollama 나 OpenAI 호환 모델을 고르세요.') : local.problem === 'noModel' ? t('AI 연결에서 모델을 골라 저장해 주세요.') : t('설정 > AI 연결에서 Ollama 같은 모델을 저장하면 API 키 없이 로컬 모델로 답할 수 있어요.')}
-          <button className="wrk-viewedit" onClick={() => useApp.getState().go('settings')}>{t('설정 열기')}</button>
+          <button className="btn-link" onClick={() => useApp.getState().go('settings')}>{t('설정 열기')}</button>
         </p>
       )}
 

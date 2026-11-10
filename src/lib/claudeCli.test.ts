@@ -175,6 +175,22 @@ describe('묻기(읽기 전용) 모드', () => {
   })
 })
 
+describe('승인 강제 전달', () => {
+  it('forceApproval 은 임시 MCP 서버를 여는 쪽에 전달되고, 기본은 false', async () => {
+    const seen: any[] = []
+    const mk = async (forceApproval?: boolean) => {
+      const h = await harness({ startMcp: async (o: any) => { seen.push(o); return { url: 'http://127.0.0.1:1/mcp', token: 't', close: async () => {} } } })
+      const p = h.runner.run({ prompt: 'q', mode: 'edit', forceApproval }, h.onEvent)
+      await new Promise((r) => setTimeout(r, 20))
+      await h.child.finish([resultLine()])
+      await p
+    }
+    await mk(true)
+    await mk(undefined)
+    expect(seen.map((o) => o.forceApproval)).toEqual([true, false])
+  })
+})
+
 describe('출력 해석(stream-json)', () => {
   it('글·도구 호출·결과', () => {
     expect(c.parseStreamLine(textLine('안녕'))).toEqual([{ type: 'text', text: '안녕' }])

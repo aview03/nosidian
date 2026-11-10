@@ -7,7 +7,7 @@ import { useApp } from './app'
 import { t } from './i18n'
 import { readRules } from './docrules'
 import { contentHash, type AiRequest } from './docpolicy'
-import { approve as approveCheck, newProposal, prune, triage, type FileOp, type Proposal, type Triage } from './proposals'
+import { approveAll, approve as approveCheck, newProposal, prune, triage, type FileOp, type Proposal, type Triage } from './proposals'
 import { buildWork } from './work'
 
 const keyOf = (vault: string | null) => `nosidian.proposals.${vault ?? 'local'}`
@@ -55,11 +55,15 @@ interface ProposalStore {
   ensure(): void
   setOpen(open: boolean): void
   /** AI 도구가 쓰기를 요청한다: 허용이면 바로 반영, 승인 대기면 제안으로 보관, 거절이면 아무것도 안 한다 */
-  submit(req: AiRequest, by: string, summary?: string): Triage & { id?: string }
+  /** forceApproval: 정책이 허용한 변경도 승인 대기로 둔다(문서 점검 계획 실행용) */
+  submit(req: AiRequest, by: string, summary?: string, forceApproval?: boolean): Triage & { id?: string }
   /** 제안 하나(현재 vault) */
   find(id: string): Proposal | undefined
   approve(id: string): void
   reject(id: string): void
+  /** 여러 제안을 함께 승인한다(전부 반영하거나 전부 반영하지 않는다). 반영했으면 true */
+  approveGroup(ids: string[]): boolean
+  rejectGroup(ids: string[]): void
 }
 
 export const useProposals = create<ProposalStore>((set, get) => {
@@ -80,10 +84,12 @@ export const useProposals = create<ProposalStore>((set, get) => {
       set({ vault, items: read(vault), loaded: true })
     },
     setOpen: (open) => set({ open }),
-    submit: (req, by, summary) => {
+    submit: (req, by, summary, forceApproval) => {
       get().ensure()
       const c = ctxNow()
-      const r = triage(req, c.rules, c.projects, c.files)
+      let r = triage(req, c.rules, c.projects, c.files)
+      // 계획 실행 제안은 정책이 허용해도 사람의 최종 승인을 받는다(거절 판정은 그대로)
+      if (r.kind === 'apply' && forceApproval) r = { kind: 'pending', verdict: { decision: 'require_approval', reason: 'planApprove' } }
       if (r.kind === 'apply') execute(r.ops)
       else if (r.kind === 'pending') {
         const id = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`
@@ -113,6 +119,29 @@ export const useProposals = create<ProposalStore>((set, get) => {
       useApp.getState().say(t('변경을 반영했어요'))
     },
     reject: (id) => patch(id, (x) => (x.status === 'pending' ? { ...x, status: 'rejected', decidedAt: Date.now() } : x)),
+    approveGroup: (ids) => {
+      get().ensure()
+      const items = ids.map((id) => get().items.find((p) => p.id === id)).filter((p): p is Proposal => !!p)
+      const c = ctxNow()
+      const r = approveAll(items, c.rules, c.projects, c.files) // 전부 먼저 재검증
+      if (!r.ok) {
+        if (r.id && r.reason !== 'overlap') {
+          const reason = r.reason
+          patch(r.id, (x) => ({ ...x, status: 'failed', failReason: reason, decidedAt: Date.now() }))
+        }
+        useApp.getState().say(r.reason === 'overlap' ? t('같은 노트를 바꾸는 제안이 겹쳐서 한꺼번에 반영할 수 없어요 — 하나씩 확인해 주세요') : t('한 건이라도 반영할 수 없어서 아무것도 반영하지 않았어요 — 문서가 바뀌었거나 규칙이 허용하지 않아요'))
+        return false
+      }
+      execute(r.ops)
+      const done = new Set(r.ids)
+      save(get().items.map((x) => (done.has(x.id) ? { ...x, status: 'applied', decidedAt: Date.now() } : x)))
+      useApp.getState().say(t('{n}건을 함께 반영했어요', { n: r.ids.length }))
+      return true
+    },
+    rejectGroup: (ids) => {
+      const set = new Set(ids)
+      save(get().items.map((x) => (set.has(x.id) && x.status === 'pending' ? { ...x, status: 'rejected', decidedAt: Date.now() } : x)))
+    },
   }
 })
 

@@ -67,6 +67,9 @@ function createMcpServer(opts) {
   }
 
   function onRequest(req, res) {
+    // 방어적 처리: 클라이언트가 본문 전송 중에 연결을 끊어도 요청·응답의 error 가 처리되지 않은 예외가 되지 않게 한다(현재 Node 는 리스너가 없으면 무시하지만, 버전에 기대지 않는다)
+    req.on('error', () => {})
+    res.on('error', () => {})
     const send = (code, body, headers = {}) => {
       res.writeHead(code, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...headers })
       res.end(body === undefined ? '' : JSON.stringify(body))

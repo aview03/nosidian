@@ -276,7 +276,11 @@ export function WorkHome() {
       <div className="panel-head">
         <h2>{t('내 업무')}<small>{fmtDay(today)}</small></h2>
         <div className="head-actions">
-          <button className={`icon-btn${editing ? ' on' : ''}`} title={t('화면 편집')} aria-pressed={editing} onClick={() => setEditing(!editing)}><Icon name="sliders" /></button>
+          {editing ? (
+            <button className="primary head-done" onClick={() => setEditing(false)}>{t('완료')}</button> // 설정 버튼이 있던 자리(헤더 오른쪽 끝)에서 끝낸다
+          ) : (
+            <button className="icon-btn" title={t('화면 편집')} aria-pressed={false} onClick={() => setEditing(true)}><Icon name="sliders" /></button>
+          )}
         </div>
       </div>
       <div className="wrk-scroll">
@@ -284,7 +288,6 @@ export function WorkHome() {
           {editing && (
             <div className="wrk-editbar">
               <span>{t('오른쪽 손잡이를 끌어 순서를 바꾸세요. 터치에서는 줄을 꾹 눌러도 돼요.')}</span>
-              <button className="primary" onClick={() => setEditing(false)}>{t('완료')}</button>
             </div>
           )}
 
@@ -327,9 +330,14 @@ export function WorkHome() {
 
           {empty && (
             <div className="wrk-guide">
-              <h3>{t('프로젝트 업무를 시작해 보세요')}</h3>
-              <p>{t('아래 입력 칸에 업무를 적거나, 아래 "새 프로젝트"로 템플릿에서 시작하세요. 노트 맨 위에 프로젝트 속성을 넣고 할 일 줄에 마감·담당자를 적어도 여기에 모입니다.')}</p>
-              <pre>{`---\ntype: project\nstatus: active\n---\n\n- [ ] 견적서 수정 due:2026-11-12 owner:홍길동\n- [ ] 확인 요청 status:waiting due:2026-11-14`}</pre>
+              <h3>{t('프로젝트를 만들어 시작해 보세요')}</h3>
+              <p>{t('프로젝트를 만들면 할 일, 문서, 일정이 한곳에 모여요. 템플릿을 고르면 바로 시작할 수 있어요.')}</p>
+              <div className="wrk-guide-actions"><button className="primary" onClick={() => useWorkUi.setState({ wizard: true })}>{t('새 프로젝트 만들기')}</button></div>
+              <details className="wrk-guide-adv">
+                <summary>{t('노트에 직접 적어서 시작하려면')}</summary>
+                <p>{t('노트 맨 위에 프로젝트 표시를 넣고, 할 일은 체크박스 줄로 적으면 여기에 모여요. 마감일과 담당자는 줄 끝에 적어요.')}</p>
+                <pre>{`---\ntype: project\nstatus: active\n---\n\n- [ ] 견적서 수정 due:2026-11-12 owner:홍길동\n- [ ] 확인 요청 status:waiting due:2026-11-14`}</pre>
+              </details>
             </div>
           )}
         </div>

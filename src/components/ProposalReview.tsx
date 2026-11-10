@@ -14,6 +14,7 @@ export function reasonText(reason: Reason, text?: string): string {
   switch (reason) {
     case 'officialApprove': return t('공식 문서({role})의 변경은 승인이 필요해요', { role: text ?? '' })
     case 'newFileApprove': return t('새 문서는 승인이 필요해요')
+    case 'planApprove': return t('정리 계획을 실행하는 변경은 최종 승인이 필요해요')
     case 'noRules': return t('문서 규칙이 꺼져 있어서 AI 의 자동 변경은 허용하지 않아요')
     case 'outside': return t('문서 규칙을 적용하지 않는 곳이라 AI 의 자동 변경은 허용하지 않아요')
     case 'noProfile': return t('규칙 파일에서 이 프로젝트의 프로필을 읽지 못해 AI 의 자동 변경은 허용하지 않아요')

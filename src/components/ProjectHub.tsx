@@ -175,7 +175,7 @@ export function ProjectHub() {
         {project.health && <span className="hub-health">{t('판단')}: {project.health}</span>}
         {healthMap.get(project.path) && <span className={`wrk-health ${healthMap.get(project.path)!.level}`} title={healthMap.get(project.path)!.signals.map(signalText).join(' · ')}>{t('점검')}: {healthLabel(healthMap.get(project.path)!)}</span>}
         <span>{t('열린 일 {n}/{m}', { n: open.length, m: tasks.length })}</span>
-        <button className="wrk-viewedit hub-savetpl" onClick={() => void saveAsTemplate()}>{t('템플릿으로 저장')}</button>
+        <button className="btn-link hub-savetpl" onClick={() => void saveAsTemplate()}>{t('템플릿으로 저장')}</button>
       </div>
       <div className="seg wide hub-tabs">
         <button className={tab === 'tasks' ? 'on' : ''} onClick={() => setTab('tasks')}>{t('할 일')}</button>

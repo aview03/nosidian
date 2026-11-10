@@ -130,7 +130,7 @@ function createRunner(deps) {
   }
 
   /** 한 번 실행한다. onEvent 로 진행(tool·text)과 끝(result·error)을 알린다. 끝나면 임시 파일·서버를 정리한다 */
-  async function run({ prompt, model, mode }, onEvent) {
+  async function run({ prompt, model, mode, forceApproval }, onEvent) {
     if (active) return onEvent({ type: 'error', code: 'busy', message: '이미 AI 가 실행 중이에요' })
     if (typeof prompt !== 'string' || !prompt.trim() || prompt.length > 20_000) return onEvent({ type: 'error', code: 'badPrompt', message: '질문이 비었거나 너무 길어요' })
     const f = find()
@@ -145,7 +145,7 @@ function createRunner(deps) {
     try {
       dir = fsx.mkdtempSync(path.join(deps.tmpdir || os.tmpdir(), 'nosidian-claude-'))
       const readOnly = mode === 'ask'
-      mcp = await deps.startMcp({ readOnly })
+      mcp = await deps.startMcp({ readOnly, forceApproval: forceApproval === true })
       const cfgPath = path.join(dir, 'mcp.json')
       fsx.writeFileSync(cfgPath, JSON.stringify(mcpConfig(mcp)), { mode: 0o600 })
       const child = deps.spawn(f.path, buildArgs({ mcpConfigPath: cfgPath, model, readOnly }), { cwd: dir, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true })
@@ -245,7 +245,7 @@ function register({ ipcMain, getWindow, startMcp }) {
       const w = getWindow()
       if (w && !w.isDestroyed()) w.webContents.send('claude:event', ev)
     }
-    void runner.run({ prompt: req && req.prompt, model: req && req.model, mode: req && req.mode === 'ask' ? 'ask' : 'edit' }, send) // 진행·결과·오류는 모두 claude:event 로 간다
+    void runner.run({ prompt: req && req.prompt, model: req && req.model, mode: req && req.mode === 'ask' ? 'ask' : 'edit', forceApproval: !!(req && req.forceApproval) }, send) // 진행·결과·오류는 모두 claude:event 로 간다
     return { ok: true }
   })
   ipcMain.handle('claude:cancel', () => runner.cancel())

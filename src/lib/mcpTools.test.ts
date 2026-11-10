@@ -177,6 +177,23 @@ describe('읽기 전용 대화(묻기)', () => {
   })
 })
 
+describe('승인 강제(forceApproval)', () => {
+  it('propose_change 는 env.forceApproval 을 제안 처리에 그대로 넘긴다(기본은 넘기지 않는다)', () => {
+    const calls: unknown[] = []
+    const mk = (force?: boolean) => {
+      const x = env('ai_write: direct\n', { forceApproval: force })
+      const inner = x.e.submit
+      x.e.submit = (req, by, summary, f) => { calls.push(f); return inner(req, by, summary, f) }
+      return x
+    }
+    const a = mk(true)
+    callTool('propose_change', { action: 'create', path: 'p/보조/새.md', content: 'x' }, a.e, 'c')
+    const b = mk(undefined)
+    callTool('propose_change', { action: 'create', path: 'p/보조/새2.md', content: 'x' }, b.e, 'c')
+    expect(calls).toEqual([true, undefined])
+  })
+})
+
 describe('일부만 읽은 노트', () => {
   it('앞부분만 읽은 노트의 수정은 거절하고(나머지를 지우지 않게), 다른 작업은 그대로', () => {
     const x = env('ai_write: direct\n', { partialPaths: new Set(['p/보조/메모.md']) })
