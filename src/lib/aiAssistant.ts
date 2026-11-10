@@ -3,16 +3,64 @@
 import type { ClaudeStatus } from './externalIO'
 import { t } from './i18n'
 
+export type AiMode = 'ask' | 'edit'
+
+/** 이전 대화 한 번(질문과 답변). 후속 질문의 맥락으로 쓴다 */
+export interface Turn {
+  q: string
+  a: string
+}
+
 export interface PromptInput {
   question: string
   /** 지금 열려 있는 노트 경로(있으면 AI 에게 알려 준다) */
   note?: string | null
+  /** 묻기 = 읽기 전용, 변경 제안 = propose_change 사용 가능 */
+  mode?: AiMode
+  /** 이전 대화(최근 것부터 HISTORY_TURNS 개까지만 쓴다) */
+  history?: Turn[]
 }
 
-/** 모델에게 보낼 질문. 열려 있는 노트가 있으면 맥락으로 덧붙인다(내용은 싣지 않고 경로만 — AI 가 필요하면 read_note 로 읽는다) */
-export function buildPrompt({ question, note }: PromptInput): string {
-  const q = question.trim()
-  return note ? `${q}\n\n[Context] The note currently open in Nosidian: ${note}` : q
+export const HISTORY_TURNS = 3
+const HISTORY_CHARS = 600
+
+const clip = (s: string, n: number) => (s.length > n ? s.slice(0, n) + '…' : s)
+
+/**
+ * 모델에게 보낼 질문. 앞선 대화(최근 3번, 각 600자까지)와 열려 있는 노트 경로(내용은 싣지 않고 경로만 — 필요하면 AI 가 read_note 로 읽는다),
+ * 모드(묻기/변경 제안)를 덧붙인다. CLI 는 매번 새로 실행되므로 앱이 대화 맥락을 이어 준다.
+ */
+export function buildPrompt({ question, note, mode, history }: PromptInput): string {
+  const parts: string[] = []
+  const past = (history ?? []).slice(-HISTORY_TURNS)
+  if (past.length) parts.push('[Previous conversation — context only]\n' + past.map((h) => `Q: ${clip(h.q, HISTORY_CHARS)}\nA: ${clip(h.a, HISTORY_CHARS)}`).join('\n\n'))
+  parts.push(question.trim())
+  const ctx: string[] = []
+  if (note) ctx.push(`The note currently open in Nosidian: ${note}`)
+  if (mode === 'ask') ctx.push('Mode: read-only. Answer from what you read; you cannot propose changes in this conversation.')
+  else if (mode === 'edit') ctx.push('Mode: you may propose changes with propose_change when the user asks for a change.')
+  if (ctx.length) parts.push('[Context] ' + ctx.join(' '))
+  return parts.join('\n\n')
+}
+
+/**
+ * 답변 속 `경로.md` 를 [[경로|이름]] 링크로 바꿔, 눌러서 본문에서 열 수 있게 한다. 실제로 있는 노트만 바꾼다.
+ * (코드 블록 안은 건드리지 않는다)
+ */
+export function linkifyPaths(text: string, exists: (path: string) => boolean): string {
+  const fence = /(```[\s\S]*?```)/g
+  return text
+    .split(fence)
+    .map((chunk, i) => {
+      if (i % 2 === 1) return chunk // 코드 블록
+      return chunk.replace(/`([^`\n]+?\.md)`/g, (m, p: string) => {
+        const path = p.trim()
+        if (!exists(path)) return m
+        const name = path.slice(path.lastIndexOf('/') + 1).replace(/\.md$/i, '')
+        return `[[${path}|${name}]]`
+      })
+    })
+    .join('')
 }
 
 export interface Preset {

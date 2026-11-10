@@ -15,6 +15,8 @@ const path = require('path')
 
 const TOOL_NAMES = ['search_notes', 'read_note', 'list_projects', 'get_document_rules', 'propose_change', 'get_proposal_status']
 const ALLOWED_TOOLS = TOOL_NAMES.map((n) => `mcp__nosidian__${n}`)
+/** 묻기(읽기 전용) 모드: 변경을 낼 수 있는 도구(propose_change)와 제안 조회는 허용하지 않는다 */
+const READ_TOOLS = ALLOWED_TOOLS.filter((n) => !/propose_change|get_proposal_status/.test(n))
 const TIMEOUT_MS = 240_000
 const MAX_RESULT = 200_000
 const MAX_STDERR = 20_000
@@ -45,7 +47,7 @@ function findClaude({ env = process.env, platform = process.platform, exists = f
 }
 
 /** 고정된 실행 인자. 사용자 입력은 여기에 들어가지 않는다(프롬프트는 stdin 으로 보낸다) */
-function buildArgs({ mcpConfigPath, model }) {
+function buildArgs({ mcpConfigPath, model, readOnly }) {
   const args = [
     '-p',
     '--output-format', 'stream-json',
@@ -53,7 +55,7 @@ function buildArgs({ mcpConfigPath, model }) {
     '--mcp-config', mcpConfigPath,
     '--strict-mcp-config',
     '--tools', '',
-    '--allowedTools', ...ALLOWED_TOOLS,
+    '--allowedTools', ...(readOnly ? READ_TOOLS : ALLOWED_TOOLS),
     '--setting-sources', 'project',
     '--no-session-persistence',
     '--append-system-prompt', SYSTEM_PROMPT,
@@ -128,7 +130,7 @@ function createRunner(deps) {
   }
 
   /** 한 번 실행한다. onEvent 로 진행(tool·text)과 끝(result·error)을 알린다. 끝나면 임시 파일·서버를 정리한다 */
-  async function run({ prompt, model }, onEvent) {
+  async function run({ prompt, model, mode }, onEvent) {
     if (active) return onEvent({ type: 'error', code: 'busy', message: '이미 AI 가 실행 중이에요' })
     if (typeof prompt !== 'string' || !prompt.trim() || prompt.length > 20_000) return onEvent({ type: 'error', code: 'badPrompt', message: '질문이 비었거나 너무 길어요' })
     const f = find()
@@ -142,10 +144,11 @@ function createRunner(deps) {
     let mcp = null
     try {
       dir = fsx.mkdtempSync(path.join(deps.tmpdir || os.tmpdir(), 'nosidian-claude-'))
-      mcp = await deps.startMcp()
+      const readOnly = mode === 'ask'
+      mcp = await deps.startMcp({ readOnly })
       const cfgPath = path.join(dir, 'mcp.json')
       fsx.writeFileSync(cfgPath, JSON.stringify(mcpConfig(mcp)), { mode: 0o600 })
-      const child = deps.spawn(f.path, buildArgs({ mcpConfigPath: cfgPath, model }), { cwd: dir, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true })
+      const child = deps.spawn(f.path, buildArgs({ mcpConfigPath: cfgPath, model, readOnly }), { cwd: dir, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true })
       state.child = child
       let sawResult = false
       let grace = null
@@ -242,11 +245,11 @@ function register({ ipcMain, getWindow, startMcp }) {
       const w = getWindow()
       if (w && !w.isDestroyed()) w.webContents.send('claude:event', ev)
     }
-    void runner.run({ prompt: req && req.prompt, model: req && req.model }, send) // 진행·결과·오류는 모두 claude:event 로 간다
+    void runner.run({ prompt: req && req.prompt, model: req && req.model, mode: req && req.mode === 'ask' ? 'ask' : 'edit' }, send) // 진행·결과·오류는 모두 claude:event 로 간다
     return { ok: true }
   })
   ipcMain.handle('claude:cancel', () => runner.cancel())
   return runner
 }
 
-module.exports = { register, createRunner, findClaude, buildArgs, parseStreamLine, mcpConfig, killTree, ALLOWED_TOOLS, SYSTEM_PROMPT, TOOL_NAMES, summarize }
+module.exports = { register, createRunner, findClaude, buildArgs, parseStreamLine, mcpConfig, killTree, ALLOWED_TOOLS, READ_TOOLS, SYSTEM_PROMPT, TOOL_NAMES, summarize }

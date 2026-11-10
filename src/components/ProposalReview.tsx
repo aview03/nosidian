@@ -31,7 +31,7 @@ export function reasonText(reason: Reason, text?: string): string {
   }
 }
 
-const KIND: Record<string, string> = { create: '새 문서', modify: '수정', delete: '삭제', move: '이동' }
+export const KIND: Record<string, string> = { create: '새 문서', modify: '수정', delete: '삭제', move: '이동' }
 
 interface Row { sign: ' ' | '+' | '-' | '…'; text: string }
 
@@ -63,7 +63,7 @@ function diffRows(before: string, after: string): Row[] | null {
   return rows
 }
 
-function Diff({ p }: { p: Proposal }) {
+export function Diff({ p }: { p: Proposal }) {
   const files = useApp((s) => s.files)
   const cur = files[p.req.path]?.content ?? ''
   const rows = useMemo(() => {

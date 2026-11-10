@@ -25,6 +25,8 @@ export interface McpEnv {
   search(query: string, limit: number): { path: string; score: number; snippet: string }[]
   submit(req: AiRequest, by: string, summary?: string): { kind: 'apply' | 'pending' | 'denied'; verdict: { decision: string; reason: Reason; effect?: 'archive'; text?: string }; ops?: { op: string; path: string; to?: string }[]; id?: string }
   find(id: string): Proposal | undefined
+  /** 읽기 전용 대화(묻기): 변경안 제출·제안 조회를 거절한다 */
+  readOnly?: boolean
 }
 
 const MAX_READ = 200_000
@@ -56,6 +58,7 @@ const live = (env: McpEnv, path: string) => {
 export function callTool(name: string, rawArgs: unknown, env: McpEnv, client: string): unknown {
   if (!env.allowedVault) throw new ToolError('No vault is connected to external AI tools. In Nosidian: Settings > External AI (MCP) > choose a vault.')
   if (env.allowedVault !== env.vault.id) throw new ToolError(`The connected vault is not the one open in Nosidian right now (open vault: "${env.vault.name}"). Open the connected vault in Nosidian, or change it in Settings > External AI (MCP).`)
+  if (env.readOnly && (name === 'propose_change' || name === 'get_proposal_status')) throw new ToolError('This conversation is read-only (ask mode): changes cannot be proposed. Answer from what you read.')
   const args = (rawArgs && typeof rawArgs === 'object' ? rawArgs : {}) as Record<string, unknown>
   const vault = env.vault.name
 

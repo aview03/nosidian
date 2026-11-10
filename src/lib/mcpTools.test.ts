@@ -164,6 +164,19 @@ describe('propose_change: 정책 엔진을 그대로 거친다', () => {
   })
 })
 
+describe('읽기 전용 대화(묻기)', () => {
+  it('변경안 제출과 제안 조회는 거절하고, 읽기 도구는 그대로 쓴다(제안 처리까지 가지 않는다)', () => {
+    const x = env('ai_write: direct\n', { readOnly: true })
+    expect(() => callTool('propose_change', { action: 'create', path: 'a.md', content: 'x' }, x.e, 'c')).toThrow(/read-only/)
+    expect(() => callTool('get_proposal_status', { proposal_id: 'p' }, x.e, 'c')).toThrow(/read-only/)
+    expect(x.log).toHaveLength(0)
+    expect(callTool('read_note', { path: 'p/SPEC.md' }, x.e, 'c')).toMatchObject({ path: 'p/SPEC.md' })
+    expect(callTool('search_notes', { query: '견적서' }, x.e, 'c')).toMatchObject({ count: expect.any(Number) })
+    expect(callTool('list_projects', {}, x.e, 'c')).toMatchObject({ projects: expect.any(Array) })
+    expect(callTool('get_document_rules', {}, x.e, 'c')).toMatchObject({ rules_enabled: true })
+  })
+})
+
 describe('경로 정리', () => {
   it('앞의 ./·역슬래시·앞 슬래시를 정리하고 .. 와 빈 조각은 거절', () => {
     expect(cleanPath('./a/b.md')).toBe('a/b.md')

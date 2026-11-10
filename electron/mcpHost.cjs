@@ -37,7 +37,7 @@ function register({ ipcMain, app, getWindow }) {
   const pending = new Map()
 
   /** 본 창(렌더러)에 도구 호출을 넘기고 답을 기다린다 */
-  function callRenderer(tool, args, client, internal) {
+  function callRenderer(tool, args, client, internal, readOnly) {
     const win = getWindow()
     if (!win || win.isDestroyed()) return Promise.reject(new Error('The Nosidian window is closed. Open the Nosidian app (and keep it open) to use these tools.'))
     const id = crypto.randomUUID()
@@ -47,7 +47,7 @@ function register({ ipcMain, app, getWindow }) {
         reject(new Error('Nosidian did not answer in time'))
       }, REPLY_TIMEOUT_MS)
       pending.set(id, { resolve, reject, timer })
-      win.webContents.send('mcp:call', { id, tool, args, client, internal: internal === true })
+      win.webContents.send('mcp:call', { id, tool, args, client, internal: internal === true, readOnly: readOnly === true })
     })
   }
 
@@ -113,9 +113,10 @@ function register({ ipcMain, app, getWindow }) {
    * 앱 안 AI(claude CLI) 한 번 실행 동안만 여는 임시 MCP 서버: 무작위 포트·토큰, 지금 열려 있는 vault 하나에만 닿는다(internal).
    * 사용자가 외부 AI 용 MCP 를 켜 두지 않아도 쓸 수 있고, 외부 연결 설정(vault 선택·토큰)과 섞이지 않는다.
    */
-  async function startInternal() {
+  async function startInternal(opts) {
+    const readOnly = !!(opts && opts.readOnly)
     const token = crypto.randomBytes(24).toString('hex')
-    const s = createMcpServer({ token, version: app.getVersion(), callTool: (tool, args, client) => callRenderer(tool, args, client, true) })
+    const s = createMcpServer({ token, version: app.getVersion(), callTool: (tool, args, client) => callRenderer(tool, args, client, true, readOnly) })
     const port = await s.listen(0)
     return { url: `http://127.0.0.1:${port}/mcp`, token, close: () => s.close() }
   }

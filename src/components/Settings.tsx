@@ -214,6 +214,7 @@ export function Settings() {
           <h3>{t('단축키 (PC)')}</h3>
           <p className="hint small">{tx('{o} 빠른 이동 · {p} 명령 · {e} 읽기/편집 · {s} 동기화 · {alt} 뒤로/앞으로 · 링크는 {click}', { o: <kbd>Ctrl+O</kbd>, p: <kbd>Ctrl+P</kbd>, e: <kbd>Ctrl+E</kbd>, s: <kbd>Ctrl+S</kbd>, alt: <kbd>Alt+←/→</kbd>, click: <kbd>Ctrl+Click</kbd> })}</p>
           <p className="hint small">{tx('{f} 문서에서 찾기 · {s} 전체 검색', { f: <kbd>Ctrl+F</kbd>, s: <kbd>Ctrl+Shift+F</kbd> })}</p>
+          {desktop()?.claude && <p className="hint small">{tx('{a} AI 패널', { a: <kbd>Ctrl+Shift+A</kbd> })}</p>}
         </section>
       </div>
     </div>

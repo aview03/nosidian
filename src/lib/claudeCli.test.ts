@@ -143,6 +143,38 @@ describe('고정된 안전 옵션', () => {
   })
 })
 
+describe('묻기(읽기 전용) 모드', () => {
+  const allowedOf = (args: string[]) => {
+    const i = args.indexOf('--allowedTools')
+    const out: string[] = []
+    for (let k = i + 1; k < args.length && !args[k].startsWith('--'); k++) out.push(args[k])
+    return out
+  }
+  it('읽기 도구 4개만 허용하고, 변경 제안·제안 조회 도구는 주지 않는다', () => {
+    const ro = allowedOf(c.buildArgs({ mcpConfigPath: 'x', readOnly: true }))
+    expect(ro).toEqual(c.READ_TOOLS)
+    expect(ro).toHaveLength(4)
+    expect(ro.join(' ')).not.toMatch(/propose_change|get_proposal_status/)
+    expect(allowedOf(c.buildArgs({ mcpConfigPath: 'x' }))).toEqual(c.ALLOWED_TOOLS)
+  })
+  it('실행기는 mode 에 따라 임시 MCP 서버를 읽기 전용으로 연다', async () => {
+    const seen: any[] = []
+    const mk = async (mode?: string) => {
+      const h = await harness({ startMcp: async (o: any) => { seen.push(o); return { url: 'http://127.0.0.1:1/mcp', token: 't', close: async () => {} } } })
+      const p = h.runner.run({ prompt: 'q', mode }, h.onEvent)
+      await new Promise((r) => setTimeout(r, 20))
+      await h.child.finish([resultLine()])
+      await p
+      return h
+    }
+    const ask = await mk('ask')
+    expect(allowedOf(ask.rec.spawn.args)).toEqual(c.READ_TOOLS)
+    await mk('edit')
+    await mk(undefined)
+    expect(seen.map((o) => o.readOnly)).toEqual([true, false, false])
+  })
+})
+
 describe('출력 해석(stream-json)', () => {
   it('글·도구 호출·결과', () => {
     expect(c.parseStreamLine(textLine('안녕'))).toEqual([{ type: 'text', text: '안녕' }])

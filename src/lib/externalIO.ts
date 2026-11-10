@@ -54,7 +54,7 @@ export interface McpApi {
   get(): Promise<McpStatus>
   set(patch: { enabled?: boolean; regenerate?: boolean }): Promise<McpStatus>
   reply(id: string, result: { ok: unknown } | { error: string }): Promise<void>
-  onCall(cb: (call: { id: string; tool: string; args: unknown; client: string; internal?: boolean }) => void): () => void
+  onCall(cb: (call: { id: string; tool: string; args: unknown; client: string; internal?: boolean; readOnly?: boolean }) => void): () => void
 }
 export interface ClaudeStatus {
   found: boolean
@@ -72,7 +72,8 @@ export type ClaudeEvent =
   | { type: 'error'; code: string; message: string }
 export interface ClaudeApi {
   detect(): Promise<ClaudeStatus>
-  run(req: { prompt: string; model?: string }): Promise<{ ok: boolean }>
+  /** mode: ask = 읽기 전용(변경 제안 도구 없음), edit = 변경 제안 허용 */
+  run(req: { prompt: string; model?: string; mode?: 'ask' | 'edit' }): Promise<{ ok: boolean }>
   cancel(): Promise<boolean>
   onEvent(cb: (e: ClaudeEvent) => void): () => void
 }

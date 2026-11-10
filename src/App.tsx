@@ -21,7 +21,8 @@ import { NewProject } from './components/NewProject'
 import { NewNote } from './components/NewNote'
 import { ViewEditor } from './components/ViewEditor'
 import { ProposalReview } from './components/ProposalReview'
-import { AiAssistant } from './components/AiAssistant'
+import { AiPanel } from './components/AiPanel'
+import { startAiThread, useAiThread } from './lib/aiThread'
 import { CalendarMain, CalendarMobile, CalendarSide, DayPanel, TodayView } from './components/Calendar'
 import { NoteView } from './components/NoteView'
 import { Settings } from './components/Settings'
@@ -89,6 +90,8 @@ export default function App() {
   useEffect(() => (ready ? startNativeBridge() : undefined), [ready])
   useEffect(() => (ready ? startMcpBridge() : undefined), [ready])
   useEffect(() => void (ready && migrateLlmKey()), [ready])
+  useEffect(() => (ready ? startAiThread() : undefined), [ready])
+  const aiOpen = useAiThread((s) => s.open)
   // 이미 쌓여 있던 빈 Daily 노트를 vault 마다 한 번만 자동 정리한다 (이후에 생긴 것은 일정을 지울 때 정리됨 / 수동 정리 명령)
   const activeVaultId = useApp((s) => s.settings.activeVault)
   useEffect(() => {
@@ -150,6 +153,7 @@ export default function App() {
       else if (mod && e.key.toLowerCase() === 's') { e.preventDefault(); if (app.external && app.tab === 'note') void app.saveExternal(); else void app.sync() }
       else if (mod && !e.shiftKey && e.key.toLowerCase() === 'f') { e.preventDefault(); app.openFind() }
       else if (mod && e.shiftKey && e.key.toLowerCase() === 'f') { e.preventDefault(); app.go('search') }
+      else if (mod && e.shiftKey && e.key.toLowerCase() === 'a' && desktop()?.claude) { e.preventDefault(); useAiThread.getState().toggle() }
       else if (e.altKey && e.key === 'ArrowLeft') { e.preventDefault(); app.back() }
       else if (e.altKey && e.key === 'ArrowRight') { e.preventDefault(); app.forward() }
       else if (e.key === 'Escape') { if (!app.palette && !app.sheet && !app.vaultSheet) app.closeFind(); app.setPalette(null); app.setSheet(null); app.setVaultSheet(false) }
@@ -213,13 +217,14 @@ export default function App() {
     }
     const railActive = (id: Tab) => (id === 'files' || id === 'search' ? leftTab === id && mainTab === 'note' : mainTab === id)
     return (
-      <div className="layout wide" key={lang}>
+      <div className={`layout wide${aiOpen ? ' ai-open' : ''}`} key={lang}>
         <nav className="rail">
           <button className={mainTab === 'work' || mainTab === 'project' ? 'on' : ''} onClick={() => useApp.getState().go('work')} title={t('내 업무')}><Icon name="tasks" /></button>
           <button className={mainTab === 'calendar' ? 'on' : ''} onClick={() => useApp.getState().go('calendar')} title={t('캘린더')}><Icon name="calendar" /></button>
           <button className={leftOpen && leftTab === 'files' && mainTab === 'note' ? 'on' : ''} onClick={() => pickLeft('files')} title={t('메모')}><Icon name="note" /></button>
           <button className={leftOpen && railActive('search') ? 'on' : ''} onClick={() => pickLeft('search')} title={t('검색 (Ctrl+Shift+F)')}><Icon name="search" /></button>
           <div className="grow" />
+          {desktop()?.claude && <button className={aiOpen ? 'on' : ''} onClick={() => useAiThread.getState().toggle()} title={t('AI (Ctrl+Shift+A)')} aria-label={t('AI 패널 열기/닫기')}><Icon name="spark" /></button>}
           <SyncBtn cls="rail-btn" />
           <button onClick={() => useApp.getState().patchSettings({ leftOpen: !leftOpen })} title={leftOpen ? t('사이드바 접기') : t('사이드바 펴기')} aria-label={t('왼쪽 사이드바 접기/펴기')}><Icon name="panel-left" /></button>
           <button className={railActive('settings') ? 'on' : ''} onClick={() => useApp.getState().go('settings')} title={t('설정')}><Icon name="settings" /></button>
@@ -237,6 +242,7 @@ export default function App() {
             {mainTab === 'graph' ? <Graph /> : mainTab === 'settings' ? <Settings /> : mainTab === 'work' ? <WorkHome /> : mainTab === 'project' ? <ProjectHub /> : mainTab === 'calendar' ? (<><CalendarMain /><DayPanel /></>) : <NoteView wide />}
           </div>
         </main>
+        <AiPanel />
         <Palette />
         <EventEditor />
         <TaskEditor />
@@ -244,7 +250,6 @@ export default function App() {
         <NewNote />
         <ViewEditor />
         <ProposalReview />
-        <AiAssistant />
         <VaultSheet />
         <Dialogs />
       </div>
@@ -284,7 +289,6 @@ export default function App() {
         <NewNote />
         <ViewEditor />
         <ProposalReview />
-        <AiAssistant />
       <VaultSheet />
       <Dialogs />
     </div>

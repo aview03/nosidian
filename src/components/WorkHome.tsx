@@ -10,8 +10,6 @@ import { Icon } from './Icon'
 import { Select } from './Select'
 import { TileArranger } from './TileArranger'
 import { ProposalBanner } from './ProposalReview'
-import { useAiUi } from './AiAssistant'
-import { desktop } from '../lib/externalIO'
 import { openMyNameSetting } from './Settings'
 import { applyView, readViews, type View } from '../lib/views'
 import { customName, isCustom, resolveTiles, setCollapsed, setHidden, setLimit, type BuiltinTile } from '../lib/tiles'
@@ -278,7 +276,6 @@ export function WorkHome() {
       <div className="panel-head">
         <h2>{t('내 업무')}<small>{fmtDay(today)}</small></h2>
         <div className="head-actions">
-          {desktop()?.claude && <button className="icon-btn" title={t('AI 에게 묻기')} aria-label={t('AI 에게 묻기')} onClick={() => useAiUi.getState().setOpen(true)}><Icon name="spark" /></button>}
           <button className={`icon-btn${editing ? ' on' : ''}`} title={t('화면 편집')} aria-pressed={editing} onClick={() => setEditing(!editing)}><Icon name="sliders" /></button>
         </div>
       </div>

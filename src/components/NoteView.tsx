@@ -7,6 +7,7 @@ import { useApp } from '../lib/app'
 import { baseName } from '../lib/links'
 import { renameNoteDialog, deleteNoteDialog, copyNoteLink } from '../lib/noteActions'
 import { Reader, scrollToAnchor } from './Reader'
+import { useAiThread } from '../lib/aiThread'
 import { Editor } from './Editor'
 import { InfoPanel } from './InfoPanel'
 import { FindBar } from './FindBar'
@@ -35,6 +36,7 @@ export function NoteView({ wide }: { wide: boolean }) {
   const index = useApp((s) => s.index)
   const bookmarks = useApp((s) => s.settings.bookmarks)
   const rightOpen = useApp((s) => s.settings.rightOpen)
+  const aiOpen = useAiThread((s) => s.open)
   const findOpen = useApp((s) => s.findOpen)
   const sheet = useApp((s) => s.sheet)
   const hpos = useApp((s) => s.hpos)
@@ -206,7 +208,7 @@ export function NoteView({ wide }: { wide: boolean }) {
           )}
           </div>
         </div>
-        {wide && rightOpen && (
+        {wide && rightOpen && !aiOpen && (
           <aside className="side-right">
             <div className="side-right-body"><InfoPanel path={current} onScroll={scrollTo} /></div>
             <div className="side-foot">
@@ -214,9 +216,9 @@ export function NoteView({ wide }: { wide: boolean }) {
             </div>
           </aside>
         )}
-        {wide && !rightOpen && (
+        {wide && (!rightOpen || aiOpen) && (
           <aside className="side-right-mini">
-            <button className="icon-btn" onClick={() => app.patchSettings({ rightOpen: true })} title={t('링크·목차 펴기')} aria-label={t('오른쪽 사이드바 펴기')}><Icon name="panel-right" /></button>
+            <button className="icon-btn" onClick={() => { useAiThread.getState().setOpen(false); app.patchSettings({ rightOpen: true }) }} title={t('링크·목차 펴기')} aria-label={t('오른쪽 사이드바 펴기')}><Icon name="panel-right" /></button>
           </aside>
         )}
       </div>
