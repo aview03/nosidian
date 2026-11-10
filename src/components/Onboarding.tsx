@@ -1,6 +1,7 @@
 import { t } from '../lib/i18n'
 import { tx } from '../lib/tx'
-import { LANGS, LANG_NAMES, type LangPref } from '../lib/i18n'
+import { LANGS, LANG_NAMES, resolveLang, type LangPref } from '../lib/i18n'
+import { defaultDailyFolder } from '../lib/defaultFolders'
 import { useState } from 'react'
 import { useApp } from '../lib/app'
 import { SYNC_LABEL, type CloudKind, type SyncKind } from '../lib/types'
@@ -172,7 +173,7 @@ function Guide({ step, setStep, children }: { step: Step; setStep(s: Step): void
             </Soft>
           ))}
         </div>
-        <Soft d={2500} className="ob-actions"><button className="primary big" onClick={() => setStep('hello')}>{t('계속')}</button></Soft>
+        <Soft d={2500} className="ob-actions"><button className="primary big" onClick={() => { useApp.getState().patchSettings({ dailyFolder: defaultDailyFolder(resolveLang(lang)) }); setStep('hello') }}>{t('계속')}</button></Soft>
       </div>
     )
   }
@@ -192,11 +193,11 @@ function Guide({ step, setStep, children }: { step: Step; setStep(s: Step): void
         <Soft d={0} className="ob-orbwrap"><Orb size={72} className="ob-orb" /></Soft>
         <Soft as="h2" d={300} className="ob-q">{t('먼저, 어떻게 불러 드리면 좋을까요?')}</Soft>
         <Soft d={1100} className="ob-field">
-          <input className="ob-name" value={name} placeholder={t('이름이나 별명')} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) setStep('role') }} autoFocus />
+          <input className="ob-name" value={name} placeholder={t('이름이나 별명')} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing && call) setStep('role') }} autoFocus />
           <small>{t('나중에 언제든 바꿀 수 있어요')}</small>
         </Soft>
         <Soft d={1700} className="ob-actions">
-          <button className="primary big" onClick={() => setStep('role')}>{call ? t('다음') : t('다음에 할게요')}</button>
+          <button className="primary big" disabled={!call} onClick={() => setStep('role')}>{t('다음')}</button>
         </Soft>
       </div>
     )
@@ -236,25 +237,16 @@ export function Onboarding() {
   return (
     <div className="onboard">
       <div className="onboard-card">
-        {step === 'start' && (
-          <Soft d={0}>
-            <img className="logo" src="/logo.png" alt="Nosidian" />
-            <h1>Nosidian</h1>
-            <div className="tag-line">
-              <p className="tag-head">{t('Markdown, 딱 필요한 만큼만.')}</p>
-              <p className="tag-sub">{t('기록하고, 연결하고, 자유롭게 보관하세요.')}<br />{t('복잡한 기능 없이 기본에 충실한 Markdown 공간.')}</p>
-            </div>
-          </Soft>
-        )}
         {step === 'hello' && <Soft d={0}><h1 className="ob-brand">Nosidian</h1></Soft>}
         <Guide step={step} setStep={setStep}>
           {kind === null ? (
             <>
-              <Soft as="h2" d={200} className="ob-q">{t('노트는 어떻게 시작해 볼까요?')}</Soft>
+              <Soft d={0} className="ob-orbwrap"><Orb size={72} className="ob-orb" /></Soft>
+              <Soft as="h2" d={300} className="ob-q">{t('노트는 어떻게 시작해 볼까요?')}</Soft>
               <div className="onboard-actions">
-                <Soft d={700}><button className="primary big" onClick={() => void useApp.getState().startDemo()}>{t('예제 노트로 둘러보기')}</button></Soft>
-                <Soft d={900}><button className="big" onClick={() => void importFromPicker()}>{t('내 기기의 md 파일 열기')}</button></Soft>
-                <Soft d={1100} className="ob-connect">
+                <Soft d={1000}><button className="primary big" onClick={() => void useApp.getState().startDemo()}>{t('예제 노트로 둘러보기')}</button></Soft>
+                <Soft d={1200}><button className="big" onClick={() => void importFromPicker()}>{t('내 기기의 md 파일 열기')}</button></Soft>
+                <Soft d={1500} className="ob-connect">
                   <small>{t('이미 쓰는 노트가 있다면 연결해서 가져와요')}</small>
                   <div className="ob-connect-row">
                     {(Object.keys(SYNC_LABEL) as SyncKind[]).map((k) => (

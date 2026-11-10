@@ -144,3 +144,18 @@ export function untitledCleanup(files: Record<string, NoteFile>, current: string
 export function newMemoPath(files: Record<string, NoteFile>, dir: string): string {
   return freePath(join(dir, UNTITLED + '.md'), new Set(live(files).map((f) => f.path)))
 }
+
+/** 앱이 쓰는 최상위 폴더: 지우거나 이름을 바꾸거나 옮기면 프로젝트·일정·규칙이 끊긴다 */
+export function protectedFolder(path: string, dailyFolder: string): 'projects' | 'daily' | 'system' | null {
+  if (path.includes('/')) return null // 하위 폴더는 지울 수 있다(지울 때 경고)
+  if (path === '프로젝트' || path === 'Projects') return 'projects'
+  if (dailyFolder.trim() && path === dailyFolder.trim().replace(/\/$/, '')) return 'daily'
+  if (path === '_workspace' || path === '_보관' || path === 'Templates') return 'system'
+  return null
+}
+
+/** 폴더 안의 프로젝트(type: project 노트) 수 — 폴더를 지울 때 "프로젝트가 통째로 사라진다"고 경고하는 데 쓴다 */
+export function projectsIn(files: Record<string, NoteFile>, folder: string): number {
+  const re = /^---\r?\n[\s\S]*?\btype:\s*['"]?project\b/i
+  return live(files).filter((f) => f.path.startsWith(folder + '/') && re.test(f.content)).length
+}

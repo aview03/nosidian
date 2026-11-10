@@ -1,7 +1,8 @@
 // 새 프로젝트 마법사: 템플릿을 고르고 이름·마감일·담당자를 넣으면 폴더와 문서를 만들어 준다.
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useApp } from '../lib/app'
-import { t } from '../lib/i18n'
+import { getLang, t } from '../lib/i18n'
+import { projectsRoot } from '../lib/defaultFolders'
 import { todayYmd } from '../lib/calendar'
 import { parseMe } from '../lib/work'
 import { builtinTemplates, planProject, vaultTemplates } from '../lib/projectTemplates'
@@ -39,7 +40,8 @@ function Wizard() {
   const create = () => {
     if (noName) return
     const app = useApp.getState()
-    const plan = planProject(chosen, { name: name.trim(), owner: owner.trim(), due, today: todayYmd() }, t('프로젝트'), Object.keys(app.files).filter((p) => !app.files[p].deleted))
+    const live = Object.keys(app.files).filter((p) => !app.files[p].deleted)
+    const plan = planProject(chosen, { name: name.trim(), owner: owner.trim(), due, today: todayYmd() }, projectsRoot(live, getLang()), live)
     for (const [path, content] of Object.entries(plan.files)) app.createNote(path, content, false)
     app.say(t('"{name}" 프로젝트를 만들었어요', { name: name.trim() }))
     close()

@@ -723,7 +723,7 @@ export const useApp = create<AppState>((set, get) => {
     },
     async startDemo() {
       await get().addVault(t('예제 노트'), { silent: true })
-      const demo = demoNotes(getLang())
+      const demo = demoNotes(getLang(), get().settings.dailyFolder.trim().replace(/\/$/, '') || undefined)
       const files: Record<string, NoteFile> = {}
       for (const [path, content] of Object.entries(demo.notes)) files[path] = { path, content, sha: null, dirty: false, mtime: Date.now() }
       await db.putFiles(Object.values(files))

@@ -45,7 +45,7 @@ export function openMyNameSetting() {
 /** 내 프로필: 이름 + 내가 하는 일(역할). 설정 맨 위 */
 function ProfileCard() {
   const persona = useApp((x) => personaOf(x.settings.persona))
-  const options = [{ value: '', label: t('정하지 않음') }, ...PERSONAS.map((p) => ({ value: p as string, label: t(PERSONA_INFO[p].label), hint: t(PERSONA_INFO[p].hint) }))]
+  const options = [{ value: '', label: t('정하지 않음') }, ...PERSONAS.map((p) => ({ value: p as string, label: t(PERSONA_INFO[p].label) }))]
   /** 역할을 고르면 내 업무 화면도 그 구성으로 맞출지 묻는다 */
   const pick = async (v: string) => {
     const id = personaOf(v || null)
@@ -121,12 +121,14 @@ function VaultCard() {
   return (
     <section className="card">
       <h3>{t('내 노트 보관함')}</h3>
-      <div className="kv"><span>{t('현재')}</span><b>{vault.name}</b></div>
-      <div className="kv"><span>{t('동기화')}</span><b>{vaultSub(vault)}</b></div>
-      <div className="btn-row">
-        <button onClick={() => app.setVaultSheet(true)}>{t('전환')}</button>
-        <button onClick={() => void createVaultFlow()}>{t('＋ 새 vault')}</button>
-        <button onClick={() => void renameVaultFlow(vault)}>{t('이름 바꾸기')}</button>
+      <div className="vault-now">
+        <b>{vault.name}</b>
+        <span>{vaultSub(vault)}</span>
+      </div>
+      <button className="big" onClick={() => app.setVaultSheet(true)}>{t('다른 보관함으로 전환')}</button>
+      <div className="vault-more">
+        <button className="btn-link" onClick={() => void createVaultFlow()}>{t('＋ 새 vault')}</button>
+        <button className="btn-link" onClick={() => void renameVaultFlow(vault)}>{t('이름 바꾸기')}</button>
       </div>
       <details className="more">
         <summary>{t('고급')}</summary>
@@ -299,7 +301,7 @@ function WorkGroup() {
     <section className="card">
       <h3>{t('업무와 문서')}</h3>
       <div className="kv"><span>{t('내 업무 화면 구성')}</span>
-        <button onClick={() => { app.go('work'); useWorkUi.setState({ editing: true }) }}>{t('편집하기')}</button>
+        <button onClick={() => { app.go('work'); useWorkUi.setState({ editing: true, returnTo: 'settings' }) }}>{t('편집하기')}</button>
       </div>
       <div className="kv"><span>{t('문서 규칙')}</span>
         <button onClick={() => app.openNote(DOCRULES_PATH)}>{t('규칙 파일 열기')}</button>

@@ -126,3 +126,52 @@ describe('저장소: 일괄 이동·삭제', () => {
     expect(s.settings.bookmarks).toEqual([])
   })
 })
+
+import { defaultDailyFolder, defaultProjectsFolder, projectsRoot } from './defaultFolders'
+import { calendarDemo } from './demo.cal'
+import { demoNotes } from './demo'
+import { projectsIn, protectedFolder } from './folderOps'
+
+describe('기본 폴더 이름(언어별)', () => {
+  it('한국어는 할 일·프로젝트, 그 밖의 언어는 Tasks·Projects', () => {
+    expect(defaultDailyFolder('ko')).toBe('할 일')
+    expect(defaultProjectsFolder('ko')).toBe('프로젝트')
+    for (const l of ['en', 'zh', 'ja', 'fr', 'es'] as const) {
+      expect(defaultDailyFolder(l)).toBe('Tasks')
+      expect(defaultProjectsFolder(l)).toBe('Projects')
+    }
+  })
+  it('새 프로젝트의 최상위 폴더: 이미 쓰는 폴더가 있으면 언어를 바꿔도 그것을 쓴다', () => {
+    expect(projectsRoot([], 'ko')).toBe('프로젝트')
+    expect(projectsRoot([], 'en')).toBe('Projects')
+    expect(projectsRoot(['Projects/A/개요.md', 'x.md'], 'ko')).toBe('Projects')
+    expect(projectsRoot(['프로젝트/A/개요.md'], 'en')).toBe('프로젝트')
+  })
+  it('예제 vault 의 날짜별 노트는 지정한 Daily 폴더에 만들어진다', () => {
+    expect(Object.keys(calendarDemo(true, '할 일')).some((p) => p.startsWith('할 일/'))).toBe(true)
+    expect(Object.keys(calendarDemo(false, 'Tasks')).some((p) => p.startsWith('Tasks/'))).toBe(true)
+    expect(Object.keys(calendarDemo(false)).some((p) => p.startsWith('Daily/'))).toBe(false)
+    expect(Object.keys(demoNotes('ko', 'Daily').notes).some((p) => p.startsWith('Daily/'))).toBe(true)
+    expect(Object.keys(demoNotes('ko').notes).some((p) => p.startsWith('할 일/'))).toBe(true)
+  })
+})
+
+describe('앱이 쓰는 폴더 보호', () => {
+  it('프로젝트·Daily·_workspace 최상위 폴더는 보호하고, 하위 폴더·일반 폴더는 아니다', () => {
+    expect(protectedFolder('프로젝트', 'Daily')).toBe('projects')
+    expect(protectedFolder('Projects', '할 일')).toBe('projects')
+    expect(protectedFolder('Daily', 'Daily')).toBe('daily')
+    expect(protectedFolder('할 일', '할 일')).toBe('daily')
+    expect(protectedFolder('_workspace', 'Daily')).toBe('system')
+    expect(protectedFolder('_보관', 'Daily')).toBe('system')
+    expect(protectedFolder('프로젝트/행사 준비', 'Daily')).toBeNull()
+    expect(protectedFolder('일상', 'Daily')).toBeNull()
+    expect(protectedFolder('Daily', '')).toBeNull() // Daily 폴더를 쓰지 않는 설정이면 일반 폴더
+  })
+  it('폴더 안의 프로젝트 수(type: project 노트)', () => {
+    const files = vault([f('프로젝트/A/개요.md', '---\ntype: project\n---\n# A'), f('프로젝트/B/개요.md', '---\ntype: "project"\n---\n'), f('프로젝트/B/메모.md', '# 메모'), f('프로젝트/C/x.md', '---\ntype: note\n---\n')])
+    expect(projectsIn(files, '프로젝트')).toBe(2)
+    expect(projectsIn(files, '프로젝트/A')).toBe(1)
+    expect(projectsIn(files, '프로젝트/C')).toBe(0)
+  })
+})

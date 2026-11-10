@@ -210,6 +210,13 @@ export function WorkHome() {
   const tiles = resolveTiles(layout, customs)
   const patch = useWorkUi.getState().patchLayout
   const setEditing = (on: boolean) => useWorkUi.setState({ editing: on })
+  /** 완료: 설정에서 들어왔으면 설정으로 돌아간다 */
+  const finishEditing = () => {
+    const back = useWorkUi.getState().returnTo
+    useWorkUi.setState({ editing: false, returnTo: null })
+    if (back) useApp.getState().go(back)
+  }
+
 
   const dataFor = (id: string): TileData | null => {
     if (isCustom(id)) {
@@ -279,7 +286,7 @@ export function WorkHome() {
         <h2>{t('내 업무')}<small>{fmtDay(today)}</small></h2>
         <div className="head-actions">
           {editing ? (
-            <button className="primary head-done" onClick={() => setEditing(false)}>{t('완료')}</button> // 설정 버튼이 있던 자리(헤더 오른쪽 끝)에서 끝낸다
+            <button className="primary head-done" onClick={finishEditing}>{t('완료')}</button> // 설정 버튼이 있던 자리(헤더 오른쪽 끝)에서 끝낸다
           ) : (
             <button className="icon-btn" title={t('화면 편집')} aria-pressed={false} onClick={() => setEditing(true)}><Icon name="sliders" /></button>
           )}

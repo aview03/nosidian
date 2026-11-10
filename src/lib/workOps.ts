@@ -22,6 +22,8 @@ interface WorkUi {
   patchLayout(f: (l: Layout) => Layout): void
   /** 화면 편집 중(타일 순서·숨기기·추가) */
   editing: boolean
+  /** 화면 편집을 끝내면 돌아갈 곳(설정에서 들어왔으면 'settings'). 없으면 내 업무에 그대로 있는다 */
+  returnTo: 'settings' | null
   /** 사용자 타일 편집기: view 가 있으면 수정, 없으면 새 타일 */
   viewEditor: null | { view?: View }
   openHub(path: string): void
@@ -41,6 +43,7 @@ export const useWorkUi = create<WorkUi>((set) => ({
       return { layout }
     }),
   editing: false,
+  returnTo: null,
   viewEditor: null,
   openHub: (path) => {
     set({ hub: path })

@@ -152,8 +152,8 @@ status: 비교 중
 }
 
 /** 예제 노트: 한국어는 한국어판, 그 외 언어는 영어판. 일정 체험용 노트(오늘 기준 날짜)를 함께 넣는다 */
-export function demoNotes(lang: Lang): { notes: Record<string, string>; home: string } {
+export function demoNotes(lang: Lang, daily?: string): { notes: Record<string, string>; home: string } {
   const ko = lang === 'ko'
   const base = ko ? DEMO_NOTES_KO : DEMO_NOTES_EN
-  return { notes: { ...base, ...calendarDemo(ko) }, home: ko ? DEMO_HOME_KO : DEMO_HOME_EN }
+  return { notes: { ...base, ...calendarDemo(ko, daily) }, home: ko ? DEMO_HOME_KO : DEMO_HOME_EN }
 }

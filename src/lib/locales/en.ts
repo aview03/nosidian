@@ -989,5 +989,11 @@ const dict: Record<string, string> = {
   '내 업무 화면을 처음 구성으로 되돌릴까요?': 'Reset My Work to its starting layout?',
   '초기화': 'Reset',
   '내 업무 화면 초기화': 'Reset My Work layout',
+  '"{name}" 폴더는 모든 프로젝트가 들어 있어서 지우거나 바꿀 수 없어요. 프로젝트 폴더는 안에서 하나씩 지울 수 있어요.': '"{name}" holds all your projects, so it can\'t be deleted or changed. You can delete project folders inside it one by one.',
+  '"{name}" 폴더는 날짜별 노트(일정)가 들어 있어서 지우거나 바꿀 수 없어요. 노트는 안에서 하나씩 지울 수 있어요.': '"{name}" holds your daily notes (schedule), so it can\'t be deleted or changed. You can delete notes inside it one by one.',
+  '"{name}" 폴더는 앱이 쓰는 폴더라 지우거나 바꿀 수 없어요.': '"{name}" is used by the app, so it can\'t be deleted or changed.',
+  '프로젝트 {p}개를 포함해 노트 {n}개가 모두 지워져요. 되돌릴 수 없고, 동기화하면 원격에서도 삭제돼요.': 'All {n} notes, including {p} project(s), will be deleted. This cannot be undone and is removed remotely on next sync.',
+  '프로젝트가 들어 있는 폴더예요. 정말 삭제할까요?': 'This folder contains a project. Delete it for real?',
+  '다른 보관함으로 전환': 'Switch to another vault',
 }
 export default dict

@@ -1296,3 +1296,31 @@ details.adv-card[open] > summary { margin-bottom: 8px; }
 
 .small-reset { font-size: 12.5px; color: var(--muted); padding: 8px 0 2px; min-height: 0; }
 .modal-note { margin: -4px 0 0; font-size: 12.5px; color: var(--muted); }
+.onboard button.primary.big:disabled { background: #e9e2e4; color: #a59ea2; box-shadow: none; text-shadow: none; cursor: default; }
+.onboard h1 { margin-bottom: 18px; }
+.profile .kv .sel-btn { min-width: 200px; }
+.memo-row { -webkit-touch-callout: none; }
+
+/* ── 내 업무: 타일마다 면(패널)을 깔아 구분한다 ───────────────── */
+.wrk-tiles > .wrk-tile.wrk-sec { margin-top: 14px; background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r); padding: 0 0 6px; overflow: hidden; min-width: 0; }
+.wrk-tiles > .wrk-tile.wrk-sec:first-of-type { margin-top: 10px; }
+.wrk-tile > .wrk-tilehead { margin: 0; padding: 4px 8px 4px 14px; border-bottom: 1px solid var(--border); background: var(--bg3); min-height: 40px; }
+.wrk-tile.collapsed { margin-top: 14px; }
+.wrk-tile.collapsed > .wrk-tilehead { border-bottom: none; }
+.wrk-tile .wrk-tiletitle { color: var(--text); }
+.wrk-tile .wrk-tname { font-size: 14.5px; font-weight: 700; }
+.wrk-tile .wrk-count { background: var(--bg); color: var(--muted); border-radius: 10px; min-width: 22px; height: 20px; padding: 0 7px; font-size: 12px; font-weight: 600; display: inline-grid; place-items: center; }
+.wrk-tile .wrk-tilebody { padding: 4px 4px 2px; }
+.wrk-tile .wrk-tilebody > .hint { margin: 8px 12px; }
+.wrk-tile.danger { border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); }
+.wrk-tile.danger > .wrk-tilehead { background: color-mix(in srgb, var(--accent) 10%, var(--bg3)); }
+.wrk-tile.danger .wrk-tname { color: var(--accent); }
+@media (min-width: 900px) {
+  .wrk-tiles { column-gap: 20px; }
+  .wrk-tiles > .wrk-tile.wrk-sec, .wrk-tiles > .wrk-tile.wrk-sec:first-of-type { margin-top: 16px; }
+}
+.vault-now { display: flex; flex-direction: column; gap: 2px; margin: 4px 0 12px; }
+.vault-now b { font-size: 19px; }
+.vault-now span { font-size: 13px; color: var(--muted); }
+.vault-more { display: flex; gap: 4px; margin-top: 6px; }
+.vault-more .btn-link { padding: 6px 10px 6px 0; }

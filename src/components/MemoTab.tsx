@@ -5,7 +5,7 @@ import { create } from 'zustand'
 import { useApp } from '../lib/app'
 import { t } from '../lib/i18n'
 import { ask, confirmAsk } from '../lib/dialog'
-import { allFolders, cleanName, dirOf, listDir, newMemoPath, planDelete, planMove, planRenameFolder, untitledCleanup, type MemoNote } from '../lib/folderOps'
+import { allFolders, cleanName, dirOf, listDir, newMemoPath, planDelete, planMove, planRenameFolder, projectsIn, protectedFolder, untitledCleanup, type MemoNote } from '../lib/folderOps'
 import { renameNoteDialog } from '../lib/noteActions'
 import { importFromPicker } from '../lib/importFiles'
 import { Icon } from './Icon'
@@ -31,7 +31,7 @@ const split = (sel: Set<string>) => ({
 })
 
 /** 꾹 누르기: 0.45초 누르고 있으면 onLong. 이어지는 클릭은 막는다 */
-function useLongPress(onLong: () => void) {
+export function useLongPress(onLong: () => void) {
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
   const start = useRef({ x: 0, y: 0 })
   const fired = useRef(0)
@@ -45,7 +45,14 @@ function useLongPress(onLong: () => void) {
     onPointerMove: (e: RPointerEvent) => { if (Math.hypot(e.clientX - start.current.x, e.clientY - start.current.y) > 10) clearTimeout(timer.current) },
     onPointerUp: () => clearTimeout(timer.current),
     onPointerCancel: () => clearTimeout(timer.current),
-    onContextMenu: (e: React.MouseEvent) => { e.preventDefault(); clearTimeout(timer.current); fired.current = Date.now(); onLong() },
+    // 손가락으로 꾹 누르면 우리 타이머가 먼저 선택하고 곧이어 브라우저의 contextmenu 도 온다 — 이때 또 선택하면 방금 선택이 취소돼 선택 모드가 꺼져 버린다. 마우스 우클릭만 선택으로 본다
+    onContextMenu: (e: React.MouseEvent) => {
+      e.preventDefault()
+      if (Date.now() - fired.current < 1500) return
+      clearTimeout(timer.current)
+      fired.current = Date.now()
+      onLong()
+    },
     onClickCapture: (e: React.MouseEvent) => { if (Date.now() - fired.current < 700) { e.stopPropagation(); e.preventDefault() } },
   }
 }
@@ -105,8 +112,17 @@ export function MemoTab({ sync }: { sync?: ReactNode }) {
     const p = newMemoPath(files, dir)
     app.createNote(p, '', true) // 이름은 나중에 첫 줄로 정해진다
   }
+  /** 앱이 쓰는 폴더(프로젝트·일정·규칙)는 지우거나 이름을 바꾸거나 옮기지 못한다. 막았으면 true */
+  const guarded = () => {
+    const daily = useApp.getState().settings.dailyFolder
+    const hit = picked.folders.find((f) => protectedFolder(f, daily))
+    if (!hit) return false
+    const kind = protectedFolder(hit, daily)
+    app.say(kind === 'projects' ? t('"{name}" 폴더는 모든 프로젝트가 들어 있어서 지우거나 바꿀 수 없어요. 프로젝트 폴더는 안에서 하나씩 지울 수 있어요.', { name: hit }) : kind === 'daily' ? t('"{name}" 폴더는 날짜별 노트(일정)가 들어 있어서 지우거나 바꿀 수 없어요. 노트는 안에서 하나씩 지울 수 있어요.', { name: hit }) : t('"{name}" 폴더는 앱이 쓰는 폴더라 지우거나 바꿀 수 없어요.', { name: hit }))
+    return true
+  }
   const rename = async () => {
-    if (!one) return
+    if (!one || guarded()) return
     if (picked.notes.length) await renameNoteDialog(picked.notes[0])
     else {
       const f = picked.folders[0]
@@ -121,16 +137,19 @@ export function MemoTab({ sync }: { sync?: ReactNode }) {
     exit()
   }
   const remove = async () => {
+    if (guarded()) return
     const plan = planDelete(files, picked.notes, picked.folders)
     if (!plan.paths.length) return
-    const msg = plan.inFolders ? t('폴더 안의 노트 {n}개도 함께 지워져요. 동기화하면 원격에서도 삭제됩니다.', { n: plan.inFolders }) : t('동기화하면 원격에서도 삭제됩니다.')
-    const title = plan.paths.length === 1 && !picked.folders.length ? t('이 메모를 삭제할까요?') : t('{n}개를 삭제할까요?', { n: plan.paths.length })
+    const projects = picked.folders.reduce((n, f) => n + projectsIn(files, f), 0)
+    const msg = projects ? t('프로젝트 {p}개를 포함해 노트 {n}개가 모두 지워져요. 되돌릴 수 없고, 동기화하면 원격에서도 삭제돼요.', { p: projects, n: plan.paths.length }) : plan.inFolders ? t('폴더 안의 노트 {n}개도 함께 지워져요. 동기화하면 원격에서도 삭제됩니다.', { n: plan.inFolders }) : t('동기화하면 원격에서도 삭제됩니다.')
+    const title = projects ? t('프로젝트가 들어 있는 폴더예요. 정말 삭제할까요?') : plan.paths.length === 1 && !picked.folders.length ? t('이 메모를 삭제할까요?') : t('{n}개를 삭제할까요?', { n: plan.paths.length })
     if (await confirmAsk(title, msg, t('삭제'), true)) {
       app.deleteNotes(plan.paths)
       exit()
     }
   }
   const moveTo = (dest: string) => {
+    if (guarded()) return setMoving(false)
     const plan = planMove(useApp.getState().files, picked.notes, picked.folders, dest)
     if (plan.error === 'intoSelf') return app.say(t('폴더를 자기 안으로는 옮길 수 없어요'))
     if (plan.moves.length) app.moveNotes(plan.moves)
