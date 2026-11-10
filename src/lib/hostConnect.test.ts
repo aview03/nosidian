@@ -7,7 +7,7 @@ import path from 'node:path'
 import hostIpc from '../../electron/hostIpc.cjs'
 import { useApp } from './app'
 import { setLang } from './i18n'
-import { applyHostConnect, leaveHost, planHostConnect, previewHostConnect, restoreVaultFromSnapshot, type Choice } from './hostConnect'
+import { applyHostConnect as applyConnect, leaveHost, pcFolderIO, planHostConnect, previewHostConnect as previewConnect, restoreVaultFromSnapshot as restoreSnap, type Choice, type ConnectPlan } from './hostConnect'
 
 setLang('ko')
 const { register } = hostIpc as { register(h: unknown): unknown }
@@ -25,6 +25,10 @@ function install() {
     host: { status: call('host:status'), list: call('host:list'), read: call('host:read'), push: call('host:push'), ack: call('host:ack'), snapshot: call('host:snapshot'), snapshots: call('host:snapshots'), snapshotVault: call('host:snapshotVault'), clear: call('host:clear'), pickDir: call('host:pickDir'), gc: call('host:gc') },
   }
 }
+// (PC 앱의 폴더 연결: IPC 로 호스트 저장 계층을 부른다)
+const previewHostConnect = () => previewConnect(pcFolderIO())
+const applyHostConnect = (plan: ConnectPlan, choices: Record<string, Choice>, dir: string) => applyConnect(plan, choices, { kind: 'host', dir }, pcFolderIO())
+const restoreVaultFromSnapshot = (id: string) => restoreSnap(id, pcFolderIO())
 const hf = (rel: string) => path.join(dir, ...rel.split('/'))
 const hostWrite = (rel: string, data: string | Buffer) => {
   fs.mkdirSync(path.dirname(hf(rel)), { recursive: true })

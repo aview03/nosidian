@@ -388,3 +388,31 @@ describe('그 밖', () => {
     host = saved
   })
 })
+
+describe('폰을 위한 보조 기능: 현재 주소 알림·최초 연결 스냅샷', () => {
+  it('/ping 은 이 PC 의 현재 주소 후보를 알려 준다(IP 가 바뀌어도 폰이 다시 찾는다)', async () => {
+    const b = await boot({ lanAddresses: () => ['192.168.0.7', '10.0.0.2'] })
+    const d = await pairDevice(b)
+    const r = await req(b.port, '/ping', {}, d.token)
+    expect(r.json).toMatchObject({ name: 'TEST-PC', ips: ['192.168.0.7', '10.0.0.2'], perms: { write: false, delete: false } })
+  })
+  it('/snapshot: 쓰기 권한이 있는 기기만, 1분에 한 번, 공간이 있을 때만 — 호스트 폴더 스냅샷이 만들어진다', async () => {
+    const b = await boot()
+    host.put('a.md', 'A', null)
+    const ro = await pairDevice(b)
+    expect((await req(b.port, '/snapshot', { label: 'x' }, ro.token)).status).toBe(403) // 읽기 전용 기기는 디스크를 쓰게 할 수 없다
+    const d = await writer(b)
+    const r = await req(b.port, '/snapshot', { label: 'first-connect' }, d.token)
+    expect(r.status).toBe(200)
+    expect(r.json.files).toBe(1)
+    expect(fs.readFileSync(path.join(dir, '.nosidian', 'snapshots', r.json.id, 'files', 'a.md'), 'utf8')).toBe('A')
+    expect((await req(b.port, '/snapshot', {}, d.token)).status).toBe(429)
+    clock += 61_000
+  })
+  it('/snapshot: 여유 공간이 부족하면 507 — 스냅샷이 없으면 폰은 연결을 시작하지 않는다', async () => {
+    const b = await boot({ freeBytes: () => 10 * 1024 * 1024 })
+    const d = await writer(b)
+    expect((await req(b.port, '/snapshot', {}, d.token)).status).toBe(507)
+    expect(host.snapshots()).toEqual([])
+  })
+})

@@ -41,14 +41,20 @@ export interface HostCfg {
   /** 호스트 폴더(표시용; 실제 경로는 메인 프로세스가 관리한다) */
   dir: string
 }
-export type RemoteCfg = GithubCfg | CloudCfg | HostCfg
+/** 폰의 "내 PC" 연결(PC 앱의 호스트 폴더와 HTTPS 로 맞춘다). 주소·토큰은 별도 보안 저장소(pcHost.ts)에 있고 여기엔 표시용 이름만 둔다 */
+export interface PcHostCfg {
+  kind: 'pchost'
+  name: string
+  folder?: string
+}
+export type RemoteCfg = GithubCfg | CloudCfg | HostCfg | PcHostCfg
 export type SyncKind = RemoteCfg['kind']
 /** 로그인해서 쓰는 저장소(GitHub·Google Drive·OneDrive). 호스트 폴더는 로그인이 없다 */
-export type AccountKind = Exclude<SyncKind, 'host'>
-export const SYNC_LABEL: Record<SyncKind, string> = { github: 'GitHub', gdrive: 'Google Drive', onedrive: 'OneDrive', host: '내 PC 폴더' }
+export type AccountKind = Exclude<SyncKind, 'host' | 'pchost'>
+export const SYNC_LABEL: Record<SyncKind, string> = { github: 'GitHub', gdrive: 'Google Drive', onedrive: 'OneDrive', host: '내 PC 폴더', pchost: '내 PC' }
 /** 연결을 한 줄로 설명(설정·vault 목록 표시용) */
 export function remoteDetail(r: RemoteCfg): string {
-  return r.kind === 'github' ? `${r.owner}/${r.repo}` : r.kind === 'host' ? r.dir : r.folder
+  return r.kind === 'github' ? `${r.owner}/${r.repo}` : r.kind === 'host' ? r.dir : r.kind === 'pchost' ? [r.name, r.folder].filter(Boolean).join(' · ') : r.folder
 }
 
 /** vault 하나 = 노트 저장소(IndexedDB) 하나 + 동기화 연결 하나 */

@@ -134,7 +134,7 @@ interface AppState {
   startDemo(): Promise<void>
   disconnect(): Promise<void>
   /** "내 PC 폴더" 최초 연결을 마친다: 반영한 노트·파일 목록을 저장하고 호스트 폴더를 이 vault 의 동기화 대상으로 한다(hostConnect.ts) */
-  commitHostConnect(files: Record<string, NoteFile>, assets: AppState['assets'], dir: string): Promise<void>
+  commitHostConnect(files: Record<string, NoteFile>, assets: AppState['assets'], cfg: RemoteCfg): Promise<void>
   /** 호스트 폴더 연결만 끊는다. 노트는 그대로(지우지 않는다) */
   leaveHost(): void
   sync(retried?: boolean): Promise<void>
@@ -737,11 +737,11 @@ export const useApp = create<AppState>((set, get) => {
       get().openNote(demo.home)
     },
     /** 이 vault 의 동기화 연결을 끊고 로컬 사본도 비운다 (vault 자체는 남는다) */
-    async commitHostConnect(files, assets, dir) {
+    async commitHostConnect(files, assets, cfg) {
       await db.putFiles(Object.values(files))
       for (const [p, a] of Object.entries(assets)) void db.putAsset({ path: p, sha: a.sha, id: a.id, ...(a.size != null ? { size: a.size } : {}) })
       set({ files, assets })
-      get().patchSettings({ remote: { kind: 'host', dir }, lastSync: Date.now() })
+      get().patchSettings({ remote: cfg, lastSync: Date.now() })
       rebuild(true)
     },
     leaveHost() {
@@ -853,15 +853,22 @@ export const useApp = create<AppState>((set, get) => {
         await prov.afterSync?.() // 이 기기가 여기까지 반영했다는 확인(ack) — 호스트 폴더의 삭제 기록 정리 조건
         get().patchSettings({ lastSync: Date.now() })
         const conflicts = Object.values(get().files).filter((f) => f.conflict).length
+        const notice = prov.notice?.() // 예: 삭제를 PC 로 전파하지 못했다
         get().say(
-          conflicts
+          (conflicts
             ? t('동기화 완료 · 충돌 {n}건 확인 필요', { n: conflicts })
             : merged
               ? t('동기화 완료 · 받음 {pulled} · 올림 {pushed} · 자동 병합 {merged}', { pulled: toFetch.length, pushed, merged })
-              : t('동기화 완료 · 받음 {pulled} · 올림 {pushed}', { pulled: toFetch.length, pushed }),
+              : t('동기화 완료 · 받음 {pulled} · 올림 {pushed}', { pulled: toFetch.length, pushed })) + (notice ? ` · ${notice}` : ''),
         )
       } catch (e) {
-        const err = e as Error & { status?: number }
+        const err = e as Error & { status?: number; code?: string }
+        if (err.code === 'noWrite') {
+          // 이 기기에 쓰기가 허용되지 않았다: 받기는 끝났고, 내 변경은 그대로 남아 있다가 허용된 뒤 올라간다(실패가 아니다)
+          get().patchSettings({ lastSync: Date.now() })
+          get().say(t('받기만 했어요. 이 PC에서 이 휴대폰의 쓰기를 허용하면 내 변경도 올라가요'))
+          return
+        }
         if ((err.status === 422 || err.status === 409) && !retried) {
           // 올리는 사이 다른 사람이 먼저 올렸다 → 한 번은 알아서 다시 받아 합친 뒤 올려 본다
           set({ syncing: false })

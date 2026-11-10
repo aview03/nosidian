@@ -27,6 +27,8 @@ export interface Provider {
   push(changes: PushChange[], message: string): Promise<Map<string, string>>
   /** 동기화가 끝났을 때(받기·올리기 성공 뒤) 불린다. PC 호스트 폴더가 "이 기기가 여기까지 반영했다"는 확인(ack)을 남기는 데 쓴다 */
   afterSync?(): Promise<void>
+  /** 동기화 중 알려야 할 일(예: 삭제를 전파하지 못했다). 없으면 null */
+  notice?(): string | null
 }
 
 export class SyncError extends Error {

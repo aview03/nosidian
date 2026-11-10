@@ -180,7 +180,7 @@ POST /sync/delete { path, baseRev }            → 200 { rev(tombstone) } | 409 
 | v1.39.0 | **Android Keystore 토큰 보호**: 연결 토큰·API 키를 Keystore 보안 저장소로 이전(평문 값의 확인 후 이전), 백업 제외, 재시작·키 무효 처리 | **완료**(단위 시험 + 실기기 확인: `docs/SECURE-STORAGE.md` 검증 절) |
 | v1.40 | 호스트 저장 계층: manifest·rev·tombstone(ack)·journal 복구·외부 변경 감지·휴지통, PC 앱용 "내 PC 폴더" Provider, 최초 연결 미리보기·스냅샷 | **완료** (`docs/HOST-STORE.md`) |
 | v1.41 | 쓰기 API: 기기별 쓰기 권한 UI, 실행 파일 거부(§3.1), 조건부 쓰기, 원자적 저장, 크기 제한, 권한 해제 | **완료**(PC 쪽 서버·권한·화면, `docs/HOST-SERVER.md`) |
-| v1.42 | 폰 "내 PC" Provider(HTTPS): 최초 연결 미리보기·스냅샷(§8.1)·오프라인 변경분 동기화·충돌 해결·삭제 전파 | |
+| v1.42 | 폰 "내 PC" Provider(HTTPS): 최초 연결 미리보기·스냅샷(§8.1)·오프라인 변경분 동기화·충돌 해결·삭제 전파 안내 | **완료**(`docs/HOST-PHONE.md`, 실기기 확인; 바이너리 충돌 선택 화면·QR 카메라는 미완) |
 | v1.43 | 실기기 통합 검증: PC 종료·재시작, 오프라인 수정, 동시 수정, 삭제·복구, 주소 변경, 장기 미접속 | |
 
 (v1.39 의 "구조 분석"은 §1 로 갈음했다 — 기존 `Provider` 로 충분하다는 결론.)

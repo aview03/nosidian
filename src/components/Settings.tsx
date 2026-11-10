@@ -22,6 +22,8 @@ import { confirmAsk } from '../lib/dialog'
 import { SYNC_LABEL, remoteDetail, type AccountKind } from '../lib/types'
 import { ConnectForm } from './Onboarding'
 import { HostConnectDialog, HostPanel } from './HostConnect'
+import { PcHostConnectDialog, PcHostPanel } from './PcHostConnect'
+import { Capacitor } from '@capacitor/core'
 import { Icon } from './Icon'
 import { DOCRULES_PATH } from '../lib/docrules'
 import { createVaultFlow, deleteVaultFlow, renameVaultFlow, useActiveVault, vaultSub } from './VaultSheet'
@@ -162,6 +164,7 @@ function SyncCard() {
   const [connecting, setConnecting] = useState(false)
   const [picked, setPicked] = useState(false)
   const [hostDlg, setHostDlg] = useState(false)
+  const [pcDlg, setPcDlg] = useState(false)
   const persona = personaOf(s.persona)
   const dirty = Object.values(files).filter((f) => f.dirty).length
   const conflicts = Object.values(files).filter((f) => f.conflict).length
@@ -180,6 +183,8 @@ function SyncCard() {
             {r.kind === 'github' && <div className="kv"><span>{t('브랜치')}</span><b>{r.branch}</b></div>}
             {r.kind === 'host' ? (
               <HostPanel />
+            ) : r.kind === 'pchost' ? (
+              <PcHostPanel />
             ) : (
               <>
                 <div className="btn-row"><button onClick={() => setEditing((v) => !v)}>{t('연결 수정')}</button></div>
@@ -213,6 +218,12 @@ function SyncCard() {
                       <small>{t(SYNC_HINT[k])}</small>
                     </button>
                   ))}
+                  {!desktop() && Capacitor.isNativePlatform() && (
+                    <button className="aiw-way" onClick={() => setPcDlg(true)}>
+                      <b>{t('내 PC (클라우드 없이)')}</b>
+                      <small>{t('같은 와이파이의 PC 앱과 노트를 맞춰요. 연결하기 전에 차이를 먼저 보여 드려요')}</small>
+                    </button>
+                  )}
                   {desktop()?.host && (
                     <button className="aiw-way" onClick={() => setHostDlg(true)}>
                       <b>{t('이 PC의 폴더 (클라우드 없이)')}</b>
@@ -233,6 +244,7 @@ function SyncCard() {
         </>
       )}
       {hostDlg && <HostConnectDialog onClose={() => setHostDlg(false)} />}
+      {pcDlg && <PcHostConnectDialog onClose={() => setPcDlg(false)} />}
     </section>
   )
 }

@@ -60,6 +60,7 @@ function createHostServer(deps) {
   const authFails = new Map()
   const writeLog = new Map() // 기기 id → 최근 쓰기 시각들
   let srv = null
+  let lastSnapshotAt = 0
   const socks = new Set()
   let error = null
 
@@ -208,7 +209,8 @@ function createHostServer(deps) {
       switch (url.pathname) {
         case '/ping': {
           const h = hostOr412()
-          return send(res, 200, { name: deps.hostName || 'PC', folder: path.basename(h.root), perms: dev.perms, epoch: h.info().epoch })
+          // ips: 이 PC 의 현재 주소 후보. IP 가 바뀌어도 폰이 다시 찾을 수 있게 알려 준다(기기 식별은 IP 가 아니라 기기 ID·인증서 지문)
+          return send(res, 200, { name: deps.hostName || 'PC', folder: path.basename(h.root), perms: dev.perms, epoch: h.info().epoch, ips: (deps.lanAddresses || lanAddresses)() })
         }
         case '/list':
           return send(res, 200, hostOr412().list())
@@ -216,6 +218,24 @@ function createHostServer(deps) {
           const b = await json(req, SMALL_BODY)
           const r = hostOr412().read(String(b.path ?? ''))
           return send(res, 200, { rev: r.rev, size: r.bytes.length, sha256: r.hash, b64: r.bytes.toString('base64') })
+        }
+        case '/snapshot': {
+          // 최초 연결 직전에 호스트 폴더를 스냅샷으로 남긴다. 디스크를 쓰므로 쓰기 권한이 있는 기기만, 1분에 한 번만
+          if (!dev.perms.write) return send(res, 403, { error: 'write is not allowed for this device', code: 'noWrite' })
+          const t = now()
+          if (lastSnapshotAt && t - lastSnapshotAt < 60_000) return send(res, 429, { error: 'snapshot too frequent', code: 'rate' })
+          const b = await json(req, SMALL_BODY)
+          const host = hostOr412()
+          let free = Infinity
+          try {
+            free = freeBytes(host.root)
+          } catch {
+            /* 알 수 없으면 복사의 성공 여부로 */
+          }
+          if (free < MIN_FREE) return send(res, 507, { error: 'not enough free space on the PC', code: 'noSpace' })
+          const r = host.snapshot({ label: typeof b.label === 'string' ? b.label.slice(0, 40) : `device:${dev.id.slice(0, 8)}` })
+          lastSnapshotAt = t
+          return send(res, 200, r)
         }
         case '/ack': {
           const b = await json(req, SMALL_BODY)

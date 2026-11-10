@@ -7,8 +7,9 @@ import { t } from '../lib/i18n'
 import { desktop, type HostServerStatus, type HostStatus } from '../lib/externalIO'
 import { useApp } from '../lib/app'
 import { confirmAsk } from '../lib/dialog'
-import { applyHostConnect, leaveHost, previewHostConnect, restoreVaultFromSnapshot, type Choice, type ConnectPlan } from '../lib/hostConnect'
+import { applyHostConnect, leaveHost, pcFolderIO, previewHostConnect, restoreVaultFromSnapshot, type Choice, type ConnectPlan } from '../lib/hostConnect'
 import { Icon } from './Icon'
+import { HostPlanView } from './HostPlan'
 
 const PICK_ERR: Record<string, string> = {
   'drive root': '드라이브 전체는 쓸 수 없어요. 폴더를 하나 골라 주세요',
@@ -17,21 +18,6 @@ const PICK_ERR: Record<string, string> = {
   'not found': '폴더를 찾을 수 없어요',
   'not a directory': '폴더가 아니에요',
   'overlaps share': '"내 휴대폰에서 이 PC의 폴더 보기"의 공유 폴더와 겹쳐요. 다른 폴더를 골라 주세요',
-}
-
-const SHOW = 12
-function PathList({ title, paths, note }: { title: string; paths: string[]; note?: string }) {
-  if (!paths.length) return null
-  return (
-    <details className="hc-group">
-      <summary>{title} <span className="wrk-count">{paths.length}</span></summary>
-      {note && <p className="hint small">{note}</p>}
-      <ul>
-        {paths.slice(0, SHOW).map((p) => <li key={p}>{p}</li>)}
-        {paths.length > SHOW && <li className="hint">{t('… 외 {n}개', { n: paths.length - SHOW })}</li>}
-      </ul>
-    </details>
-  )
 }
 
 export function HostConnectDialog({ onClose }: { onClose: () => void }) {
@@ -61,7 +47,7 @@ export function HostConnectDialog({ onClose }: { onClose: () => void }) {
     setBusy(true)
     setErr('')
     try {
-      const p = await previewHostConnect()
+      const p = await previewHostConnect(pcFolderIO())
       setPlan(p)
       setChoices({})
     } catch (e) {
@@ -75,7 +61,7 @@ export function HostConnectDialog({ onClose }: { onClose: () => void }) {
     setBusy(true)
     setErr('')
     try {
-      const r = await applyHostConnect(plan, choices, st.dir)
+      const r = await applyHostConnect(plan, choices, { kind: 'host', dir: st.dir }, pcFolderIO())
       setDone(t('연결했어요. 올림 {up} · 받음 {down}{copies}', { up: r.uploaded, down: r.downloaded, copies: r.copies.length ? ' · ' + t('PC 사본 {n}개', { n: r.copies.length }) : '' }))
     } catch (e) {
       setErr((e as { code?: string }).code === 'noSpace' ? t('저장 공간이 부족해서 시작하지 않았어요. 공간을 만든 뒤 다시 해 주세요.') : t('시작하지 못했어요(아무것도 바뀌지 않았어요): {why}', { why: e instanceof Error ? e.message : String(e) }))
@@ -83,8 +69,6 @@ export function HostConnectDialog({ onClose }: { onClose: () => void }) {
       setBusy(false)
     }
   }
-  const total = plan ? plan.pcOnly.length + plan.hostOnly.length + plan.same.length + plan.differ.length : 0
-  const unresolved = plan ? plan.differ.filter((p) => !choices[p]).length : 0
 
   return (
     <div className="ee-wrap" onClick={busy ? undefined : onClose}>
@@ -110,54 +94,7 @@ export function HostConnectDialog({ onClose }: { onClose: () => void }) {
               {st?.rebuilt && <p className="hint small ai-warn">{t('이 폴더의 관리 정보가 손상돼 새로 만들었어요. 다른 기기는 다시 연결할 때 확인을 거쳐요.')}</p>}
               {st?.dir && !plan && <button className="primary big" disabled={busy} onClick={() => void preview()}>{busy ? t('확인하는 중…') : t('차이 미리 보기')}</button>}
 
-              {plan && (
-                <div className="hc-plan">
-                  <p className="aiw-q">{t('미리 보기')}</p>
-                  <ul className="hc-sum">
-                    <li><b>{plan.pcOnly.length}</b> {t('PC 앱에만 있는 노트 → 폴더에 올려요')}</li>
-                    <li><b>{plan.hostOnly.length}</b> {t('폴더에만 있는 노트 → PC 앱으로 받아요')}</li>
-                    <li><b>{plan.same.length}</b> {t('같은 노트 → 그대로 맞춰요')}</li>
-                    <li><b>{plan.differ.length}</b> {t('내용이 다른 노트 → 아래에서 골라 주세요')}</li>
-                    {plan.hostOther.length > 0 && <li><b>{plan.hostOther.length}</b> {t('노트가 아닌 파일 → 파일 목록으로만 보여요')}</li>}
-                  </ul>
-                  <p className="hint small">{t('삭제는 하지 않아요. 시작하기 전에 폴더와 이 PC 앱의 노트를 스냅샷으로 저장하고, 저장하지 못하면 시작하지 않아요.')}</p>
-                  {total === 0 && plan.hostOther.length === 0 && <p className="hint">{t('양쪽 모두 비어 있어요. 바로 연결할 수 있어요.')}</p>}
-
-                  <PathList title={t('PC 앱에만 있는 노트')} paths={plan.pcOnly} />
-                  {plan.revived.length > 0 && <p className="hint small ai-warn">{t('이 중 {n}개는 폴더에서 지워졌던 노트예요. 올리면 다시 생겨요.', { n: plan.revived.length })}</p>}
-                  <PathList title={t('폴더에만 있는 노트')} paths={plan.hostOnly} />
-                  <PathList title={t('노트가 아닌 파일')} paths={plan.hostOther} />
-
-                  {plan.differ.length > 0 && (
-                    <div className="hc-differ">
-                      <div className="auto-sub">{t('내용이 다른 노트')}</div>
-                      {plan.differ.length > 1 && (
-                        <div className="hc-all">
-                          <small>{t('모두:')}</small>
-                          <button className="btn-link" onClick={() => setChoices(Object.fromEntries(plan.differ.map((p) => [p, 'pc' as Choice])))}>{t('PC 것')}</button>
-                          <button className="btn-link" onClick={() => setChoices(Object.fromEntries(plan.differ.map((p) => [p, 'host' as Choice])))}>{t('폴더 것')}</button>
-                          <button className="btn-link" onClick={() => setChoices(Object.fromEntries(plan.differ.map((p) => [p, 'both' as Choice])))}>{t('둘 다 보관')}</button>
-                        </div>
-                      )}
-                      {plan.differ.map((p) => (
-                        <div key={p} className="hc-row">
-                          <b title={p}>{p}</b>
-                          <div className="seg">
-                            {(['pc', 'host', 'both'] as Choice[]).map((c) => (
-                              <button key={c} className={choices[p] === c ? 'on' : ''} onClick={() => setChoices((cur) => ({ ...cur, [p]: c }))}>{c === 'pc' ? t('PC 것') : c === 'host' ? t('폴더 것') : t('둘 다')}</button>
-                            ))}
-                          </div>
-                        </div>
-                      ))}
-                      <p className="hint small">{t('"PC 것": 폴더의 파일을 PC 앱의 내용으로 바꿔요. "폴더 것": PC 앱의 내용을 폴더의 내용으로 바꿔요. "둘 다": 폴더 것을 받고 PC 앱의 내용은 "(PC 사본)" 노트로 남겨요. 어느 쪽이든 스냅샷에 원본이 남아요.')}</p>
-                    </div>
-                  )}
-
-                  <button className="primary big" disabled={busy || unresolved > 0} onClick={() => void start()}>
-                    {busy ? t('연결하는 중…') : unresolved > 0 ? t('{n}개를 먼저 골라 주세요', { n: unresolved }) : t('확인했어요, 시작하기')}
-                  </button>
-                </div>
-              )}
+              {plan && <HostPlanView plan={plan} choices={choices} setChoices={setChoices} busy={busy} side="pc" canWrite onStart={() => void start()} />}
               {err && <p className="hint small ai-warn">{err}</p>}
               <button className="link-btn" disabled={busy} onClick={onClose}>{t('취소')}</button>
             </>
@@ -200,7 +137,7 @@ export function HostPanel() {
                     onClick={async () => {
                       if (!(await confirmAsk(t('이 스냅샷으로 복원할까요?'), t('스냅샷에 있던 PC 앱의 노트 내용으로 되돌려요(그 뒤에 만든 노트는 지우지 않아요). 되돌린 내용은 다음 동기화 때 폴더에 반영돼요.'), t('복원')))) return
                       try {
-                        const n = await restoreVaultFromSnapshot(s.id)
+                        const n = await restoreVaultFromSnapshot(s.id, pcFolderIO())
                         say(t('{n}개 노트를 복원했어요', { n }))
                       } catch (e) {
                         say(e instanceof Error ? e.message : String(e))
