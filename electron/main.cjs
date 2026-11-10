@@ -136,6 +136,7 @@ if (!app.requestSingleInstanceLock()) {
   app.quit()
 } else {
   queueFiles(process.argv)
+  require('./llm.cjs').registerLlm(ipcMain)
   ipcMain.handle('open-file:take', () => pendingFiles.splice(0))
   // 열어 본 문서를 원본 위치에 저장 (마크다운/텍스트 확장자의 절대 경로만)
   ipcMain.handle('open-file:save', (_e, p, content) => {

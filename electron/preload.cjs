@@ -2,6 +2,8 @@
 const { contextBridge, ipcRenderer, webUtils } = require('electron')
 
 contextBridge.exposeInMainWorld('amsidianDesktop', {
+  /** AI 서버(Ollama 등) 요청을 메인 프로세스가 대신 보낸다(CORS 회피, 주소 규칙은 메인에서 다시 검사) */
+  llmRequest: (req) => ipcRenderer.invoke('llm:request', req),
   /** 탐색기에서 "연결 프로그램"으로 열었거나 실행 인자로 받은 파일들 (읽은 뒤 비워진다) */
   takeFiles: () => ipcRenderer.invoke('open-file:take'),
   /** 열어 본 문서를 원본 파일에 저장 */

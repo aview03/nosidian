@@ -976,3 +976,24 @@ html.popup-win .ee { max-width: none; max-height: none; height: 100%; border-rad
 .pr-item.applied, .pr-item.rejected, .pr-item.failed { opacity: .75; }
 .pr-donelist { margin-top: 20px; }
 .pr-donelist > summary { cursor: pointer; font-size: 13px; color: var(--muted); }
+@media (max-width: 899px) { .pr-diff { max-height: none; overflow-y: visible; } }
+
+/* ── 설정: AI 연결 ── */
+.llm .kv > .inline, .llm .kv > .sel-btn { flex: 1; min-width: 0; max-width: 340px; }
+.llm-actions { display: flex; flex-direction: row; gap: 8px; flex-wrap: wrap; margin: 10px 0 4px; }
+.llm-actions button { width: auto; }
+.llm-ok { color: var(--text); }
+.llm-err { color: var(--accent); }
+@media (max-width: 899px) {
+  .llm .kv { flex-direction: column; align-items: stretch; gap: 6px; margin-bottom: 10px; }
+  .llm .kv > span, .llm .kv > .inline, .llm .kv > .sel-btn, .llm .kv > div { flex: none; max-width: none; width: 100%; }
+}
+
+/* 모바일 캘린더 헤더: 첫 줄 = ‹ 연월 › (왼쪽) + 오늘 (오른쪽 끝), 둘째 줄 = 월간/주간/목록 (전체 폭) */
+@media (max-width: 899px) {
+  .cal-head { row-gap: 8px; }
+  .cal-head .cal-nav { flex: 1; min-width: 0; }
+  .cal-head .cal-gap { display: none; }
+  .cal-head .seg { flex: 1 0 100%; display: flex; }
+  .cal-head .seg button { flex: 1; }
+}

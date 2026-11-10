@@ -11,7 +11,7 @@
 | Android | Capacitor 8 + 네이티브(Java) 플러그인 | 디버그 APK로 실기기 검증, 홈 화면 위젯·네이티브 알림 포함 |
 | 브라우저 | Vite 개발 서버 | 개발·확인용 (배포 설정 없음) |
 
-> 이 문서는 "지금 무엇이 어떻게 되어 있는가"를 한 번에 파악하기 위한 개요다. 세부 규격은 **프로젝트·업무: [docs/WORK.md](docs/WORK.md)**, **일정·위젯: [docs/CALENDAR.md](docs/CALENDAR.md)**, **문서 규칙·점검: [docs/DOCRULES.md](docs/DOCRULES.md)**, 기획·결정 기록: [docs/phase2/](docs/phase2/).
+> 이 문서는 "지금 무엇이 어떻게 되어 있는가"를 한 번에 파악하기 위한 개요다. 세부 규격은 **프로젝트·업무: [docs/WORK.md](docs/WORK.md)**, **일정·위젯: [docs/CALENDAR.md](docs/CALENDAR.md)**, **문서 규칙·점검: [docs/DOCRULES.md](docs/DOCRULES.md)**, **AI 연결: [docs/LLM.md](docs/LLM.md)**, 기획·결정 기록: [docs/phase2/](docs/phase2/).
 
 ---
 
@@ -56,6 +56,7 @@
 ### 일정 관리 (2차 기능) — 자세한 규격은 docs/CALENDAR.md
 - **일정 = 노트의 한 줄**: Daily 노트의 `- [ ] 14:00-15:00 치과`, 다른 노트의 `- [ ] 보고서 @2026-11-20`, 또는 프론트매터 `date`.
 - **문서 규칙·점검**(선택, 기본 꺼짐): vault 의 `_workspace/문서규칙.md` 에 프로젝트 문서의 역할(개요·정책·할 일 …)과 필수 제목·상태 값을 사람이 읽는 줄로 정해 두면, 프로젝트 허브의 **"문서 점검"** 탭이 역할 충돌·필수 제목 누락·끊어진 링크·고아·개요에서 닿지 않는 문서·중복 후보를 알려 준다. 알려 주기만 하고 노트를 고치거나 저장을 막지 않는다. 규칙을 적용한 프로젝트의 "문서" 탭은 먼저 읽어야 할 공식 문서를 앞세워 보여 준다(Human View). 같은 규칙으로 AI 쓰기를 판정하는 정책 엔진(`lib/docpolicy.ts`: allow / require_approval / deny, 이동·이름 바꾸기·보호 경로·버전 검사·승인 후 재검증)까지 있고, 아직 어떤 AI(MCP·LLM)에도 연결하지 않았다. 정책이 "승인 대기"로 돌린 AI 변경은 내 업무의 "검토" 화면에서 전후 차이를 보고 승인·거절하며, 승인할 때 반영 직전에 한 번 더 검증한다(문서가 그새 바뀌었으면 반영하지 않음). 규격은 [docs/DOCRULES.md](docs/DOCRULES.md).
+- **AI 연결**(설정, 기본 꺼짐): 제공자(Ollama · OpenAI 호환 · OpenAI · Anthropic · Gemini)와 서버 주소·모델·키를 이 기기에 저장하고 연결을 시험한다. PC 는 메인 프로세스, Android 는 네이티브 HTTP 가 대신 보내고, http 는 사설망·내 기기만 허용한다. 아직 이 연결을 부르는 기능은 없다. 규격은 [docs/LLM.md](docs/LLM.md).
 - **캘린더**: 월간 / 주간 / 목록. 헤더는 `‹ 연월 ›` 다음에 `오늘` 버튼, 오른쪽에 보기 전환. 모바일은 월간(격자+선택한 날)·주간(7일 세로)·목록이 각각 다른 화면. 오늘 일정은 시작 화면 "내 업무"에도 나온다.
 - **일정 편집기(GUI)**: 제목, 날짜, 종일/시작·종료 시각, 며칠에 걸친 일정, 반복(매일/평일/매주+요일 선택/매월/매년, 종료일), 한 문장 요약, 수정·삭제.
 - **빠른 입력(자연어)**: "내일 3시 치과", "금요일 19:00-20:30 저녁", "매주 금요일 7시 스터디", "11월 20일 보고서".
@@ -172,12 +173,13 @@ app/
 │  ├─ components/             Calendar, EventEditor, Widget, NoteView, Editor, Reader, Graph,
 │  │                          Search, FileTree, InfoPanel, Palette, FindBar, Settings, Onboarding, VaultSheet, Dialogs …
 │  │                          WorkHome(내 업무) · ProjectHub · TaskEditor · NewProject · ViewEditor · NewNote · Select
-│  └─ lib/*.test.ts · test/   vitest 테스트 16개 파일(업무·건강도·타임라인·타일·보기·템플릿·일정 공존·예제 vault)
+│  └─ lib/*.test.ts · test/   vitest 테스트 18개 파일(업무·건강도·타임라인·타일·보기·템플릿·일정 공존·예제 vault)
 ├─ electron/                  main.cjs(서버·창·IPC) · widget.cjs · desktopLayer.cjs · preload.cjs
 ├─ android/app/src/main/java/com/amsidian/app/
 │                             MainActivity · OpenFilePlugin · CalendarBridgePlugin · CalStore · Links
 │                             MonthWidgetProvider · AgendaWidgetProvider · Reminders
 ├─ docs/WORK.md               프로젝트·업무 규격(문법·화면·결정·건강도·타임라인·보기)과 구현·검증
+├─ docs/LLM.md                AI 연결(제공자·전송·안전 규칙)
 ├─ docs/DOCRULES.md           문서 규칙·점검·AI 쓰기 정책 규격
 ├─ docs/CALENDAR.md           일정·위젯 규격, PC/Android 위젯 구현 세부, 시도했다 버린 방식
 ├─ docs/phase2/               Phase 2 기획 입력(Codex 제안)과 구현 계획·결정 기록
@@ -199,7 +201,7 @@ cd android && gradlew.bat assembleDebug                        # → android/app
 ```
 - **GitHub 연결**: Fine-grained PAT(대상 저장소 1개, Contents: Read and write)를 첫 화면에 입력. 저장소에 커밋이 1개 이상 있어야 한다.
 - **Google Drive / OneDrive**: 사용자가 OAuth 클라이언트 ID를 직접 넣는다(앱이 공용 ID를 제공하지 않음).
-- 린트 `npm run lint`(oxlint), 타입체크 `npx tsc -b`, **테스트 `npm test`**(vitest + jsdom + fake-indexeddb, 188개: 문서 규칙·점검·AI 정책·변경 제안, 업무 문법·대기열·노트에 쓰는 연산·건강도·타임라인·타일·보기·템플릿). 화면은 실제 앱(Electron 시험 인스턴스·Android 실기기)에서 CDP 스크립트와 스크린샷으로 확인한다. 캘린더·위젯·동기화·에디터에는 자동화 테스트가 거의 없다.
+- 린트 `npm run lint`(oxlint), 타입체크 `npx tsc -b`, **테스트 `npm test`**(vitest + jsdom + fake-indexeddb, 204개: 문서 규칙·점검·AI 정책·변경 제안·LLM 연결, 업무 문법·대기열·노트에 쓰는 연산·건강도·타임라인·타일·보기·템플릿). 화면은 실제 앱(Electron 시험 인스턴스·Android 실기기)에서 CDP 스크립트와 스크린샷으로 확인한다. 캘린더·위젯·동기화·에디터에는 자동화 테스트가 거의 없다.
 - 저장 위치 이름은 옛 이름 그대로 `Amsidian`/`amsidian`(IndexedDB, Electron userData, localStorage 키). 바꾸면 기존 사용자의 데이터가 사라진 것처럼 보이므로 유지한다.
 
 ---
