@@ -932,3 +932,13 @@ html.popup-win .ee { max-width: none; max-height: none; height: 100%; border-rad
   .wrk-tiles > .wrk-sec { margin-top: 28px; min-width: 0; }
   .wrk-tiles > .wrk-sec:first-of-type { margin-top: 28px; }
 }
+
+/* ── 프로젝트 허브: 문서 점검 ── */
+.dchk-intro { margin: 0 8px 14px; color: var(--muted); font-size: 14px; line-height: 1.6; }
+.dchk > .primary { margin: 0 8px; }
+.dchk-sum { margin: 0 8px 16px; font-size: 14px; }
+.dchk-group { margin-top: 28px; }
+.dchk-group > h3, .dchk-info > summary { font-size: 13px; font-weight: 600; color: var(--muted); margin: 0 8px 10px; }
+.dchk-info > summary { cursor: pointer; }
+.dchk-problems, .dchk-note { margin: 12px 8px 0; }
+.dchk-foot { display: flex; gap: 8px; margin: 24px 4px 0; }

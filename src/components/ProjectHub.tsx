@@ -10,10 +10,11 @@ import { EventRow, useCalMap } from './Calendar'
 import { buildTimeline, groupByDate } from '../lib/timeline'
 import { ask } from '../lib/dialog'
 import { templateFromProject } from '../lib/projectTemplates'
+import { DocCheck } from './DocCheck'
 import { Icon } from './Icon'
 import { healthLabel, signalText, useHealth, useWork } from './WorkHome'
 
-type Tab = 'tasks' | 'board' | 'docs' | 'timeline'
+type Tab = 'tasks' | 'board' | 'docs' | 'timeline' | 'check'
 
 const COLS: { key: UiState | 'done'; title: string }[] = [
   { key: 'todo', title: '할 일' },
@@ -180,6 +181,7 @@ export function ProjectHub() {
         <button className={tab === 'board' ? 'on' : ''} onClick={() => setTab('board')}>{t('보드')}</button>
         <button className={tab === 'docs' ? 'on' : ''} onClick={() => setTab('docs')}>{t('문서')}</button>
         <button className={tab === 'timeline' ? 'on' : ''} onClick={() => setTab('timeline')}>{t('타임라인')}</button>
+        <button className={tab === 'check' ? 'on' : ''} onClick={() => setTab('check')}>{t('문서 점검')}</button>
       </div>
 
       <div className="wrk-scroll">
@@ -218,6 +220,8 @@ export function ProjectHub() {
               ))}
             </section>
           )}
+
+          {tab === 'check' && <DocCheck project={project} />}
 
           {tab === 'timeline' && (
             <div className="tl">
