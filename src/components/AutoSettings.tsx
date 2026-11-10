@@ -88,7 +88,7 @@ export function AutoCard() {
             <Select value={String(s.debounceSec)} onChange={(v) => au.setSettings({ debounceSec: Number(v) })} options={DEBOUNCES.map((d) => ({ value: String(d), label: d >= 60 ? t('{n}분', { n: d / 60 }) : t('{n}초', { n: d }) }))} />
           </div>
           <div className="kv"><span>{t('하루 최대 AI 분석')}</span>
-            <Select value={String(s.dailyCap)} onChange={(v) => au.setSettings({ dailyCap: Number(v) })} options={CAPS.map((c) => ({ value: String(c), label: t('{n}회', { n: c }) }))} />
+            <Select value={String(s.dailyCap)} onChange={(v) => au.setSettings({ dailyCap: Number(v) })} options={CAPS.map((c) => ({ value: String(c), label: c === 0 ? t('제한 없음') : t('{n}회', { n: c }) }))} />
           </div>
           {s.mode === 'analyze' && (
             <>
@@ -113,7 +113,7 @@ export function AutoCard() {
           <div className="auto-sub">{t('확인할 문제')}{shown > 0 && <span className="auto-count">{shown}</span>}</div>
           {s.mode === 'analyze' && (
             <p className="auto-status" aria-live="polite">
-              {st && au.hold ? t(HOLD[au.hold]) : t('오늘 {n}/{cap}회 분석했어요', { n: st ? usedToday(st.usage, Date.now()) : 0, cap: s.dailyCap })}
+              {st && au.hold ? t(HOLD[au.hold]) : (s.dailyCap > 0 ? t('오늘 {n}/{cap}회 분석했어요', { n: st ? usedToday(st.usage, Date.now()) : 0, cap: s.dailyCap }) : t('오늘 {n}회 분석했어요', { n: st ? usedToday(st.usage, Date.now()) : 0 }))}
               {au.hold === 'failures' && <button className="btn-link" onClick={() => au.resume()}>{t('다시 시작')}</button>}
             </p>
           )}

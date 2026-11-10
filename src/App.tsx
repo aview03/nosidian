@@ -28,7 +28,7 @@ import { startAutomation, useAutomation } from './lib/automation'
 import { autoInboxCount } from './components/AutoSettings'
 import { CalendarMain, CalendarMobile, CalendarSide, DayPanel, TodayView } from './components/Calendar'
 import { NoteView } from './components/NoteView'
-import { Settings } from './components/Settings'
+import { Settings, SettingsNav } from './components/Settings'
 import { Palette } from './components/Palette'
 import { Dialogs } from './components/Dialogs'
 import { Onboarding } from './components/Onboarding'
@@ -236,7 +236,12 @@ export default function App() {
           <button onClick={() => useApp.getState().patchSettings({ leftOpen: !leftOpen })} title={leftOpen ? t('사이드바 접기') : t('사이드바 펴기')} aria-label={t('왼쪽 사이드바 접기/펴기')}><Icon name="panel-left" /></button>
           <button className={railActive('settings') ? 'on' : ''} onClick={() => useApp.getState().go('settings')} title={t('설정')}><Icon name="settings" /></button>
         </nav>
-        {/* 파일·검색 사이드바는 노트 화면에서만. 그래프·설정은 본문이 전체를 쓴다 */}
+        {/* 파일·검색 사이드바는 노트 화면에서만, 설정은 그룹 목록이 사이드바. 그래프는 본문이 전체를 쓴다 */}
+        {mainTab === 'settings' && leftOpen && (
+          <aside className="side-left">
+            <div className="view" key={`${activeVault}:settings-nav`}><SettingsNav /></div>
+          </aside>
+        )}
         {(mainTab === 'note' || mainTab === 'calendar') && leftOpen && (
           <aside className="side-left">
             <div className="view" key={`${activeVault}:${mainTab === 'calendar' ? 'cal' : leftTab}`}>

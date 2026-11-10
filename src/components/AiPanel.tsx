@@ -6,6 +6,9 @@ import { t } from '../lib/i18n'
 import { desktop, type ClaudeStatus } from '../lib/externalIO'
 import { baseName } from '../lib/links'
 import { linkifyPaths, PRESETS, readiness, toolLabel } from '../lib/aiAssistant'
+import { answerNote, titleOfAnswer } from '../lib/aiExport'
+import { openSettingsGroup } from './Settings'
+import { getLang } from '../lib/i18n'
 import { currentEngine, localEngine, useAiThread, type Engine, type Msg, type Step } from '../lib/aiThread'
 import { isStale } from '../lib/proposals'
 import { useProposals } from '../lib/proposalStore'
@@ -47,17 +50,10 @@ function ProposalCard({ id }: { id: string }) {
   )
 }
 
-/** 대화 속 프로필 사진: AI 는 빛나는 구(일하는 중이면 움직인다), 나는 이름의 첫 글자 */
-function Avatar({ kind, busy }: { kind: 'ai' | 'me'; busy?: boolean }) {
-  const name = useApp((s) => s.settings.myName)
-  if (kind === 'ai') return <span className="ai-avatar ai" aria-hidden="true"><Orb size={32} still={!busy} /></span>
-  const initial = [...(name.split(',')[0] ?? '').trim()][0]
-  return <span className="ai-avatar me" aria-hidden="true">{initial ? initial.toUpperCase() : t('나')}</span>
-}
-
 function Thinking({ step }: { step?: Step }) {
   return (
     <div className="ai-think" role="status" aria-live="polite">
+      <Orb size={26} className="ai-think-orb" />
       <div className="ai-think-text">
         <span className="ai-think-title">{t('생각하는 중…')}</span>
         {step && <span className="ai-think-step">{toolLabel(step.name)}{step.input ? ` · ${step.input}` : ''}</span>}
@@ -67,22 +63,69 @@ function Thinking({ step }: { step?: Step }) {
 }
 
 function UserMsg({ m }: { m: Msg }) {
+  const [open, setOpen] = useState(false)
+  const long = m.text.length > 260 || m.text.split('\n').length > 6
   return (
     <div className="ai-u">
       <div className="ai-u-body">
-        <div className="ai-u-text">{m.text}</div>
+        <div className={`ai-u-text${long && !open ? ' clamp' : ''}`}>
+          {m.text}
+          {long && <button className="ai-more" onClick={() => setOpen(!open)}>{open ? t('접기') : t('더 보기')}<span className={open ? 'up' : ''}><Icon name="chevdown" size={14} /></span></button>}
+        </div>
         <div className="ai-u-meta">
           {m.mode === 'edit' ? t('변경 제안') : t('묻기')}
           {m.engine === 'ollama' && <> · {t('로컬 모델')}</>}
           {m.note && <> · {baseName(m.note)}</>}
         </div>
       </div>
-      <Avatar kind="me" />
     </div>
   )
 }
 
-function AiMsg({ m, last }: { m: Msg; last: boolean }) {
+/** 답변 아래 동작: 복사 · 내보내기(노트로 저장 / 파일로 받기) · 다시 답변 */
+function AnswerActions({ m, question, canRegen }: { m: Msg; question: string; canRegen: boolean }) {
+  const [menu, setMenu] = useState(false)
+  const box = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!menu) return
+    const off = (e: Event) => { if (!box.current?.contains(e.target as Node)) setMenu(false) }
+    window.addEventListener('pointerdown', off, true)
+    return () => window.removeEventListener('pointerdown', off, true)
+  }, [menu])
+  const app = useApp.getState()
+  const copy = () => void navigator.clipboard.writeText(m.text).then(() => app.say(t('복사했어요')))
+  const asNote = () => {
+    const d = new Date()
+    const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    const n = answerNote(m.text, question, getLang(), new Set(Object.keys(useApp.getState().files)), today)
+    app.createNote(n.path, n.content, false)
+    app.say(t('"{path}" 노트로 저장했어요', { path: n.path }))
+  }
+  const asFile = () => {
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(new Blob([m.text], { type: 'text/markdown' }))
+    a.download = titleOfAnswer(m.text, question) + '.md'
+    a.click()
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000)
+  }
+  return (
+    <div className="ai-actions" role="toolbar" aria-label={t('답변 동작')}>
+      <button onClick={copy} title={t('복사')} aria-label={t('복사')}><Icon name="copy" size={17} /></button>
+      <div className="ai-actions-menu" ref={box}>
+        <button onClick={() => setMenu(!menu)} title={t('내보내기')} aria-label={t('내보내기')} aria-expanded={menu}><Icon name="export" size={17} /></button>
+        {menu && (
+          <div className="menu-pop ai-export-pop" role="menu">
+            <button role="menuitem" onClick={() => { setMenu(false); asNote() }}>{t('노트로 저장')}</button>
+            {desktop() && <button role="menuitem" onClick={() => { setMenu(false); asFile() }}>{t('Markdown 파일로 받기')}</button>}
+          </div>
+        )}
+      </div>
+      {canRegen && <button onClick={() => void useAiThread.getState().regenerate()} title={t('다시 답변')} aria-label={t('다시 답변')}><Icon name="refresh" size={17} /></button>}
+    </div>
+  )
+}
+
+function AiMsg({ m, last, question }: { m: Msg; last: boolean; question: string }) {
   const files = useApp((s) => s.files)
   const items = useProposals((s) => s.items)
   const running = useAiThread((s) => s.running)
@@ -93,9 +136,6 @@ function AiMsg({ m, last }: { m: Msg; last: boolean }) {
   const text = linkifyPaths(m.text, (p) => !!files[p] && !files[p].deleted, Object.keys(files))
   return (
     <div className="ai-a">
-      <Avatar kind="ai" busy={busy} />
-      <div className="ai-a-body">
-      <div className={`ai-bubble${m.status === 'done' && m.text ? '' : ' plain'}`}>
       {steps.length > 0 && (
         busy ? (
           <ul className="ai-steps">{steps.slice(0, -1).slice(-3).map((s, i) => <li key={i}><b>{toolLabel(s.name)}</b>{s.input && <span>{s.input}</span>}</li>)}</ul>
@@ -109,17 +149,8 @@ function AiMsg({ m, last }: { m: Msg; last: boolean }) {
       {busy && <Thinking step={steps.at(-1)} />}
       {m.status === 'error' && <p className="hint ai-err">{m.error}</p>}
       {m.status === 'done' && m.text && steps.length === 0 && <p className="hint small ai-notool">{t('노트를 읽지 않고 답했어요 — 내용이 사실과 다를 수 있어요')}</p>}
-      {m.status === 'done' && m.text && (
-        <>
-          <div className="ai-text"><Reader path="AI" content={text} compact /></div>
-        </>
-      )}
-      </div>
-      {m.status === 'done' && m.text && (
-        <div className="ai-foot">
-          <button className="btn-link" onClick={() => void navigator.clipboard.writeText(m.text).then(() => useApp.getState().say(t('복사했어요')))}>{t('복사')}</button>
-        </div>
-      )}
+      {m.status === 'done' && m.text && <div className="ai-text"><Reader path="AI" content={text} compact /></div>}
+      {m.status === 'done' && m.text && <AnswerActions m={m} question={question} canRegen={last && !running && !m.fix} />}
       {m.status === 'done' && m.fix === 'plan' && last && stale && (
         <div className="ai-plan">
           <span className="hint small ai-warn">{t('문서가 변경되어 재검토가 필요합니다')}</span>
@@ -142,7 +173,6 @@ function AiMsg({ m, last }: { m: Msg; last: boolean }) {
           </div>
         </div>
       )}
-      </div>
     </div>
   )
 }
@@ -190,7 +220,7 @@ export function AiPanel() {
   // Claude 를 쓸 수 없을 때, 로컬 모델이 준비되어 있으면 바로 바꾸게 한다
   const switchBtn = local.ready ? <button className="btn-link" onClick={() => useAiThread.getState().setEngine('ollama')}>{t('로컬 모델로 전환')}</button> : null
   const panelWidth = wide ? Math.min(Math.round(width * 1.7), Math.round(window.innerWidth * 0.7)) : width
-  const goSettings = () => { useAiThread.getState().setOpen(false); useApp.getState().go('settings') }
+  const goSettings = () => { useAiThread.getState().setOpen(false); openSettingsGroup('ai') }
 
   const send = () => canSend && void useAiThread.getState().send(draft)
   const startResize = (e: React.PointerEvent) => {
@@ -219,7 +249,7 @@ export function AiPanel() {
         {!mobile && <button className="icon-btn" onClick={() => useAiThread.getState().setOpen(false)} title={t('닫기')} aria-label={t('닫기')}><Icon name="close" size={18} /></button>}
       </header>
       {autoNew > 0 && !mobile && (
-        <button className="ai-auto" onClick={() => { useApp.getState().go('settings') }}>
+        <button className="ai-auto" onClick={() => openSettingsGroup('ai', 'auto')}>
           {t('AI 문서 관리: 확인할 문제 {n}건 — 설정에서 보기', { n: autoNew })}
         </button>
       )}
@@ -242,7 +272,7 @@ export function AiPanel() {
             })}
           </div>
         )}
-        {messages.map((m, i) => (m.role === 'user' ? <UserMsg key={m.id} m={m} /> : <AiMsg key={m.id} m={m} last={i === messages.length - 1} />))}
+        {messages.map((m, i) => (m.role === 'user' ? <UserMsg key={m.id} m={m} /> : <AiMsg key={m.id} m={m} last={i === messages.length - 1} question={messages[i - 1]?.role === 'user' ? messages[i - 1].text : ''} />))}
       </div>
 
       {mobile && ready === 'noLocal' && (
@@ -258,7 +288,7 @@ export function AiPanel() {
       {!mobile && ready === 'noLocal' && (
         <p className="hint small ai-note ai-warn">
           {local.problem === 'noTools' ? t('저장된 AI 연결은 아직 도구 호출을 지원하지 않아요. Ollama 나 OpenAI 호환 모델을 고르세요.') : local.problem === 'noModel' ? t('AI 연결에서 모델을 골라 저장해 주세요.') : t('설정 > AI 연결에서 Ollama 같은 모델을 저장하면 API 키 없이 로컬 모델로 답할 수 있어요.')}
-          <button className="btn-link" onClick={() => useApp.getState().go('settings')}>{t('설정 열기')}</button>
+          <button className="btn-link" onClick={() => openSettingsGroup('ai')}>{t('설정 열기')}</button>
         </p>
       )}
 
@@ -299,11 +329,10 @@ export function AiPanel() {
           <Select<Engine>
             className="ai-engine-sel"
             value={engine}
-            title={engine === 'claude' ? t('내 PC 의 Claude Code 로 답해요. 질문과 읽은 노트 내용은 Anthropic 으로 전송돼요.') : local.cloud ? t('설정한 클라우드 모델로 답해요. 질문과 읽은 노트 내용이 그 서버로 전송돼요.') : t('내 기기의 로컬 모델로 답해요. 노트 내용이 밖으로 나가지 않아요.')}
             ariaLabel={t('답변 엔진')}
             disabled={running}
             onChange={(v) => useAiThread.getState().setEngine(v)}
-            options={[{ value: 'claude', label: 'Claude · PC', hint: t('Anthropic 으로 전송') }, { value: 'ollama', label: local.label || t('로컬 모델 (설정 필요)'), hint: local.ready ? (local.cloud ? t('클라우드로 전송') : t('내 기기에서만 처리')) : t('설정 필요') }]}
+            options={[{ value: 'claude', label: 'Claude CLI' }, { value: 'ollama', label: local.label || t('다른 모델 연결') }]}
           />
           )}
           {running ? (

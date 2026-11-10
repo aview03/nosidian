@@ -309,3 +309,16 @@ describe('확인할 문제 목록·재분석(v1.29)', () => {
     expect(nextRunnable(resumed, { ...AN, dailyCap: 10 }, NOW + 100)).not.toBeNull()
   })
 })
+
+describe('하루 분석 횟수: 제한 없음(0)', () => {
+  it('0 은 유효한 선택이고, 한도에 걸리지 않으며, 정책 설명도 달라진다', () => {
+    expect(normalizeSettings({ dailyCap: 0 }).dailyCap).toBe(0)
+    expect(normalizeSettings({ dailyCap: 7 }).dailyCap).toBe(3)
+    const unlimited = { ...DEFAULT_AUTO, mode: 'analyze' as const, dailyCap: 0 }
+    const f = { id: 'x', kind: 'duplicate' as const, project: 'p', projectName: 'P', paths: ['a'], hashes: { a: '1' }, truncated: false, trigger: 'duplicate' as const }
+    expect(classify(f, { st: emptyState(), settings: unlimited, rules: 'r', now: NOW, ahead: 500 })).toMatchObject({ decision: 'queue' })
+    const used = { ...emptyState(), usage: Array.from({ length: 50 }, (_, i) => ({ at: NOW + i, id: 'x', outcome: 'done' as const, ms: 1 })), queue: [{ id: 'q', status: 'queued', createdAt: NOW, attempts: 0, interrupted: 0 } as never] }
+    expect(nextRunnable(used, unlimited, NOW + 100)).not.toBeNull()
+    expect(describePolicy(unlimited)).toContain('횟수 제한 없이')
+  })
+})

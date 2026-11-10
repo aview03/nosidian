@@ -1059,5 +1059,17 @@ const dict: Record<string, string> = {
   'PC에서 AI를 켜 두고, 같은 와이파이의 PC 주소를 적어 주세요. Ollama는 OLLAMA_HOST=0.0.0.0 으로 열어 두어야 해요.': "Keep AI running on your PC and enter its address on the same Wi-Fi. Ollama must be opened with OLLAMA_HOST=0.0.0.0.",
   '키는 이 휴대폰에만 저장돼요(암호화되지 않아요). AI를 쓰면 노트 내용이 해당 업체로 전송돼요.': "The key stays on this phone (not encrypted). When you use AI, note content is sent to that provider.",
   '내 서버': 'My server',
+  '복사할 글': "Text to copy",
+  '펼치기': "Expand",
+  '내보내기': "Export",
+  '노트로 저장': "Save as note",
+  'Markdown 파일로 받기': "Download as Markdown",
+  '다시 답변': "Regenerate",
+  '답변 동작': "Answer actions",
+  '"{path}" 노트로 저장했어요': "Saved as note \"{path}\"",
+  '다른 모델 연결': 'Connect another model',
+  '휴대폰에서 연결해 쓸 수 있어요': 'Connect and use it on your phone',
+  '제한 없음': 'No limit',
+  '오늘 {n}회 분석했어요': 'Analyzed {n} times today',
 }
 export default dict

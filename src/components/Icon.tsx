@@ -28,6 +28,10 @@ const P: Record<string, string> = {
   tasks: 'M9 11l3 3 8-8M20 12v6a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h9',
   sliders: 'M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6',
   expand: 'M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5',
+  copy: 'M9 9h11v11H9zM5 15V5h10',
+  refresh: 'M20 12a8 8 0 11-2.4-5.7M20 4v5h-5',
+  export: 'M12 16V4M8 8l4-4 4 4M5 14v5h14v-5',
+  chevdown: 'M6 9l6 6 6-6',
   sun: 'M12 17a5 5 0 100-10 5 5 0 000 10zM12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4',
 }
 

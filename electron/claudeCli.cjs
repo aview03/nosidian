@@ -30,6 +30,7 @@ const SYSTEM_PROMPT =
   'Never say a change was applied unless propose_change returned outcome "applied"; if it returned "pending_approval", say the person must approve it in Nosidian. ' +
   'Before changing a note, read it with read_note, send its content_hash as base_hash, and send the complete new text as content. ' +
   'Check get_document_rules when a change is denied or before creating notes. ' +
+  'When you write text the user will copy and use elsewhere (a message, an email, a draft, a spec, a template, code), put exactly that text in a fenced code block (use ```text for prose) and keep your explanation outside the block. ' +
   'Answer in the language of the user\'s question (Korean by default), concisely and concretely, and mention note paths you relied on.'
 
 /** PATH 에서 claude 실행 파일을 찾는다. 네이티브 설치(.exe)만 지원한다 */

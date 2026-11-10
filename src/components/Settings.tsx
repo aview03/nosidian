@@ -12,7 +12,7 @@ import { LlmCard } from './LlmSettings'
 import { McpCard } from './McpSettings'
 import { AutoCard } from './AutoSettings'
 import { AiWizard } from './AiWizard'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { create } from 'zustand'
 import { useApp } from '../lib/app'
 import { confirmAsk } from '../lib/dialog'
@@ -102,7 +102,15 @@ function MyNameField() {
 
 type GroupId = 'profile' | 'notes' | 'ai' | 'view' | 'work' | 'about'
 /** 모바일: null = 그룹 목록, 그 밖 = 그 그룹 화면. PC: null 이면 첫 그룹 */
-const useSettingsUi = create<{ group: GroupId | null }>(() => ({ group: null }))
+const useSettingsUi = create<{ group: GroupId | null; /** 그 그룹을 열 때 스크롤해서 보여 줄 카드 id */ focus: string | null }>(() => ({ group: null, focus: null }))
+
+/** 설정을 열면서 해당 그룹(과 카드)으로 바로 간다. 사이드바가 접혀 있으면 펼친다 */
+export function openSettingsGroup(group: GroupId, focus?: string) {
+  useSettingsUi.setState({ group, focus: focus ?? null })
+  const app = useApp.getState()
+  if (!app.settings.leftOpen) app.patchSettings({ leftOpen: true })
+  app.go('settings')
+}
 
 function useMedia(q: string) {
   const [m, setM] = useState(() => window.matchMedia(q).matches)
@@ -230,12 +238,21 @@ function NotesGroup() {
 
 /** AI: 자주 쓰는 것(앱 안 AI·자동 문서 관리)을 위에, 직접 연결·외부 연결은 "고급"으로 접는다 */
 function AiGroup() {
+  const focus = useSettingsUi((x) => x.focus)
+  useEffect(() => {
+    if (focus !== 'auto') return
+    const id = setTimeout(() => {
+      document.getElementById('set-auto')?.scrollIntoView({ block: 'start', behavior: 'smooth' })
+      useSettingsUi.setState({ focus: null })
+    }, 120)
+    return () => clearTimeout(id)
+  }, [focus])
   return (
     <>
       <AiWizard />
       {desktop() && (
         <>
-          <AutoCard />
+          <div id="set-auto"><AutoCard /></div>
           <details className="more adv-card">
             <summary>{t('고급: 연결 직접 설정 (서버 주소·모델·키)')}</summary>
             <LlmCard />
@@ -339,57 +356,83 @@ function AboutGroup() {
   )
 }
 
-export function Settings() {
+type GroupInfo = { id: GroupId; label: string; icon: 'star' | 'sync' | 'spark' | 'sun' | 'tasks' | 'more'; sub: string }
+
+/** 설정 그룹 목록(이름·아이콘·지금 상태 한 줄) */
+function useGroups(): GroupInfo[] {
   const s = useApp((x) => x.settings)
   const vault = useActiveVault()
-  const wide = useMedia('(min-width: 900px)')
-  const picked = useSettingsUi((x) => x.group)
-  const group: GroupId | null = wide ? (picked ?? 'profile') : picked
   const persona = personaOf(s.persona)
   const mobile = !desktop()
-  const groups: { id: GroupId; label: string; icon: 'star' | 'sync' | 'spark' | 'sun' | 'tasks' | 'more'; sub: string }[] = [
+  return [
     { id: 'profile', label: t('내 프로필'), icon: 'star', sub: `${s.myName.trim() || t('이름 없음')} · ${persona ? t(PERSONA_INFO[persona].label) : t('역할 미정')}` },
     { id: 'notes', label: t('노트와 동기화'), icon: 'sync', sub: `${vault?.name ?? ''} · ${s.remote ? SYNC_LABEL[s.remote.kind] : t('이 기기에만')}` },
-    { id: 'ai', label: 'AI', icon: 'spark', sub: mobile ? t('PC 앱에서 쓸 수 있어요') : t('연결·자동 문서 관리') },
+    { id: 'ai', label: 'AI', icon: 'spark', sub: mobile ? t('휴대폰에서 연결해 쓸 수 있어요') : t('연결·자동 문서 관리') },
     { id: 'view', label: t('화면과 캘린더'), icon: 'sun', sub: `${{ auto: t('시스템'), light: t('라이트'), dark: t('다크') }[s.theme]} · ${s.fontSize}px` },
     { id: 'work', label: t('업무와 문서'), icon: 'tasks', sub: t('내 업무 구성·문서 규칙') },
     { id: 'about', label: t('정보'), icon: 'more', sub: `v${__APP_VERSION__}` },
   ]
-  const page = {
-    profile: <ProfileCard />,
-    notes: <NotesGroup />,
-    ai: <AiGroup />,
-    view: <ViewGroup />,
-    work: <WorkGroup />,
-    about: <AboutGroup />,
-  }
-  const cur = groups.find((g) => g.id === group)
-  const nav = (
-    <nav className={`set-nav${wide ? '' : ' full'}`} aria-label={t('설정')}>
-      {groups.map((g) => (
-        <button key={g.id} className={`set-nav-row${group === g.id ? ' on' : ''}`} onClick={() => useSettingsUi.setState({ group: g.id })}>
-          <span className="set-ico"><Icon name={g.icon} size={20} /></span>
-          <span className="set-text"><b>{g.label}</b><small>{g.sub}</small></span>
-          {!wide && <span className="set-chev"><Icon name="chevron" size={14} /></span>}
-        </button>
-      ))}
-    </nav>
+}
+
+const PAGES: Record<GroupId, () => ReactNode> = {
+  profile: () => <ProfileCard />,
+  notes: () => <NotesGroup />,
+  ai: () => <AiGroup />,
+  view: () => <ViewGroup />,
+  work: () => <WorkGroup />,
+  about: () => <AboutGroup />,
+}
+
+/** 넓은 화면의 설정 사이드바(왼쪽): 그룹 목록. 고른 그룹의 내용은 본문(Settings)에 나온다 */
+export function SettingsNav() {
+  const groups = useGroups()
+  const group = useSettingsUi((x) => x.group) ?? 'profile'
+  return (
+    <div className="settings side-nav">
+      <div className="panel-head"><h2>{t('설정')}</h2></div>
+      <nav className="set-nav" aria-label={t('설정')}>
+        {groups.map((g) => (
+          <button key={g.id} className={`set-nav-row${group === g.id ? ' on' : ''}`} onClick={() => useSettingsUi.setState({ group: g.id })}>
+            <span className="set-ico"><Icon name={g.icon} size={20} /></span>
+            <span className="set-text"><b>{g.label}</b><small>{g.sub}</small></span>
+          </button>
+        ))}
+      </nav>
+    </div>
   )
+}
+
+/**
+ * 설정 본문. 넓은 화면(PC)에서는 그룹 목록이 왼쪽 사이드바(SettingsNav)에 있고 여기는 고른 그룹의 내용만 보인다.
+ * 좁은 화면(폰)에서는 그룹 목록 → 그룹 화면으로 들어간다.
+ */
+export function Settings() {
+  const wide = useMedia('(min-width: 900px)')
+  const groups = useGroups()
+  const picked = useSettingsUi((x) => x.group)
+  const group: GroupId | null = wide ? (picked ?? 'profile') : picked
+  const cur = groups.find((g) => g.id === group)
+  const Page = group ? PAGES[group] : null
   return (
     <div className="settings">
       <div className="panel-head">
         {!wide && group && <button className="icon-btn" onClick={() => useSettingsUi.setState({ group: null })} aria-label={t('설정 목록으로')}><Icon name="back" /></button>}
-        <h2>{!wide && cur ? cur.label : t('설정')}</h2>
+        <h2>{cur ? cur.label : t('설정')}</h2>
       </div>
-      {wide ? (
-        <div className="set-split">
-          {nav}
-          <div className="settings-scroll set-pane" key={group}>{group && page[group]}</div>
-        </div>
-      ) : group ? (
-        <div className="settings-scroll" key={group}>{page[group]}</div>
+      {group && Page ? (
+        <div className={`settings-scroll${wide ? ' set-pane' : ''}`} key={group}><Page /></div>
       ) : (
-        <div className="settings-scroll">{nav}</div>
+        <div className="settings-scroll">
+          <nav className="set-nav full" aria-label={t('설정')}>
+            {groups.map((g) => (
+              <button key={g.id} className="set-nav-row" onClick={() => useSettingsUi.setState({ group: g.id })}>
+                <span className="set-ico"><Icon name={g.icon} size={20} /></span>
+                <span className="set-text"><b>{g.label}</b><small>{g.sub}</small></span>
+                <span className="set-chev"><Icon name="chevron" size={14} /></span>
+              </button>
+            ))}
+          </nav>
+        </div>
       )}
     </div>
   )

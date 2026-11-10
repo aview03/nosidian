@@ -1,4 +1,4 @@
-import { t } from '../lib/i18n'
+import { t, t as translate } from '../lib/i18n'
 import { useEffect, useMemo, useRef } from 'react'
 import 'katex/dist/katex.min.css'
 import 'highlight.js/styles/github.css'
@@ -98,11 +98,49 @@ export function Reader({ path, content, compact = false }: { path: string; conte
         }
       })
     }
+    // AI 답변(compact): 코드·복사할 글 블록을 머리글(종류 + 복사/펼치기)이 있는 카드로 감싼다
+    if (compact) {
+      const svg = (d: string) => `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="${d}"/></svg>`
+      root.querySelectorAll<HTMLElement>('pre').forEach((pre) => {
+        if (pre.parentElement?.classList.contains('codecard') || pre.closest('.mermaid-block')) return
+        const lang = (pre.querySelector('code')?.className.match(/language-([\w+#.-]+)/)?.[1] ?? '').toLowerCase()
+        const prose = !lang || ['text', 'txt', 'plain', 'plaintext', 'md', 'markdown'].includes(lang)
+        const label = prose ? t('복사할 글') : lang
+        const wrap = document.createElement('div')
+        wrap.className = `codecard${prose ? ' prose' : ''}`
+        const head = document.createElement('div')
+        head.className = 'codecard-head'
+        const name = document.createElement('span')
+        name.textContent = label
+        const btns = document.createElement('span')
+        btns.className = 'codecard-btns'
+        btns.innerHTML = `<button type="button" class="codecard-copy" title="${t('복사')}" aria-label="${t('복사')}">${svg('M9 9h11v11H9zM5 15V5h10')}</button>`
+        head.append(name, btns)
+        const host = pre.closest('.code-block') ?? pre // 기본 코드 블록의 언어 표시(.code-lang)는 카드 머리글이 대신한다
+        host.replaceWith(wrap)
+        wrap.append(head, pre)
+        if (pre.scrollHeight > 360) {
+          wrap.classList.add('clamped')
+          btns.insertAdjacentHTML('beforeend', `<button type="button" class="codecard-expand" title="${t('펼치기')}" aria-label="${t('펼치기')}">${svg('M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5')}</button>`)
+        }
+      })
+    }
     if (anchor && !compact) requestAnimationFrame(() => scrollToAnchor(root, anchor))
   }, [html, anchor, dark, compact])
 
   const onClick = (e: React.MouseEvent) => {
     const t = e.target as HTMLElement
+    const card = t.closest('.codecard')
+    const tr = (k: string) => translate(k)
+    if (card && t.closest('.codecard-copy')) {
+      const text = card.querySelector('pre')?.textContent ?? ''
+      void navigator.clipboard.writeText(text.replace(/\n$/, '')).then(() => useApp.getState().say(tr('복사했어요')))
+      return
+    }
+    if (card && t.closest('.codecard-expand')) {
+      card.classList.toggle('open')
+      return
+    }
     const a = t.closest('a.internal-link') as HTMLElement | null
     const app = useApp.getState()
     if (a) {

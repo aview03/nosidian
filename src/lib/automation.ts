@@ -131,7 +131,7 @@ export function holdReason(st: AutoState, s: AutoSettings, now = Date.now()): Ho
   if (engine === 'claude' ? !desktop()?.claude : !localEngine().ready) return 'noEngine'
   if (useAiThread.getState().running) return 'userBusy'
   if (s.holdOnBattery && charging === false) return 'battery'
-  if (usedToday(st.usage, now) >= s.dailyCap) return 'cap'
+  if (s.dailyCap > 0 && usedToday(st.usage, now) >= s.dailyCap) return 'cap'
   return null
 }
 

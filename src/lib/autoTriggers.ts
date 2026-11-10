@@ -25,7 +25,8 @@ export interface AutoSettings {
   /** 자동 관리에서 뺀 프로젝트(프로젝트 노트 경로) */
   excluded: string[]
 }
-export const CAPS = [1, 3, 5, 10]
+/** 하루 최대 AI 분석 선택지. 0 = 제한 없음 */
+export const CAPS = [1, 3, 5, 10, 0]
 export const DEBOUNCES = [30, 120, 300]
 export const DEFAULT_AUTO: AutoSettings = {
   mode: 'off',
@@ -260,7 +261,7 @@ export function classify(f: Finding, c: ClassifyCtx): Verdict {
   if (c.st.analyzed[cacheKeyOf(f, c.rules)]) return skip('analyzed')
   if (f.paths.some((p) => c.now - (c.st.aiTouched[p] ?? -Infinity) < AI_EXCLUDE_MS)) return skip('aiExcluded')
   if (f.truncated) return skip('truncated')
-  if (c.ahead >= c.settings.dailyCap - usedToday(c.st.usage, c.now)) return { finding: f, decision: 'wait', reason: 'capReached' }
+  if (c.settings.dailyCap > 0 && c.ahead >= c.settings.dailyCap - usedToday(c.st.usage, c.now)) return { finding: f, decision: 'wait', reason: 'capReached' }
   return { finding: f, decision: 'queue' }
 }
 
@@ -365,7 +366,7 @@ export function finishRun(st: AutoState, id: string, outcome: UsageEntry['outcom
 export function nextRunnable(st: AutoState, settings: AutoSettings, now: number): QueueItem | null {
   if (settings.paused || settings.mode !== 'analyze') return null
   if (consecutiveFailures(st.usage, st.failResetAt) >= MAX_FAILS) return null
-  if (usedToday(st.usage, now) >= settings.dailyCap) return null
+  if (settings.dailyCap > 0 && usedToday(st.usage, now) >= settings.dailyCap) return null
   return st.queue.find((q) => q.status === 'queued' && (q.retryAt ?? 0) <= now) ?? null
 }
 
@@ -415,5 +416,5 @@ export function describePolicy(s: AutoSettings): string {
   const names = [s.triggers.duplicate && '새 중복 후보', s.triggers.roleIssue && '역할 충돌'].filter(Boolean).join('·') || '선택된 트리거 없음'
   const wait = s.debounceSec >= 60 ? `${s.debounceSec / 60}분` : `${s.debounceSec}초`
   if (s.mode === 'notify') return `문서가 바뀌고 ${wait} 뒤 점검해서 ${names} 문제가 새로 생기면 알려 줘요. AI 는 부르지 않아요.`
-  return `문서가 바뀌고 ${wait} 뒤 점검해서 ${names} 문제가 새로 생기면 하루 최대 ${s.dailyCap}회 AI 가 읽기 전용으로 분석해 정리 계획을 만들어요. 문서는 자동으로 수정하지 않아요.`
+  return `문서가 바뀌고 ${wait} 뒤 점검해서 ${names} 문제가 새로 생기면 ${s.dailyCap > 0 ? `하루 최대 ${s.dailyCap}회` : '횟수 제한 없이'} AI 가 읽기 전용으로 분석해 정리 계획을 만들어요. 문서는 자동으로 수정하지 않아요.`
 }

@@ -288,7 +288,7 @@ describe('로컬 모델(Ollama) 엔진', () => {
   it('엔진 선택은 기억되고, 저장된 모델 정보로 사용 가능 여부와 전송 위치를 알려 준다', async () => {
     const { localEngine } = await import('./aiThread')
     expect(localEngine(null)).toMatchObject({ ready: false, problem: 'noConfig' })
-    expect(localEngine(OLLAMA as never)).toEqual({ ready: true, label: 'Ollama · qwen3.5:4b', cloud: false })
+    expect(localEngine(OLLAMA as never)).toEqual({ ready: true, label: 'Ollama qwen3.5:4b', cloud: false })
     expect(localEngine({ ...OLLAMA, baseUrl: 'https://llm.example.com' } as never).cloud).toBe(true)
     expect(localEngine({ kind: 'anthropic', baseUrl: 'https://api.anthropic.com', model: 'm', apiKey: 'k' })).toMatchObject({ ready: false, problem: 'noTools' })
     expect(localEngine({ ...OLLAMA, model: '' } as never)).toMatchObject({ ready: false, problem: 'noModel' })
@@ -435,5 +435,29 @@ describe('폰·웹: Claude Code 가 없으면 항상 연결한 모델로', () =>
     expect(currentEngine('claude')).toBe('claude')
     expect(currentEngine('ollama')).toBe('ollama')
     w.amsidianDesktop = old
+  })
+})
+
+describe('다시 답변', () => {
+  it('마지막 답변을 지우고 같은 질문·모드로 다시 보낸다(분석·계획 답변, 진행 중, 첫 질문 전에는 하지 않는다)', async () => {
+    const send = vi.spyOn(useAiThread.getState(), 'send').mockResolvedValue()
+    const u = { id: 'u', role: 'user' as const, text: '요약해 줘', at: 1, note: 'a.md', mode: 'ask' as const, engine: 'ollama' as const }
+    const a = { id: 'a', role: 'ai' as const, text: '요약', at: 1, status: 'done' as const, steps: [] }
+    useAiThread.setState({ messages: [u, a], running: false })
+    await useAiThread.getState().regenerate()
+    expect(useAiThread.getState().messages).toEqual([])
+    expect(send).toHaveBeenCalledWith('요약해 줘', { mode: 'ask', withNote: true })
+    send.mockClear()
+    useAiThread.setState({ messages: [u, { ...a, fix: 'plan' as const }] })
+    await useAiThread.getState().regenerate()
+    useAiThread.setState({ messages: [u, { ...a, status: 'running' as const }] })
+    await useAiThread.getState().regenerate()
+    useAiThread.setState({ messages: [a] })
+    await useAiThread.getState().regenerate()
+    useAiThread.setState({ messages: [u, a], running: true })
+    await useAiThread.getState().regenerate()
+    expect(send).not.toHaveBeenCalled()
+    send.mockRestore()
+    useAiThread.setState({ messages: [], running: false })
   })
 })

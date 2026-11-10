@@ -1386,3 +1386,47 @@ input.inline.wide { width: 100%; box-sizing: border-box; height: 42px; }
 .ai-sheet .ai-q { font-size: 16px; min-height: 44px; }
 .ai-sheet .ai-model { font-size: 12.5px; color: var(--muted); max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ai-sheet .ai-send { width: 44px; height: 44px; }
+
+/* ── AI 대화: 말풍선·프로필 없이 본문이 그대로, 사용자 말만 말풍선 ───────────── */
+.ai-a { display: block; margin: 8px 0 22px; }
+.ai-a-body, .ai-bubble { all: unset; }
+.ai-text { font-size: 14.5px; line-height: 1.7; }
+.ai-text .md p { margin: .7em 0; }
+.ai-u { display: flex; justify-content: flex-end; margin: 20px 0 14px; }
+.ai-u-body { max-width: 88%; display: flex; flex-direction: column; align-items: flex-end; }
+.ai-u-text { position: relative; white-space: pre-wrap; word-break: break-word; padding: 10px 14px; background: color-mix(in srgb, var(--accent) 22%, var(--bg2)); border-radius: 18px 18px 4px 18px; font-size: 14.5px; line-height: 1.55; }
+.ai-u-text.clamp { max-height: 9.2em; overflow: hidden; }
+.ai-u-text.clamp::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 4.2em; border-radius: inherit; background: linear-gradient(to bottom, transparent, color-mix(in srgb, var(--accent) 22%, var(--bg2)) 70%); pointer-events: none; }
+.ai-more { position: relative; z-index: 1; display: flex; align-items: center; gap: 4px; margin-top: 6px; padding: 0; border: none; background: none; min-height: 0; font-size: 13px; font-weight: 600; color: var(--text); }
+.ai-u-text.clamp .ai-more { position: absolute; left: 14px; bottom: 8px; margin: 0; }
+.ai-more .up { display: inline-flex; transform: rotate(180deg); }
+/* 답변 아래 동작 */
+.ai-actions { display: flex; align-items: center; gap: 2px; margin: 6px 0 0 -6px; }
+.ai-actions > button, .ai-actions-menu > button { width: 32px; height: 32px; min-height: 32px; padding: 0; border: none; background: none; border-radius: var(--r); display: grid; place-items: center; color: var(--muted); }
+.ai-actions > button:hover, .ai-actions-menu > button:hover { background: var(--bg3); color: var(--text); }
+.ai-actions-menu { position: relative; }
+.ai-export-pop { position: absolute; left: 0; top: calc(100% + 4px); min-width: 190px; z-index: 20; }
+.ai-export-pop button { width: 100%; text-align: left; }
+/* 생각 중 */
+.ai-think-orb { border-radius: 50%; background: #15171c; flex: none; }
+.ai-think { gap: 8px; }
+/* 코드·복사할 글 카드 */
+.codecard { margin: .9em 0; border: 1px solid var(--border); border-radius: var(--r); background: var(--bg2); overflow: hidden; }
+.codecard-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 8px 6px 14px; font-size: 12.5px; color: var(--muted); }
+.codecard-btns { display: flex; gap: 2px; }
+.codecard-btns button { width: 30px; height: 30px; min-height: 30px; padding: 0; border: none; background: none; color: var(--muted); display: grid; place-items: center; border-radius: var(--r); }
+.codecard-btns button:hover { background: var(--bg3); color: var(--text); }
+.codecard pre { margin: 0; padding: 4px 14px 14px; background: none; border: none; overflow-x: auto; font-size: 13px; line-height: 1.6; }
+.codecard.prose pre { white-space: pre-wrap; word-break: break-word; font-family: inherit; font-size: 14.5px; line-height: 1.7; color: var(--text); }
+.codecard.clamped:not(.open) pre { max-height: 360px; overflow: hidden; }
+.codecard.clamped:not(.open)::after { content: ''; display: block; height: 28px; margin-top: -28px; position: relative; background: linear-gradient(to bottom, transparent, var(--bg2)); pointer-events: none; }
+.codecard pre code { background: none; padding: 0; }
+.codecard.prose pre, .codecard.prose pre code { font-family: inherit; letter-spacing: normal; }
+.codecard pre { white-space: pre; }
+.codecard.prose pre { white-space: pre-wrap; }
+
+/* 설정 그룹 목록은 왼쪽 사이드바(다른 화면의 파일·캘린더 사이드바와 같은 자리) */
+.side-left .settings.side-nav { display: flex; flex-direction: column; height: 100%; }
+.side-left .set-nav { padding: 0; width: auto; border-right: none; flex: 1; overflow-y: auto; }
+.side-left .set-nav-row.on { background: var(--accent-soft); }
+.set-pane { padding: 6px 28px 100px; }

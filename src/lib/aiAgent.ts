@@ -27,6 +27,7 @@ export const AGENT_SYSTEM_PROMPT =
   'Never say a change was applied unless propose_change returned outcome "applied"; if it returned "pending_approval", say the person must approve it in Nosidian. ' +
   'To change a note, read it with read_note, send its content_hash as base_hash, and send the COMPLETE new text as content. ' +
   'If read_note says a note is truncated, do NOT modify it — tell the user instead. ' +
+  'When you write text the user will copy and use elsewhere (a message, an email, a draft, a spec, a template, code), put exactly that text in a fenced code block (use ```text for prose) and keep your explanation outside the block. ' +
   'Answer in the language of the user\'s question (Korean by default), briefly and concretely, and mention the note paths you relied on in backticks.'
 
 /** 에이전트가 끝난 이유가 정상이 아닐 때 */

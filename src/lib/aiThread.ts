@@ -12,7 +12,7 @@ import { planApplyPrompt } from './aiFix'
 import { desktop, type ClaudeEvent } from './externalIO'
 import { useProposals } from './proposalStore'
 import { AgentError, runAgent } from './aiAgent'
-import { isPrivateHost, loadLlmConfig, providerOf, supportsTools, type LlmConfig } from './llm'
+import { isPrivateHost, loadLlmConfig, supportsTools, type LlmConfig } from './llm'
 import { chatTurn } from './llmNet'
 import { callTool } from './mcpTools'
 import { buildEnv } from './mcpBridge'
@@ -38,14 +38,15 @@ export interface LocalEngine {
 /** 설정 > AI 연결에 저장된 모델로 앱 안 AI 를 돌릴 수 있는지 */
 export function localEngine(cfg: LlmConfig | null = loadLlmConfig()): LocalEngine {
   if (!cfg) return { ready: false, label: '', cloud: false, problem: 'noConfig' }
-  const name = cfg.kind === 'ollama' ? 'Ollama' : cfg.kind === 'custom' ? t('내 서버') : providerOf(cfg.kind).label
+  // 패널 선택 상자에 보일 짧은 이름: "Ollama qwen3.5:4b", "OpenAI gpt-4o-mini", "Claude API"
+  const name = cfg.kind === 'ollama' ? 'Ollama' : cfg.kind === 'custom' ? t('내 서버') : cfg.kind === 'anthropic' ? 'Claude API' : cfg.kind === 'gemini' ? 'Gemini' : 'OpenAI'
   let cloud = true
   try {
     cloud = !isPrivateHost(new URL(cfg.baseUrl).hostname)
   } catch {
     /* 주소가 잘못되면 클라우드로 간주(보수적) */
   }
-  const label = `${name}${cfg.model ? ` · ${cfg.model}` : ''}`
+  const label = cfg.kind === 'anthropic' ? name : `${name}${cfg.model ? ` ${cfg.model}` : ''}`
   if (!supportsTools(cfg.kind)) return { ready: false, label, cloud, problem: 'noTools' }
   if (!cfg.model.trim()) return { ready: false, label, cloud, problem: 'noModel' }
   return { ready: true, label, cloud }
@@ -187,6 +188,8 @@ interface AiThread {
   injectPlan(title: string, text: string, source: { hashes: Record<string, string>; itemId: string }, engine?: Engine): boolean
   /** 분석한 정리 계획을 변경 제안으로 낸다(변경 제안 모드로 한 번) */
   applyPlan(msgId: string): Promise<void>
+  /** 마지막 답변을 지우고 같은 질문을 다시 보낸다(분석·계획 실행 답변은 제외) */
+  regenerate(): Promise<void>
   cancel(): void
   /** 새 채팅 */
   clear(): void
@@ -340,6 +343,16 @@ export const useAiThread = create<AiThread>((set, get) => {
         return
       }
       await get().send('정리 계획대로 변경 제안 만들기', { prompt: planApplyPrompt(m.text), mode: 'edit', withNote: false, fix: 'apply' })
+    },
+    regenerate: async () => {
+      const msgs = get().messages
+      const n = msgs.length
+      if (get().running || n < 2) return
+      const ai = msgs[n - 1]
+      const u = msgs[n - 2]
+      if (ai.role !== 'ai' || u.role !== 'user' || ai.fix || ai.status === 'running') return
+      commit(msgs.slice(0, n - 2))
+      await get().send(u.text, { mode: u.mode, withNote: u.note != null })
     },
     cancel: () => {
       if (currentEngine(get().engine) === 'ollama') abortLocal?.abort()
