@@ -109,6 +109,7 @@ function createRunner(deps) {
   const fsx = deps.fsImpl || fs
   const find = deps.findClaude || findClaude
   let active = null // { child, cancelled }
+  let ready = false // 마지막 확인에서 설치·로그인이 되어 있었나(휴대폰 중계가 쓸 수 있는지 알려 주는 용도)
 
   async function detect() {
     const f = find()
@@ -131,7 +132,13 @@ function createRunner(deps) {
   }
 
   /** 한 번 실행한다. onEvent 로 진행(tool·text)과 끝(result·error)을 알린다. 끝나면 임시 파일·서버를 정리한다 */
-  async function run({ prompt, model, mode, forceApproval }, onEvent) {
+  async function refreshReady() {
+    const d = await detect()
+    ready = !!(d.found && d.loggedIn)
+    return ready
+  }
+
+  async function run({ prompt, model, mode, forceApproval, callTool }, onEvent) {
     if (active) return onEvent({ type: 'error', code: 'busy', message: '이미 AI 가 실행 중이에요' })
     if (typeof prompt !== 'string' || !prompt.trim() || prompt.length > 20_000) return onEvent({ type: 'error', code: 'badPrompt', message: '질문이 비었거나 너무 길어요' })
     const f = find()
@@ -146,7 +153,7 @@ function createRunner(deps) {
     try {
       dir = fsx.mkdtempSync(path.join(deps.tmpdir || os.tmpdir(), 'nosidian-claude-'))
       const readOnly = mode === 'ask'
-      mcp = await deps.startMcp({ readOnly, forceApproval: forceApproval === true })
+      mcp = await deps.startMcp({ readOnly, forceApproval: forceApproval === true, callTool }) // callTool: 도구 호출을 대신 처리할 곳(휴대폰 중계). 없으면 이 PC 의 창
       const cfgPath = path.join(dir, 'mcp.json')
       fsx.writeFileSync(cfgPath, JSON.stringify(mcpConfig(mcp)), { mode: 0o600 })
       const child = deps.spawn(f.path, buildArgs({ mcpConfigPath: cfgPath, model, readOnly }), { cwd: dir, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true })
@@ -223,7 +230,7 @@ function createRunner(deps) {
     return true
   }
 
-  return { detect, run, cancel, isRunning: () => !!active }
+  return { detect, run, cancel, isRunning: () => !!active, isReady: () => ready, refreshReady }
 }
 
 /** Windows 는 자식의 자식까지 함께 끝낸다(taskkill /T), 그 밖에는 kill */

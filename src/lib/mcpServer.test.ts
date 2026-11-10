@@ -44,7 +44,6 @@ describe('MCP 서버: 접근 통제', () => {
   it('Host 가 로컬 주소가 아니면 거절(DNS 리바인딩)', async () => {
     const { port } = await boot()
     // fetch 는 Host 를 못 바꾸므로 raw 소켓으로 보낸다
-    // @ts-expect-error 타입 선언 없이 Node 내장 모듈을 쓴다
     const net: any = await import('node:net')
     const status = await new Promise<string>((resolve) => {
       const sock = net.connect(port, '127.0.0.1', () => sock.write(`POST /mcp HTTP/1.1\r\nHost: evil.example\r\nAuthorization: Bearer ${TOKEN}\r\nContent-Type: application/json\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{}`))
@@ -63,7 +62,6 @@ describe('MCP 서버: 접근 통제', () => {
   })
   it('127.0.0.1 에만 열린다', async () => {
     const { port } = await boot()
-    // @ts-expect-error 타입 선언 없이 Node 내장 모듈을 쓴다
     const net: any = await import('node:net')
     const reach = (host: string) => new Promise<boolean>((resolve) => { const s = net.connect(port, host); s.on('connect', () => { s.destroy(); resolve(true) }); s.on('error', () => resolve(false)) })
     expect(await reach('127.0.0.1')).toBe(true)
@@ -85,7 +83,6 @@ describe('MCP 서버: 접근 통제', () => {
 describe('MCP 서버: 비정상 클라이언트', () => {
   it('본문을 보내다가 연결을 끊어도 서버는 죽지 않고(처리되지 않은 오류 없음) 다음 요청을 받는다', async () => {
     const { port, post } = await boot()
-    // @ts-expect-error 타입 선언 없이 Node 내장 모듈을 쓴다
     const net: any = await import('node:net')
     for (let i = 0; i < 5; i++) {
       await new Promise<void>((resolve) => {

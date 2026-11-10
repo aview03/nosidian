@@ -136,9 +136,10 @@ if (!app.requestSingleInstanceLock()) {
   app.quit()
 } else {
   queueFiles(process.argv)
-  require('./llm.cjs').registerLlm(ipcMain, { file: path.join(app.getPath('userData'), 'llm-key.bin'), safeStorage })
+  const llm = require('./llm.cjs').registerLlm(ipcMain, { file: path.join(app.getPath('userData'), 'llm-key.bin'), safeStorage })
   const mcpHost = require('./mcpHost.cjs').register({ ipcMain, app, getWindow: () => win })
-  require('./claudeCli.cjs').register({ ipcMain, getWindow: () => win, startMcp: mcpHost.startInternal })
+  const claudeRunner = require('./claudeCli.cjs').register({ ipcMain, getWindow: () => win, startMcp: mcpHost.startInternal })
+  require('./aiRelay.cjs').register({ ipcMain, app, claudeRunner, llm })
   ipcMain.handle('open-file:take', () => pendingFiles.splice(0))
   // 열어 본 문서를 원본 위치에 저장 (마크다운/텍스트 확장자의 절대 경로만)
   ipcMain.handle('open-file:save', (_e, p, content) => {

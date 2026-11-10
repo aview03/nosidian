@@ -25,6 +25,7 @@ import { ProposalReview } from './components/ProposalReview'
 import { AiPanel } from './components/AiPanel'
 import { startAiThread, useAiThread } from './lib/aiThread'
 import { startAutomation, useAutomation } from './lib/automation'
+import { startRelayBridge } from './lib/relayBridge'
 import { autoInboxCount } from './components/AutoSettings'
 import { CalendarMain, CalendarMobile, CalendarSide, DayPanel, TodayView } from './components/Calendar'
 import { NoteView } from './components/NoteView'
@@ -94,6 +95,7 @@ export default function App() {
   useEffect(() => (ready ? startMcpBridge() : undefined), [ready])
   useEffect(() => void (ready && migrateLlmKey()), [ready])
   useEffect(() => (ready ? startAiThread() : undefined), [ready])
+  useEffect(() => startRelayBridge(), [])
   useEffect(() => (ready && !window.location.search.includes('widget') ? startAutomation() : undefined), [ready])
   const autoNew = useAutomation((s) => (s.settings.mode === 'off' ? 0 : autoInboxCount(s.st)))
   const aiOpen = useAiThread((s) => s.open)

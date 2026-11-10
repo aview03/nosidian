@@ -8,6 +8,7 @@ import { baseName } from '../lib/links'
 import { linkifyPaths, PRESETS, readiness, toolLabel } from '../lib/aiAssistant'
 import { answerNote, titleOfAnswer } from '../lib/aiExport'
 import { openSettingsGroup } from './Settings'
+import { pcClaude } from '../lib/pcLink'
 import { getLang } from '../lib/i18n'
 import { currentEngine, localEngine, useAiThread, type Engine, type Msg, type Step } from '../lib/aiThread'
 import { isStale } from '../lib/proposals'
@@ -214,7 +215,7 @@ export function AiPanel() {
   }, [messages, open])
 
   if (!open) return null
-  const ready = engine === 'ollama' ? (local.ready ? 'ok' : 'noLocal') : claude ? readiness(status) : 'notFound'
+  const ready = engine === 'ollama' ? (local.ready ? 'ok' : 'noLocal') : claude ? readiness(status) : pcClaude() ? 'ok' : 'noLocal'
   const canSend = ready === 'ok' && !running && draft.trim().length > 0
   const noteName = current ? baseName(current) : ''
   // Claude 를 쓸 수 없을 때, 로컬 모델이 준비되어 있으면 바로 바꾸게 한다
@@ -325,14 +326,14 @@ export function AiPanel() {
             <button className={mode === 'edit' ? 'on' : ''} onClick={() => useAiThread.getState().setMode('edit')} title={t('노트 변경을 제안해요(승인해야 반영돼요)')}>{t('변경 제안')}</button>
           </div>
           <span className="grow" />
-          {mobile ? <span className="ai-model" title={local.label}>{local.label}</span> : (
+          {mobile && !pcClaude() ? <span className="ai-model" title={local.label}>{local.label}</span> : (
           <Select<Engine>
             className="ai-engine-sel"
             value={engine}
             ariaLabel={t('답변 엔진')}
             disabled={running}
             onChange={(v) => useAiThread.getState().setEngine(v)}
-            options={[{ value: 'claude', label: 'Claude CLI' }, { value: 'ollama', label: local.label || t('다른 모델 연결') }]}
+            options={[{ value: 'claude', label: mobile ? 'Claude CLI (PC)' : 'Claude CLI' }, { value: 'ollama', label: local.label || t('다른 모델 연결') }]}
           />
           )}
           {running ? (

@@ -46,11 +46,8 @@ const fakeSafe = (available = true) => ({
   },
 })
 async function tmpFile() {
-  // @ts-expect-error 타입 선언 없이 Node 내장 모듈을 쓴다
   const os: any = await import('node:os')
-  // @ts-expect-error 타입 선언 없이 Node 내장 모듈을 쓴다
   const fs: any = await import('node:fs')
-  // @ts-expect-error 타입 선언 없이 Node 내장 모듈을 쓴다
   const path: any = await import('node:path')
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nosidian-key-'))
   return { file: path.join(dir, 'llm-key.bin'), fs }
@@ -91,7 +88,6 @@ describe('API 키 보관소', () => {
     expect(main.injectKey({ 'Content-Type': 'application/json' }, null)).toEqual({ 'Content-Type': 'application/json' })
   })
   it('실제 요청: 메인 프로세스가 키를 넣어 보내고, 키가 없으면 보내지 않으며, 오류에 키가 섞이지 않는다', async () => {
-    // @ts-expect-error 타입 선언 없이 Node 내장 모듈을 쓴다
     const http: any = await import('node:http')
     const seen: string[] = []
     const server = http.createServer((req: any, res: any) => { seen.push(String(req.headers.authorization)); res.end('{"ok":true}') })
@@ -121,7 +117,6 @@ describe('API 키 보관소', () => {
 
 describe('요청 취소', () => {
   it('진행 중인 요청을 끊으면 "취소했어요" 로 끝나고(시간 초과와 구분), 서버 응답을 기다리지 않는다', async () => {
-    // @ts-expect-error 타입 선언 없이 Node 내장 모듈을 쓴다
     const http: any = await import('node:http')
     const server = http.createServer(() => { /* 응답하지 않는다 */ })
     await new Promise<void>((r) => server.listen(0, '127.0.0.1', r))
@@ -143,7 +138,6 @@ describe('요청 취소', () => {
 
 describe('요청별 시간 제한', () => {
   async function slowServer() {
-    // @ts-expect-error 타입 선언 없이 Node 내장 모듈을 쓴다
     const http: any = await import('node:http')
     const server = http.createServer(() => { /* 응답하지 않는다 */ })
     await new Promise<void>((r) => server.listen(0, '127.0.0.1', r))

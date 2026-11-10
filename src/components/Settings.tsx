@@ -12,6 +12,7 @@ import { LlmCard } from './LlmSettings'
 import { McpCard } from './McpSettings'
 import { AutoCard } from './AutoSettings'
 import { AiWizard } from './AiWizard'
+import { RelayCard } from './RelayCard'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { create } from 'zustand'
 import { useApp } from '../lib/app'
@@ -253,6 +254,7 @@ function AiGroup() {
       {desktop() && (
         <>
           <div id="set-auto"><AutoCard /></div>
+          <RelayCard />
           <details className="more adv-card">
             <summary>{t('고급: 연결 직접 설정 (서버 주소·모델·키)')}</summary>
             <LlmCard />

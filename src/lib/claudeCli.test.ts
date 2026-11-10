@@ -10,9 +10,7 @@ const c = cli as any
 const TOOLS = (mcpMain as { TOOLS: { name: string }[] }).TOOLS
 
 async function fakeChild() {
-  // @ts-expect-error 타입 선언 없이 Node 내장 모듈을 쓴다
   const { EventEmitter }: any = await import('node:events')
-  // @ts-expect-error 타입 선언 없이 Node 내장 모듈을 쓴다
   const { PassThrough }: any = await import('node:stream')
   const child: any = new EventEmitter()
   child.stdout = new PassThrough()
@@ -33,11 +31,8 @@ async function fakeChild() {
 }
 
 async function tmpBase() {
-  // @ts-expect-error 타입 선언 없이 Node 내장 모듈을 쓴다
   const os: any = await import('node:os')
-  // @ts-expect-error 타입 선언 없이 Node 내장 모듈을 쓴다
   const fs: any = await import('node:fs')
-  // @ts-expect-error 타입 선언 없이 Node 내장 모듈을 쓴다
   const path: any = await import('node:path')
   const base = fs.mkdtempSync(path.join(os.tmpdir(), 'nosidian-test-'))
   return { base, fs }

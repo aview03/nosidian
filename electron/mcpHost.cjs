@@ -117,7 +117,7 @@ function register({ ipcMain, app, getWindow }) {
     const readOnly = !!(opts && opts.readOnly)
     const forceApproval = !!(opts && opts.forceApproval)
     const token = crypto.randomBytes(24).toString('hex')
-    const s = createMcpServer({ token, version: app.getVersion(), callTool: (tool, args, client) => callRenderer(tool, args, client, true, readOnly, forceApproval) })
+    const s = createMcpServer({ token, version: app.getVersion(), callTool: (opts && typeof opts.callTool === 'function') ? opts.callTool : (tool, args, client) => callRenderer(tool, args, client, true, readOnly, forceApproval) })
     const port = await s.listen(0)
     return { url: `http://127.0.0.1:${port}/mcp`, token, close: () => s.close() }
   }

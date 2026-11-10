@@ -77,7 +77,29 @@ export interface ClaudeApi {
   cancel(): Promise<boolean>
   onEvent(cb: (e: ClaudeEvent) => void): () => void
 }
+export interface RelayStatus {
+  enabled: boolean
+  running: boolean
+  port: number
+  ips: string[]
+  code: string | null
+  codeExpiresAt: number | null
+  /** 연결 코드 문자열("nsd1:ip:port:code") — QR·복사에 쓴다 */
+  pairs: string[]
+  devices: { id: string; name: string; createdAt: number; lastSeen: number }[]
+  upstream: { kind: string; model: string } | null
+  claude: boolean
+  error: string | null
+}
+export interface RelayApi {
+  get(): Promise<RelayStatus>
+  set(patch: { enabled?: boolean }): Promise<RelayStatus>
+  newCode(): Promise<RelayStatus>
+  revoke(id: string): Promise<RelayStatus>
+  upstream(cfg: { kind: string; baseUrl: string; model: string; keyStored?: boolean } | null): Promise<boolean>
+}
 export interface DesktopApi {
+  relay?: RelayApi
   claude?: ClaudeApi
   mcp?: McpApi
   widget?: WidgetApi

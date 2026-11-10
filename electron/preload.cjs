@@ -34,6 +34,14 @@ contextBridge.exposeInMainWorld('amsidianDesktop', {
       return () => ipcRenderer.removeListener('mcp:call', h)
     },
   },
+  /** 휴대폰에서 이 PC 의 AI 쓰기(중계): 켜기·연결 코드·기기 목록·PC 에 저장된 AI 연결 알림 */
+  relay: {
+    get: () => ipcRenderer.invoke('relay:get'),
+    set: (patch) => ipcRenderer.invoke('relay:set', patch),
+    newCode: () => ipcRenderer.invoke('relay:newCode'),
+    revoke: (id) => ipcRenderer.invoke('relay:revoke', id),
+    upstream: (cfg) => ipcRenderer.invoke('relay:upstream', cfg),
+  },
   /** 탐색기에서 "연결 프로그램"으로 열었거나 실행 인자로 받은 파일들 (읽은 뒤 비워진다) */
   takeFiles: () => ipcRenderer.invoke('open-file:take'),
   /** 열어 본 문서를 원본 파일에 저장 */

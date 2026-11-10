@@ -17,6 +17,8 @@ export interface LlmConfig {
   apiKey?: string
   /** 키가 운영체제 보안 저장소(메인 프로세스)에 있다. 화면은 키를 모르고, 요청에는 자리표시자만 넣는다 */
   keyStored?: boolean
+  /** 이 PC 앱의 중계를 통해 쓰는 AI 서버(apiKey 는 PC 가 준 토큰). 폰 전용 */
+  viaPc?: boolean
 }
 
 /** 요청 헤더에 넣는 키 자리표시자. 메인 프로세스가 보안 저장소의 실제 키로 바꿔 보낸다 */
@@ -160,7 +162,7 @@ export function buildChat(cfg: LlmConfig, messages: ChatMessage[], opts: ChatOpt
         ...(opts.timeoutMs ? { timeoutMs: opts.timeoutMs } : {}),
         url: `${base}/api/chat`,
         method: 'POST',
-        headers: common,
+        headers: { ...common, ...(key ? { Authorization: `Bearer ${key}` } : {}) },
         body: json({
           model,
           messages: wireMessages('ollama', messages),
@@ -268,7 +270,7 @@ export function buildListModels(cfg: LlmConfig): HttpRequest {
   const base = trim(cfg.baseUrl)
   const key = cfg.apiKey?.trim()
   switch (cfg.kind) {
-    case 'ollama': return { url: `${base}/api/tags`, method: 'GET', headers: {} }
+    case 'ollama': return { url: `${base}/api/tags`, method: 'GET', headers: key ? { Authorization: `Bearer ${key}` } : {} }
     case 'openai':
     case 'custom': return { url: `${base}/models`, method: 'GET', headers: key ? { Authorization: `Bearer ${key}` } : {} }
     case 'anthropic': return { url: `${base}/v1/models`, method: 'GET', headers: { 'x-api-key': key ?? '', 'anthropic-version': '2023-06-01' } }
@@ -307,7 +309,7 @@ export function loadLlmConfig(): LlmConfig | null {
     if (!raw) return null
     const v = JSON.parse(raw) as Partial<LlmConfig>
     if (!v || !PROVIDERS.some((p) => p.kind === v.kind)) return null
-    return { kind: v.kind!, baseUrl: String(v.baseUrl ?? ''), model: String(v.model ?? ''), apiKey: v.apiKey ? String(v.apiKey) : undefined, ...(v.keyStored ? { keyStored: true } : {}) }
+    return { kind: v.kind!, baseUrl: String(v.baseUrl ?? ''), model: String(v.model ?? ''), apiKey: v.apiKey ? String(v.apiKey) : undefined, ...(v.keyStored ? { keyStored: true } : {}), ...(v.viaPc ? { viaPc: true } : {}) }
   } catch {
     return null
   }
@@ -316,6 +318,7 @@ export function saveLlmConfig(cfg: LlmConfig | null) {
   try {
     if (cfg) localStorage.setItem(KEY, JSON.stringify(cfg))
     else localStorage.removeItem(KEY)
+    if (typeof window !== 'undefined') window.dispatchEvent(new Event('nosidian-llm-changed'))
   } catch {
     /* 저장소를 못 쓰면 이번 실행에서만 유지 */
   }

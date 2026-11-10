@@ -148,6 +148,8 @@ function registerLlm(ipcMain, opts) {
     keys.set(key)
   })
   ipcMain.handle('llm:key:clear', () => keys && keys.clear())
+  // 다른 메인 프로세스 코드(휴대폰 중계)가 같은 규칙·같은 키 보관소로 요청을 보낼 때 쓴다
+  return { request: (req, ac) => request(req, keys, ac) }
 }
 
 module.exports = { registerLlm, check, request, isPrivateHost, createKeyStore, injectKey, KEY_MARK }

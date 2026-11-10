@@ -8,6 +8,8 @@ import { currentEngine, useAiThread } from '../lib/aiThread'
 import { loadLlmConfig, providerOf, saveLlmConfig, type LlmConfig, type ProviderKind } from '../lib/llm'
 import { chatTurn, keyStoreStatus, listModels, storeKey } from '../lib/llmNet'
 import { startAnalysis } from '../lib/autoRunner'
+import { adoptUpstream, forgetPc, loadPcLink, pairWithPc, parsePairing, runClaudeViaPc, type Pairing } from '../lib/pcLink'
+import { QrScan } from './QrScan'
 import { KEY_PROVIDERS, LOCAL_PROVIDERS, aiSummary, pickModel, type WizardWay } from '../lib/aiWizard'
 import { Orb } from './Orb'
 import { Select } from './Select'
@@ -27,12 +29,14 @@ export function AiWizard() {
   const [step, setStep] = useState<Step>('home')
   const [cs, setCs] = useState<ClaudeStatus | null>(null)
   const [cfg, setCfg] = useState<LlmConfig | null>(loadLlmConfig())
+  const [pc, setPc] = useState(loadPcLink())
   useEffect(() => { void claude?.detect().then(setCs) }, [claude])
-  const sum = aiSummary(engine, cs, cfg)
+  const sum = aiSummary(engine, cs, cfg, pc)
 
   const finish = (e: 'claude' | 'ollama') => {
     useAiThread.getState().setEngine(e)
     setCfg(loadLlmConfig())
+    setPc(loadPcLink())
     setStep('done')
   }
 
@@ -47,11 +51,18 @@ export function AiWizard() {
           </div>
           <button className={sum.connected ? 'big' : 'primary big'} onClick={() => setStep('pick')}>{sum.connected ? t('연결 바꾸기') : t('AI 연결하기')}</button>
           {sum.connected && <button className="btn-link" onClick={() => useAiThread.getState().setOpen(true)}>{t('AI 패널 열기')}</button>}
+          {mobile && pc && <button className="btn-link" onClick={() => { forgetPc(); setPc(null); setCfg(loadLlmConfig()) }}>{t('이 PC 연결 해제 ({name})', { name: pc.name })}</button>}
         </>
       )}
       {step === 'pick' && (
         <>
           <p className="aiw-q">{t('AI를 어떻게 연결할까요?')}</p>
+          {mobile && (
+            <button className="aiw-way" onClick={() => setStep('pc')}>
+              <b>{t('내 PC에 연결')}</b>
+              <small>{t('PC 앱을 함께 쓴다면 가장 쉬워요 (QR 스캔)')}</small>
+            </button>
+          )}
           {!mobile && (
             <button className="aiw-way" onClick={() => setStep('claude')}>
               <b>{t('내 구독 계정으로')}</b>
@@ -70,11 +81,12 @@ export function AiWizard() {
         </>
       )}
       {step === 'claude' && !mobile && <ClaudeStep cs={cs} refresh={() => void claude.detect().then(setCs)} onBack={() => setStep('pick')} onDone={() => finish('claude')} />}
+      {step === 'pc' && mobile && <PcStep onBack={() => setStep('pick')} onDone={finish} />}
       {step === 'local' && <LocalStep mobile={mobile} onBack={() => setStep('pick')} onDone={() => finish('ollama')} />}
       {step === 'key' && <KeyStep onBack={() => setStep('pick')} onDone={() => finish('ollama')} />}
       {step === 'done' && (
         <>
-          <div className="aiw-status on"><Orb size={40} /><span><b>{t('연결됐어요')}</b><small>{aiSummary(useAiThread.getState().engine, cs, loadLlmConfig()).sub}</small></span></div>
+          <div className="aiw-status on"><Orb size={40} /><span><b>{t('연결됐어요')}</b><small>{aiSummary(currentEngine(useAiThread.getState().engine), cs, loadLlmConfig(), loadPcLink()).sub}</small></span></div>
           <button className="primary big" onClick={() => { useAiThread.getState().setOpen(true); setStep('home') }}>{t('AI 패널 열기')}</button>
           <button className="link-btn" onClick={() => setStep('home')}>{t('닫기')}</button>
         </>
@@ -231,6 +243,57 @@ function KeyStep({ onBack, onDone }: { onBack(): void; onDone(): void }) {
       {models.length > 0 && <button className="primary big" disabled={!model || c.kind === 'busy'} onClick={() => void connect()}>{t('테스트하고 연결')}</button>}
       <p className="hint small">{claudeless() ? t('키는 이 휴대폰에만 저장돼요(암호화되지 않아요). AI를 쓰면 노트 내용이 해당 업체로 전송돼요.') : t('키는 이 PC에만 저장돼요. AI를 쓰면 노트 내용이 해당 업체로 전송돼요.')}</p>
       <button className="link-btn" onClick={onBack}>{t('← 다른 방법')}</button>
+    </>
+  )
+}
+
+/** 내 PC에 연결(폰): PC 앱의 연결 코드(QR)로 짝을 맺는다. PC 의 Claude 구독·AI 서버를 폰의 노트로 쓰게 된다 */
+function PcStep({ onBack, onDone }: { onBack(): void; onDone(e: 'claude' | 'ollama'): void }) {
+  const [text, setText] = useState('')
+  const [scan, setScan] = useState(false)
+  const [c, setC] = useState<Check>({ kind: 'idle' })
+  const connect = async (given?: Pairing) => {
+    const pr = given ?? parsePairing(text)
+    if (!pr) return setC({ kind: 'err', text: t('PC 화면의 연결 코드를 확인해 주세요(예: 192.168.0.10:47410/482913)') })
+    setC({ kind: 'busy', text: t('PC에 연결하는 중…') })
+    try {
+      const link = await pairWithPc(pr, t('내 휴대폰'))
+      const hasModel = adoptUpstream(link)
+      if (!link.claude && !hasModel) return setC({ kind: 'err', text: t('PC에서 쓸 수 있는 AI가 없어요. PC 앱에서 AI를 먼저 연결해 주세요.') })
+      if (link.claude) {
+        // 테스트 질문 한 번(PC 의 Claude Code 가 답한다)
+        setC({ kind: 'busy', text: t('테스트 질문을 보내는 중… (몇 초 걸려요)') })
+        let ok = false
+        let msg = ''
+        await runClaudeViaPc(link, { prompt: TEST_Q, mode: 'ask' }, (e) => {
+          if (e.type === 'result' && e.ok) ok = true
+          else if (e.type === 'error' || (e.type === 'result' && !e.ok)) msg = e.type === 'error' ? e.message : e.text
+        }).done
+        if (ok) return onDone('claude')
+        if (!hasModel) return setC({ kind: 'err', text: msg || t('응답을 받지 못했어요') })
+      }
+      const cfg = loadLlmConfig()!
+      const reply = await ping(cfg)
+      setC({ kind: 'ok', text: t('응답을 받았어요: {r}', { r: reply.trim().slice(0, 40) }) })
+      onDone('ollama')
+    } catch (e) {
+      setC({ kind: 'err', text: e instanceof Error ? e.message : String(e) })
+    }
+  }
+  return (
+    <>
+      <p className="aiw-q">{t('PC 앱에서 연결 코드를 받아 주세요')}</p>
+      <ol className="aiw-steps">
+        <li>{t('PC 앱 설정 > AI')}</li>
+        <li>{t('"휴대폰에서 이 PC의 AI 쓰기"를 켜기')}</li>
+        <li>{t('나온 QR을 스캔하거나 코드를 입력')}</li>
+      </ol>
+      <button className="primary big" disabled={c.kind === 'busy'} onClick={() => setScan(true)}>{t('QR 스캔')}</button>
+      <input className="inline wide" value={text} placeholder="192.168.0.10:47410/482913" inputMode="text" autoCapitalize="off" autoCorrect="off" onChange={(e) => { setText(e.target.value); setC({ kind: 'idle' }) }} aria-label={t('연결 코드')} />
+      <button className="big" disabled={!text.trim() || c.kind === 'busy'} onClick={() => void connect()}>{t('코드로 연결')}</button>
+      <CheckLine c={c} />
+      <button className="link-btn" onClick={onBack}>{t('← 다른 방법')}</button>
+      {scan && <QrScan onClose={() => setScan(false)} onResult={(p) => { setScan(false); void connect(p) }} />}
     </>
   )
 }

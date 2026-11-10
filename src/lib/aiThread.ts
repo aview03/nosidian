@@ -18,12 +18,13 @@ import { callTool } from './mcpTools'
 import { buildEnv } from './mcpBridge'
 import { t } from './i18n'
 import { autoBusy, yieldToUser } from './autoGate'
+import { loadPcLink, pcClaude, runClaudeViaPc, type RelayRun } from './pcLink'
 import { changedPaths } from './autoTriggers'
 
 export type Engine = 'claude' | 'ollama'
 
-/** 실제로 쓰는 엔진: Claude Code 는 PC 앱에만 있으므로, 없는 기기(폰·웹)는 항상 연결한 모델(ollama 경로)로 답한다 */
-export const currentEngine = (e: Engine): Engine => (desktop()?.claude ? e : 'ollama')
+/** 실제로 쓰는 엔진: Claude Code 는 PC 앱에만 있으므로, 없는 기기(폰·웹)는 PC 와 짝을 맺고 PC 에서 Claude 를 쓸 수 있을 때만 Claude, 아니면 연결한 모델(ollama 경로)로 답한다 */
+export const currentEngine = (e: Engine): Engine => (desktop()?.claude ? e : e === 'claude' && pcClaude() ? 'claude' : 'ollama')
 
 export interface LocalEngine {
   ready: boolean
@@ -46,7 +47,7 @@ export function localEngine(cfg: LlmConfig | null = loadLlmConfig()): LocalEngin
   } catch {
     /* 주소가 잘못되면 클라우드로 간주(보수적) */
   }
-  const label = cfg.kind === 'anthropic' ? name : `${name}${cfg.model ? ` ${cfg.model}` : ''}`
+  const label = (cfg.viaPc ? 'PC ' : '') + (cfg.kind === 'anthropic' ? name : `${name}${cfg.model ? ` ${cfg.model}` : ''}`)
   if (!supportsTools(cfg.kind)) return { ready: false, label, cloud, problem: 'noTools' }
   if (!cfg.model.trim()) return { ready: false, label, cloud, problem: 'noModel' }
   return { ready: true, label, cloud }
@@ -199,6 +200,8 @@ interface AiThread {
 let snapshot = new Set<string>()
 /** 진행 중인 앱 안 모델(Ollama 등) 실행을 중단하는 컨트롤러 */
 let abortLocal: AbortController | null = null
+/** 진행 중인 PC 중계(Claude) 실행 — 폰에서 "중지" */
+let relayRun: RelayRun | null = null
 
 export const useAiThread = create<AiThread>((set, get) => {
   const commit = (messages: Msg[]) => {
@@ -294,7 +297,8 @@ export const useAiThread = create<AiThread>((set, get) => {
       const engine = currentEngine(get().engine)
       const q = question.trim()
       if (!q || get().running) return
-      if (engine === 'claude' && !claude) return
+      const link = loadPcLink()
+      if (engine === 'claude' && !claude && !link?.claude) return
       if (autoBusy()) await yieldToUser() // 자동 분석이 돌고 있으면 사용자의 질문이 먼저: 분석을 멈추고(중단으로 기록) 기다린다
       if (get().running) return
       get().ensure()
@@ -312,6 +316,14 @@ export const useAiThread = create<AiThread>((set, get) => {
       set({ running: true })
       const force = opts?.fix === 'apply' // 계획 실행: 정책이 허용해도 최종 승인을 받는다
       if (engine === 'ollama') return runLocal(asked, note, mode, history, force)
+      if (!claude) {
+        // 폰: PC 의 Claude Code 로 묻는다(노트 도구는 이 폰에서 실행)
+        relayRun = runClaudeViaPc(link!, { prompt: buildPrompt({ question: asked, note, mode, history }), mode, forceApproval: force }, (e) => {
+          applyClaudeEvent(e)
+          if (e.type === 'result' || e.type === 'error') relayRun = null
+        })
+        return
+      }
       try {
         await claude!.run({ prompt: buildPrompt({ question: asked, note, mode, history }), mode, forceApproval: force })
       } catch (e) {
@@ -355,7 +367,8 @@ export const useAiThread = create<AiThread>((set, get) => {
       await get().send(u.text, { mode: u.mode, withNote: u.note != null })
     },
     cancel: () => {
-      if (currentEngine(get().engine) === 'ollama') abortLocal?.abort()
+      if (relayRun) relayRun.cancel()
+      else if (currentEngine(get().engine) === 'ollama') abortLocal?.abort()
       else void desktop()?.claude?.cancel()
     },
     clear: () => {
@@ -371,32 +384,35 @@ function newProposals(before: Set<string>): string[] {
 }
 
 /** Claude CLI 이벤트(진행·결과·오류)를 스레드에 반영하기 시작한다. 반환값은 해제 함수 */
+/** Claude 이벤트(진행·결과·오류)를 마지막 답변에 반영한다. PC 앱의 Claude Code 와 폰의 PC 중계가 같이 쓴다 */
+function applyClaudeEvent(e: ClaudeEvent) {
+  const st = useAiThread.getState()
+  const msgs = st.messages
+  const last = msgs[msgs.length - 1]
+  if (!last || last.role !== 'ai' || last.status !== 'running') return // 실행 중인 답변이 없으면(예: 다른 창의 호출) 무시
+  const replace = (m: Msg) => {
+    const next = [...msgs.slice(0, -1), m]
+    useAiThread.setState({ messages: next })
+    try {
+      localStorage.setItem(key(st.vault, 'thread'), JSON.stringify(next.slice(-MAX_MSGS)))
+    } catch {
+      /* noop */
+    }
+  }
+  if (e.type === 'tool') replace({ ...last, steps: [...(last.steps ?? []), { name: e.name, input: e.input }] })
+  else if (e.type === 'result') {
+    useAiThread.setState({ running: false })
+    const proposals = newProposals(snapshot)
+    replace(e.ok ? { ...last, status: 'done', text: e.text, turns: e.turns, proposals } : { ...last, status: 'error', error: e.text || errorText('exit'), proposals })
+  } else if (e.type === 'error') {
+    useAiThread.setState({ running: false })
+    replace({ ...last, status: 'error', error: errorText(e.code, e.message), proposals: newProposals(snapshot) })
+  }
+}
+
+/** Claude CLI 이벤트(진행·결과·오류)를 스레드에 반영하기 시작한다. 반환값은 해제 함수 */
 export function startAiThread(): (() => void) | undefined {
   const claude = desktop()?.claude
   if (!claude) return undefined
-  return claude.onEvent((e: ClaudeEvent) => {
-    const st = useAiThread.getState()
-    const msgs = st.messages
-    const last = msgs[msgs.length - 1]
-    if (!last || last.role !== 'ai' || last.status !== 'running') return // 실행 중인 답변이 없으면(예: 다른 창의 호출) 무시
-    const replace = (m: Msg) => {
-      const next = [...msgs.slice(0, -1), m]
-      useAiThread.setState({ messages: next })
-      try {
-        localStorage.setItem(key(st.vault, 'thread'), JSON.stringify(next.slice(-MAX_MSGS)))
-      } catch {
-        /* noop */
-      }
-    }
-    if (e.type === 'tool') replace({ ...last, steps: [...(last.steps ?? []), { name: e.name, input: e.input }] })
-    else if (e.type === 'result') {
-      useAiThread.setState({ running: false })
-      const proposals = newProposals(snapshot)
-      replace(e.ok ? { ...last, status: 'done', text: e.text, turns: e.turns, proposals } : { ...last, status: 'error', error: e.text || errorText('exit'), proposals })
-    } else if (e.type === 'error') {
-      useAiThread.setState({ running: false })
-      replace({ ...last, status: 'error', error: errorText(e.code, e.message), proposals: newProposals(snapshot) })
-    }
-  })
+  return claude.onEvent(applyClaudeEvent)
 }
-
