@@ -1466,3 +1466,22 @@ input.inline.wide { width: 100%; box-sizing: border-box; height: 42px; }
 .share-dir { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; min-width: 0; }
 .share-dir b { font-weight: 500; font-size: 13px; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; }
 .share-fp { font-variant-numeric: tabular-nums; letter-spacing: .3px; }
+
+/* ── 이 PC의 폴더로 맞추기(호스트 폴더) ───────────── */
+.hc { max-width: 640px; }
+.hc-plan { display: flex; flex-direction: column; gap: 8px; }
+.hc-sum { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: 14px; }
+.hc-sum b { display: inline-block; min-width: 28px; font-variant-numeric: tabular-nums; }
+.hc-group { border: 1px solid var(--border); border-radius: var(--r); padding: 6px 10px; }
+.hc-group summary { cursor: pointer; font-size: 13.5px; }
+.hc-group ul { margin: 6px 0 2px; padding-left: 18px; font-size: 13px; color: var(--muted); max-height: 160px; overflow: auto; }
+.hc-differ { display: flex; flex-direction: column; gap: 6px; }
+.hc-all { display: flex; align-items: center; gap: 10px; }
+.hc-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--border); }
+.hc-row b { font-weight: 500; font-size: 13.5px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hc-row .seg { flex: none; }
+.hc-panel { display: flex; flex-direction: column; gap: 8px; }
+.hc-snaps { list-style: none; margin: 0; padding: 0; }
+.hc-snaps li { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--border); }
+.hc-snaps li span { display: flex; flex-direction: column; font-size: 13px; }
+.hc-snaps li small { color: var(--muted); }

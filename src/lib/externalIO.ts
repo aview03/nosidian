@@ -122,7 +122,46 @@ export interface ShareApi {
   newCode(): Promise<ShareStatus>
   revoke(id: string): Promise<ShareStatus>
 }
+type HostRes<T> = ({ ok: true } & T) | { ok: false; status: number; code?: string; error: string; currentRev?: string | null; deleted?: boolean }
+export interface HostStatus {
+  configured: boolean
+  dir: string | null
+  unavailable?: boolean
+  error?: string
+  epoch?: string
+  seq?: number
+  rebuilt?: boolean
+  files?: number
+  tombs?: number
+  snapshots?: number
+  devices?: number
+  recovery?: { recovered: boolean; did?: string }
+  /** pickDir 직후: 폴더를 지정할 수 없는 이유 */
+  pickError?: string
+}
+export interface HostEntry {
+  path: string
+  rev: string
+  size: number
+  mtime: number
+  hash: string
+}
+/** PC 호스트 폴더 IPC(메인 프로세스의 hostStore). 폰의 원격 쓰기가 아니라 이 PC 앱 화면용이다 */
+export interface HostApi {
+  status(): Promise<HostRes<HostStatus>>
+  pickDir(): Promise<HostRes<HostStatus>>
+  clear(): Promise<HostRes<HostStatus>>
+  list(): Promise<HostRes<{ epoch: string; seq: number; entries: HostEntry[]; tombs: { path: string; rev: string; at: number }[] }>>
+  read(path: string): Promise<HostRes<{ b64: string; rev: string; hash: string }>>
+  push(changes: { path: string; del?: boolean; b64?: string; baseRev: string | null }[]): Promise<HostRes<{ revs: Record<string, string> }>>
+  ack(seq: number): Promise<HostRes<object>>
+  snapshot(extra: { vaultNotes?: Record<string, string>; label?: string }): Promise<HostRes<{ id: string; files: number; bytes: number }>>
+  snapshots(): Promise<HostRes<{ snapshots: { id: string; at: number; files?: number; label?: string; hasVault: boolean }[] }>>
+  snapshotVault(id: string): Promise<HostRes<{ vault: Record<string, string> | null }>>
+  gc(): Promise<HostRes<{ trashed: number; tombs: number }>>
+}
 export interface DesktopApi {
+  host?: HostApi
   share?: ShareApi
   relay?: RelayApi
   claude?: ClaudeApi

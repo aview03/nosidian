@@ -19,8 +19,9 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { create } from 'zustand'
 import { useApp } from '../lib/app'
 import { confirmAsk } from '../lib/dialog'
-import { SYNC_LABEL, type SyncKind } from '../lib/types'
+import { SYNC_LABEL, remoteDetail, type AccountKind } from '../lib/types'
 import { ConnectForm } from './Onboarding'
+import { HostConnectDialog, HostPanel } from './HostConnect'
 import { Icon } from './Icon'
 import { DOCRULES_PATH } from '../lib/docrules'
 import { createVaultFlow, deleteVaultFlow, renameVaultFlow, useActiveVault, vaultSub } from './VaultSheet'
@@ -34,9 +35,9 @@ function ago(ts: number | null) {
   return new Date(ts).toLocaleDateString(getLang())
 }
 
-const SYNC_HINT: Record<SyncKind, string> = { gdrive: '구글 계정으로 로그인해요', onedrive: 'Microsoft 계정으로 로그인해요', github: '개발자용 · 토큰이 필요해요' }
+const SYNC_HINT: Record<AccountKind, string> = { gdrive: '구글 계정으로 로그인해요', onedrive: 'Microsoft 계정으로 로그인해요', github: '개발자용 · 토큰이 필요해요' }
 /** 보관 위치를 고르는 순서: 개발자·연구자는 GitHub 이 먼저, 나머지는 로그인만 하면 되는 곳이 먼저 */
-const syncOrder = (p: ReturnType<typeof personaOf>): SyncKind[] => (p === 'developer' || p === 'researcher' ? ['github', 'gdrive', 'onedrive'] : ['gdrive', 'onedrive', 'github'])
+const syncOrder = (p: ReturnType<typeof personaOf>): AccountKind[] => (p === 'developer' || p === 'researcher' ? ['github', 'gdrive', 'onedrive'] : ['gdrive', 'onedrive', 'github'])
 
 /** 설정 화면이 열릴 때 "내 이름" 칸으로 바로 가 달라는 요청(내 업무의 "내 이름 설정 →"에서 쓴다) */
 const useFocusName = create<{ want: boolean }>(() => ({ want: false }))
@@ -157,9 +158,10 @@ function SyncCard() {
   const syncing = useApp((x) => x.syncing)
   const app = useApp.getState()
   const [editing, setEditing] = useState(false)
-  const [pick, setPick] = useState<SyncKind>('github')
+  const [pick, setPick] = useState<AccountKind>('github')
   const [connecting, setConnecting] = useState(false)
   const [picked, setPicked] = useState(false)
+  const [hostDlg, setHostDlg] = useState(false)
   const persona = personaOf(s.persona)
   const dirty = Object.values(files).filter((f) => f.dirty).length
   const conflicts = Object.values(files).filter((f) => f.conflict).length
@@ -169,24 +171,30 @@ function SyncCard() {
       <h3>{t('다른 기기와 맞추기')}</h3>
       {r ? (
         <>
-          <div className="kv"><span>{t('연결')}</span><b>{SYNC_LABEL[r.kind]} · {r.kind === 'github' ? `${r.owner}/${r.repo}` : r.folder}</b></div>
+          <div className="kv"><span>{t('연결')}</span><b>{SYNC_LABEL[r.kind]} · {remoteDetail(r)}</b></div>
           <div className="kv"><span>{t('마지막 동기화')}</span><b>{ago(s.lastSync)}</b></div>
           <div className="kv"><span>{t('올리기 대기')}</span><b>{t('{n}개', { n: dirty })}{conflicts ? ' · ' + t('충돌 {n}', { n: conflicts }) : ''}</b></div>
           <button className="primary big" disabled={syncing} onClick={() => void app.sync()}>{syncing ? t('동기화 중…') : t('지금 동기화')}</button>
           <details className="more">
             <summary>{t('고급')}</summary>
             {r.kind === 'github' && <div className="kv"><span>{t('브랜치')}</span><b>{r.branch}</b></div>}
-            <div className="btn-row"><button onClick={() => setEditing((v) => !v)}>{t('연결 수정')}</button></div>
-            {editing && <ConnectForm kind={r.kind} onDone={() => setEditing(false)} />}
-            <p className="hint small">{t('받은 변경을 먼저 가져온 뒤 내 변경을 올려요. 같은 노트를 양쪽에서 고치면 충돌 안내가 떠요.')}</p>
-            <button
-              className="danger-link"
-              onClick={async () => {
-                if (await confirmAsk(t('연결 해제'), t('이 vault의 노트 사본과 로그인 정보가 삭제됩니다(vault는 로컬 전용으로 남아요). 올리지 않은 변경은 사라져요.'), t('해제'), true)) await app.disconnect()
-              }}
-            >
-              {t('연결 해제')}
-            </button>
+            {r.kind === 'host' ? (
+              <HostPanel />
+            ) : (
+              <>
+                <div className="btn-row"><button onClick={() => setEditing((v) => !v)}>{t('연결 수정')}</button></div>
+                {editing && <ConnectForm kind={r.kind} onDone={() => setEditing(false)} />}
+                <p className="hint small">{t('받은 변경을 먼저 가져온 뒤 내 변경을 올려요. 같은 노트를 양쪽에서 고치면 충돌 안내가 떠요.')}</p>
+                <button
+                  className="danger-link"
+                  onClick={async () => {
+                    if (await confirmAsk(t('연결 해제'), t('이 vault의 노트 사본과 로그인 정보가 삭제됩니다(vault는 로컬 전용으로 남아요). 올리지 않은 변경은 사라져요.'), t('해제'), true)) await app.disconnect()
+                  }}
+                >
+                  {t('연결 해제')}
+                </button>
+              </>
+            )}
           </details>
         </>
       ) : (
@@ -205,6 +213,12 @@ function SyncCard() {
                       <small>{t(SYNC_HINT[k])}</small>
                     </button>
                   ))}
+                  {desktop()?.host && (
+                    <button className="aiw-way" onClick={() => setHostDlg(true)}>
+                      <b>{t('이 PC의 폴더 (클라우드 없이)')}</b>
+                      <small>{t('PC의 폴더 하나에 노트와 파일을 둬요. 연결하기 전에 차이를 먼저 보여 드려요')}</small>
+                    </button>
+                  )}
                   <button className="link-btn" onClick={() => setConnecting(false)}>{t('취소')}</button>
                 </>
               ) : (
@@ -218,6 +232,7 @@ function SyncCard() {
           )}
         </>
       )}
+      {hostDlg && <HostConnectDialog onClose={() => setHostDlg(false)} />}
     </section>
   )
 }

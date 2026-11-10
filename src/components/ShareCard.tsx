@@ -19,6 +19,7 @@ const PICK_ERR: Record<string, string> = {
   'drive root': '드라이브 전체는 공유할 수 없어요. 폴더를 하나 골라 주세요',
   'too broad': '이 폴더는 너무 넓어요(홈 폴더·앱 폴더). 안의 폴더를 골라 주세요',
   'system folder': '시스템 폴더는 공유할 수 없어요',
+  'overlaps host': '이 폴더는 동기화 호스트 폴더(Vault 저장소)와 겹쳐요. 다른 폴더를 골라 주세요',
   'not found': '폴더를 찾을 수 없어요',
   'not a directory': '폴더가 아니에요',
 }

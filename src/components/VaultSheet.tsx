@@ -2,12 +2,12 @@ import { t } from '../lib/i18n'
 import { useApp } from '../lib/app'
 import { usePresence } from '../lib/presence'
 import { ask, confirmAsk } from '../lib/dialog'
-import { SYNC_LABEL, type VaultMeta } from '../lib/types'
+import { SYNC_LABEL, remoteDetail, type VaultMeta } from '../lib/types'
 
 export function vaultSub(v: VaultMeta) {
   const r = v.remote
   if (!r) return t('로컬 전용')
-  return r.kind === 'github' ? `GitHub · ${r.owner}/${r.repo}` : `${SYNC_LABEL[r.kind]} · ${r.folder}`
+  return `${SYNC_LABEL[r.kind]} · ${remoteDetail(r)}`
 }
 
 export function useActiveVault() {

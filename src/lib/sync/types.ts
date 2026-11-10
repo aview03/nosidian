@@ -13,6 +13,8 @@ export interface PushChange {
   content: string | null // null이면 삭제
   /** 바이너리 파일(.docx·.zip …)이면 base64 내용. 이때 content 는 쓰지 않는다 */
   b64?: string
+  /** 마지막으로 본 rev(없으면 null = 새 파일). 조건부 쓰기를 하는 저장소(PC 호스트 폴더)만 쓰고, 클라우드는 무시한다 */
+  baseRev?: string | null
 }
 
 export interface Provider {
@@ -23,6 +25,8 @@ export interface Provider {
   readBase64(e: RemoteEntry): Promise<string>
   /** 변경분을 올리고 path → 새 rev 맵을 반환 */
   push(changes: PushChange[], message: string): Promise<Map<string, string>>
+  /** 동기화가 끝났을 때(받기·올리기 성공 뒤) 불린다. PC 호스트 폴더가 "이 기기가 여기까지 반영했다"는 확인(ack)을 남기는 데 쓴다 */
+  afterSync?(): Promise<void>
 }
 
 export class SyncError extends Error {

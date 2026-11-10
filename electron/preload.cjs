@@ -35,6 +35,19 @@ contextBridge.exposeInMainWorld('amsidianDesktop', {
     },
   },
   /** 휴대폰에서 이 PC 의 AI 쓰기(중계): 켜기·연결 코드·기기 목록·PC 에 저장된 AI 연결 알림 */
+  host: {
+    status: () => ipcRenderer.invoke('host:status'),
+    pickDir: () => ipcRenderer.invoke('host:pickDir'),
+    clear: () => ipcRenderer.invoke('host:clear'),
+    list: () => ipcRenderer.invoke('host:list'),
+    read: (path) => ipcRenderer.invoke('host:read', path),
+    push: (changes) => ipcRenderer.invoke('host:push', changes),
+    ack: (seq) => ipcRenderer.invoke('host:ack', seq),
+    snapshot: (extra) => ipcRenderer.invoke('host:snapshot', extra),
+    snapshots: () => ipcRenderer.invoke('host:snapshots'),
+    snapshotVault: (id) => ipcRenderer.invoke('host:snapshotVault', id),
+    gc: () => ipcRenderer.invoke('host:gc'),
+  },
   share: {
     get: () => ipcRenderer.invoke('share:get'),
     set: (patch) => ipcRenderer.invoke('share:set', patch),

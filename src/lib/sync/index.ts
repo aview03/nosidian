@@ -1,6 +1,7 @@
 import type { CloudCfg, GithubCfg, RemoteCfg } from '../types'
 import * as gh from '../github'
 import { gdrive } from './gdrive'
+import { hostProvider } from './host'
 import { onedrive } from './onedrive'
 import { capOthers } from './others'
 import { isHidden, type Provider } from './types'
@@ -40,5 +41,7 @@ export function createProvider(cfg: RemoteCfg, save: (c: CloudCfg) => void): Pro
       return gdrive(cfg, save)
     case 'onedrive':
       return onedrive(cfg, save)
+    case 'host':
+      return hostProvider()
   }
 }

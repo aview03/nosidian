@@ -4,7 +4,7 @@ import { LANGS, LANG_NAMES, resolveLang, type LangPref } from '../lib/i18n'
 import { defaultDailyFolder } from '../lib/defaultFolders'
 import { useState } from 'react'
 import { useApp } from '../lib/app'
-import { SYNC_LABEL, type CloudKind, type SyncKind } from '../lib/types'
+import { SYNC_LABEL, type AccountKind, type CloudKind, type SyncKind } from '../lib/types'
 import { importFromPicker } from '../lib/importFiles'
 import { authorize, REDIRECT_HINT } from '../lib/sync/oauth'
 import { PERSONAS, PERSONA_INFO, type PersonaId } from '../lib/persona'
@@ -136,7 +136,7 @@ function CloudForm({ kind, onDone }: { kind: CloudKind; onDone?: () => void }) {
   )
 }
 
-export function ConnectForm({ kind, onDone }: { kind: SyncKind; onDone?: () => void }) {
+export function ConnectForm({ kind, onDone }: { kind: AccountKind; onDone?: () => void }) {
   return kind === 'github' ? <GithubForm onDone={onDone} /> : <CloudForm kind={kind} onDone={onDone} />
 }
 
@@ -228,7 +228,7 @@ function Guide({ step, setStep, children }: { step: Step; setStep(s: Step): void
 }
 
 export function Onboarding() {
-  const [kind, setKind] = useState<SyncKind | null>(null)
+  const [kind, setKind] = useState<AccountKind | null>(null)
   const [step, setStep] = useState<Step>(() => {
     const st = useApp.getState().settings
     return st.myName.trim() || st.persona ? 'start' : 'lang' // 이미 정한 적이 있으면 묻지 않는다
@@ -249,7 +249,7 @@ export function Onboarding() {
                 <Soft d={1500} className="ob-connect">
                   <small>{t('이미 쓰는 노트가 있다면 연결해서 가져와요')}</small>
                   <div className="ob-connect-row">
-                    {(Object.keys(SYNC_LABEL) as SyncKind[]).map((k) => (
+                    {(Object.keys(SYNC_LABEL) as SyncKind[]).filter((k): k is AccountKind => k !== 'host').map((k) => (
                       <button key={k} onClick={() => setKind(k)}>{SYNC_LABEL[k]}</button>
                     ))}
                   </div>

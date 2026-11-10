@@ -447,6 +447,8 @@ function register({ ipcMain, app, dialog, safeStorage, BrowserWindow }) {
     const win = BrowserWindow.getFocusedWindow()
     const res = await dialog.showOpenDialog(win || undefined, { properties: ['openDirectory'], title: 'Nosidian' })
     if (res.canceled || !res.filePaths[0]) return { ...(await status()), pickError: null }
+    const hostDir = require('./hostIpc.cjs').readHostDir(dirU)
+    if (hostDir && require('./hostStore.cjs').overlaps(res.filePaths[0], hostDir)) return { ...(await status()), pickError: 'overlaps host' } // 호스트 폴더(Vault 저장소)와 겹치면 안 된다
     const bad = r.setDir(res.filePaths[0], [dirU, app.getPath('home')])
     return { ...(await status()), pickError: bad }
   })

@@ -35,9 +35,21 @@ export interface CloudCfg {
   expires: number
 }
 
-export type RemoteCfg = GithubCfg | CloudCfg
+/** 이 PC 의 호스트 폴더(클라우드 없이). PC 앱에서만 연결한다 — 폰은 v1.42 의 "내 PC" 연결을 쓴다 */
+export interface HostCfg {
+  kind: 'host'
+  /** 호스트 폴더(표시용; 실제 경로는 메인 프로세스가 관리한다) */
+  dir: string
+}
+export type RemoteCfg = GithubCfg | CloudCfg | HostCfg
 export type SyncKind = RemoteCfg['kind']
-export const SYNC_LABEL: Record<SyncKind, string> = { github: 'GitHub', gdrive: 'Google Drive', onedrive: 'OneDrive' }
+/** 로그인해서 쓰는 저장소(GitHub·Google Drive·OneDrive). 호스트 폴더는 로그인이 없다 */
+export type AccountKind = Exclude<SyncKind, 'host'>
+export const SYNC_LABEL: Record<SyncKind, string> = { github: 'GitHub', gdrive: 'Google Drive', onedrive: 'OneDrive', host: '내 PC 폴더' }
+/** 연결을 한 줄로 설명(설정·vault 목록 표시용) */
+export function remoteDetail(r: RemoteCfg): string {
+  return r.kind === 'github' ? `${r.owner}/${r.repo}` : r.kind === 'host' ? r.dir : r.folder
+}
 
 /** vault 하나 = 노트 저장소(IndexedDB) 하나 + 동기화 연결 하나 */
 export interface VaultMeta {
@@ -100,5 +112,5 @@ export const DEFAULT_SETTINGS: Settings = {
 /** 연결 정보로 vault 기본 이름을 짓는다 */
 export function defaultVaultName(r: RemoteCfg | null): string {
   if (!r) return t('내 노트')
-  return r.kind === 'github' ? `${r.owner}/${r.repo}` : r.folder
+  return remoteDetail(r)
 }

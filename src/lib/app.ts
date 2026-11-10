@@ -133,6 +133,10 @@ interface AppState {
   connect(cfg: RemoteCfg): Promise<void>
   startDemo(): Promise<void>
   disconnect(): Promise<void>
+  /** "내 PC 폴더" 최초 연결을 마친다: 반영한 노트·파일 목록을 저장하고 호스트 폴더를 이 vault 의 동기화 대상으로 한다(hostConnect.ts) */
+  commitHostConnect(files: Record<string, NoteFile>, assets: AppState['assets'], dir: string): Promise<void>
+  /** 호스트 폴더 연결만 끊는다. 노트는 그대로(지우지 않는다) */
+  leaveHost(): void
   sync(retried?: boolean): Promise<void>
 }
 
@@ -733,6 +737,16 @@ export const useApp = create<AppState>((set, get) => {
       get().openNote(demo.home)
     },
     /** 이 vault 의 동기화 연결을 끊고 로컬 사본도 비운다 (vault 자체는 남는다) */
+    async commitHostConnect(files, assets, dir) {
+      await db.putFiles(Object.values(files))
+      for (const [p, a] of Object.entries(assets)) void db.putAsset({ path: p, sha: a.sha, id: a.id, ...(a.size != null ? { size: a.size } : {}) })
+      set({ files, assets })
+      get().patchSettings({ remote: { kind: 'host', dir }, lastSync: Date.now() })
+      rebuild(true)
+    },
+    leaveHost() {
+      get().patchSettings({ remote: null, lastSync: null })
+    },
     async disconnect() {
       await db.clearAll()
       assetUrls.clear()
@@ -815,7 +829,7 @@ export const useApp = create<AppState>((set, get) => {
               ? `Nosidian: ${pending[0].deleted ? 'delete' : 'update'} ${baseName(pending[0].path)}`
               : `Nosidian: sync ${pending.length} notes`
           const revs = await prov.push(
-            pending.map((f) => ({ path: f.path, content: f.deleted ? null : f.content })),
+            pending.map((f) => ({ path: f.path, content: f.deleted ? null : f.content, baseRev: f.sha })),
             msg,
           )
           const next = { ...get().files }
@@ -836,6 +850,7 @@ export const useApp = create<AppState>((set, get) => {
           set({ files: next })
           pushed = pending.length
         }
+        await prov.afterSync?.() // 이 기기가 여기까지 반영했다는 확인(ack) — 호스트 폴더의 삭제 기록 정리 조건
         get().patchSettings({ lastSync: Date.now() })
         const conflicts = Object.values(get().files).filter((f) => f.conflict).length
         get().say(
