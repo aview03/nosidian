@@ -16,6 +16,9 @@ import { isPrivateHost, loadLlmConfig, providerOf, supportsTools, type LlmConfig
 import { chatTurn } from './llmNet'
 import { callTool } from './mcpTools'
 import { buildEnv } from './mcpBridge'
+import { t } from './i18n'
+import { autoBusy, yieldToUser } from './autoGate'
+import { changedPaths } from './autoTriggers'
 
 export type Engine = 'claude' | 'ollama'
 
@@ -69,6 +72,8 @@ export interface Msg {
   proposals?: string[]
   /** plan = 문서 점검 분석(정리 계획) 답변, apply = 계획을 변경 제안으로 낸 답변 */
   fix?: 'plan' | 'apply'
+  /** 자동 분석이 만든 정리 계획이면: 분석할 때의 문서 버전(원본이 바뀌면 실행을 막는다)과 대기열 항목 */
+  source?: { hashes: Record<string, string>; itemId: string }
 }
 
 export const PANEL_MIN = 320
@@ -175,6 +180,8 @@ interface AiThread {
   send(question: string, opts?: SendOpts): Promise<void>
   /** 문서 점검 문제를 AI 로 분석한다(읽기 전용으로 정리 계획까지) — 패널을 열고 보낸다 */
   askFix(title: string, prompt: string): Promise<void>
+  /** 자동 분석이 만든 정리 계획을 대화에 올린다(패널을 연다). 이미 일하는 중이면 false */
+  injectPlan(title: string, text: string, source: { hashes: Record<string, string>; itemId: string }, engine?: Engine): boolean
   /** 분석한 정리 계획을 변경 제안으로 낸다(변경 제안 모드로 한 번) */
   applyPlan(msgId: string): Promise<void>
   cancel(): void
@@ -282,6 +289,8 @@ export const useAiThread = create<AiThread>((set, get) => {
       const q = question.trim()
       if (!q || get().running) return
       if (engine === 'claude' && !claude) return
+      if (autoBusy()) await yieldToUser() // 자동 분석이 돌고 있으면 사용자의 질문이 먼저: 분석을 멈추고(중단으로 기록) 기다린다
+      if (get().running) return
       get().ensure()
       set({ draft: '' })
       const note = (opts?.withNote ?? get().withNote) ? useApp.getState().current : null
@@ -293,7 +302,7 @@ export const useAiThread = create<AiThread>((set, get) => {
       // 정리 계획 바로 다음의 후속 질문(결정을 알려 주거나 계획을 고쳐 달라는 말)은 계획의 연장이다: 고친 계획에도 실행 버튼이 붙는다
       const prev = get().messages.at(-1)
       const fix = opts?.fix ?? (prev?.role === 'ai' && prev.fix === 'plan' && prev.status === 'done' && mode === 'ask' ? ('plan' as const) : undefined)
-      commit([...get().messages, { id: uid(), role: 'user', text: q, at: now, note, mode, engine }, { id: uid(), role: 'ai', text: '', at: now, status: 'running', steps: [], ...(fix ? { fix } : {}) }])
+      commit([...get().messages, { id: uid(), role: 'user', text: q, at: now, note, mode, engine }, { id: uid(), role: 'ai', text: '', at: now, status: 'running', steps: [], ...(fix ? { fix } : {}), ...(fix === 'plan' && prev?.source ? { source: prev.source } : {}) }])
       set({ running: true })
       const force = opts?.fix === 'apply' // 계획 실행: 정책이 허용해도 최종 승인을 받는다
       if (engine === 'ollama') return runLocal(asked, note, mode, history, force)
@@ -309,9 +318,24 @@ export const useAiThread = create<AiThread>((set, get) => {
       if (get().running) return
       await get().send(title, { prompt, mode: 'ask', withNote: false, fix: 'plan' })
     },
+    injectPlan: (title, text, source, engine) => {
+      get().setOpen(true)
+      if (get().running) {
+        useApp.getState().say(t('AI 가 답하는 중이에요. 끝난 뒤에 열어 주세요'))
+        return false
+      }
+      const now = Date.now()
+      commit([...get().messages, { id: uid(), role: 'user', text: title, at: now, note: null, mode: 'ask', engine: engine ?? get().engine }, { id: uid(), role: 'ai', text, at: now, status: 'done', steps: [], fix: 'plan', source }])
+      return true
+    },
     applyPlan: async (msgId) => {
       const m = get().messages.find((x) => x.id === msgId)
       if (!m || m.fix !== 'plan' || m.status !== 'done' || get().running) return
+      // 분석한 뒤 원본이 바뀌었으면 오래된 계획이라 실행하지 않는다
+      if (m.source && changedPaths(m.source.hashes, useApp.getState().files).length > 0) {
+        useApp.getState().say(t('문서가 변경되어 재검토가 필요합니다'))
+        return
+      }
       await get().send('정리 계획대로 변경 제안 만들기', { prompt: planApplyPrompt(m.text), mode: 'edit', withNote: false, fix: 'apply' })
     },
     cancel: () => {

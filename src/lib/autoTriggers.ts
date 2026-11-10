@@ -162,6 +162,10 @@ export interface QueueItem {
   interrupted: number
   /** 실패한 뒤 이 시각 전에는 다시 시도하지 않는다 */
   retryAt?: number
+  /** 사용자가 분석 결과(정리 계획)를 열어 본 시각 — 새 결과 표시를 없앤다 */
+  seenAt?: number
+  /** 분석에 쓴 엔진 */
+  engine?: 'claude' | 'ollama'
   /** v1.29: AI 분석 결과. 분석한 때의 노트 버전을 함께 보관한다 */
   result?: { plan: string; at: number; hashes: Record<string, string> }
 }
@@ -171,6 +175,8 @@ export interface UsageEntry {
   outcome: 'done' | 'failed' | 'interrupted'
   ms: number
   costUsd?: number
+  /** 실패한 이유(화면에 보여 준다) */
+  error?: string
 }
 export type SkipReason = 'baseline' | 'known' | 'analyzed' | 'aiExcluded' | 'truncated' | 'mechanical' | 'triggerOff' | 'projectOff' | 'capReached'
 export interface ScanEvent {
@@ -199,8 +205,10 @@ export interface AutoState {
   aiTouched: Record<string, number>
   log: ScanEvent[]
   lastScan: number
+  /** 연속 실패 멈춤을 사용자가 풀어 준 시각(이전 실패는 세지 않는다) */
+  failResetAt: number
 }
-export const emptyState = (): AutoState => ({ v: 1, initializedAt: null, seen: {}, baselined: [], analyzed: {}, queue: [], usage: [], aiTouched: {}, log: [], lastScan: 0 })
+export const emptyState = (): AutoState => ({ v: 1, initializedAt: null, seen: {}, baselined: [], analyzed: {}, queue: [], usage: [], aiTouched: {}, log: [], lastScan: 0, failResetAt: 0 })
 
 export const AI_EXCLUDE_MS = 24 * 3600_000
 export const RETRY_MS = 3600_000
@@ -214,9 +222,10 @@ const dayOf = (now: number) => {
 /** 오늘 소모한 분석 횟수. 사용자의 중단은 세지 않는다 */
 export const usedToday = (usage: UsageEntry[], now: number) => usage.filter((u) => u.outcome !== 'interrupted' && dayOf(u.at) === dayOf(now)).length
 /** 가장 최근부터 끊김 없이 이어진 실패 횟수(중단은 건너뛰고, 성공에서 멈춘다) */
-export function consecutiveFailures(usage: UsageEntry[]): number {
+export function consecutiveFailures(usage: UsageEntry[], since = 0): number {
   let n = 0
   for (let i = usage.length - 1; i >= 0; i--) {
+    if (usage[i].at <= since) break
     if (usage[i].outcome === 'interrupted') continue
     if (usage[i].outcome === 'failed') n++
     else break
@@ -332,12 +341,12 @@ export function prune(st: AutoState, now: number): AutoState {
 export function startRun(st: AutoState, id: string): AutoState {
   return { ...st, queue: st.queue.map((q) => (q.id === id ? { ...q, status: 'running' as const } : q)) }
 }
-export interface RunInfo { ms: number; costUsd?: number; plan?: string; hashes?: Record<string, string> }
+export interface RunInfo { ms: number; costUsd?: number; plan?: string; hashes?: Record<string, string>; error?: string }
 export function finishRun(st: AutoState, id: string, outcome: UsageEntry['outcome'], info: RunInfo, now: number): AutoState {
   const q = st.queue.find((x) => x.id === id)
   if (!q) return st
   // 이미 발생한 사용량은 결과와 상관없이 기록한다
-  const usage = [...st.usage, { at: now, id, outcome, ms: info.ms, ...(info.costUsd !== undefined ? { costUsd: info.costUsd } : {}) }]
+  const usage = [...st.usage, { at: now, id, outcome, ms: info.ms, ...(info.costUsd !== undefined ? { costUsd: info.costUsd } : {}), ...(info.error ? { error: info.error.slice(0, 300) } : {}) }]
   let next: QueueItem
   let analyzed = st.analyzed
   if (outcome === 'done') {
@@ -355,7 +364,7 @@ export function finishRun(st: AutoState, id: string, outcome: UsageEntry['outcom
 /** 다음에 분석할 항목(한도·재시도 대기·자동화 일시정지 반영). 없으면 null */
 export function nextRunnable(st: AutoState, settings: AutoSettings, now: number): QueueItem | null {
   if (settings.paused || settings.mode !== 'analyze') return null
-  if (consecutiveFailures(st.usage) >= MAX_FAILS) return null
+  if (consecutiveFailures(st.usage, st.failResetAt) >= MAX_FAILS) return null
   if (usedToday(st.usage, now) >= settings.dailyCap) return null
   return st.queue.find((q) => q.status === 'queued' && (q.retryAt ?? 0) <= now) ?? null
 }
@@ -378,6 +387,23 @@ export function noteAiChange(st: AutoState, paths: string[], now: number): AutoS
   for (const p of paths) aiTouched[p] = now
   return { ...st, aiTouched }
 }
+
+/** 연속 실패로 멈춘 자동 분석을 다시 시작한다 */
+export const resumeFailures = (st: AutoState, now: number): AutoState => ({ ...st, failResetAt: now })
+/** 정리 계획을 열어 봤다 */
+export const markSeen = (st: AutoState, id: string, now: number): AutoState => ({ ...st, queue: st.queue.map((q) => (q.id === id ? { ...q, seenAt: now } : q)) })
+/** 분석 결과를 지우고 최신 문서로 다시 분석하도록 대기열로 되돌린다(오래된 계획의 재분석) */
+export function requeue(st: AutoState, id: string, hashes: Record<string, string>): AutoState {
+  const q = st.queue.find((x) => x.id === id)
+  if (!q) return st
+  const analyzed = { ...st.analyzed }
+  delete analyzed[q.cacheKey]
+  const { result: _r, retryAt: _t, seenAt: _s, ...rest } = q
+  void _r; void _t; void _s
+  return { ...st, analyzed, queue: st.queue.map((x) => (x.id === id ? { ...rest, hashes, status: 'queued' as const, attempts: 0, interrupted: 0 } : x)) }
+}
+/** 확인할 문제 개수: 분석 대기·진행 중 + 아직 안 열어 본 분석 결과 */
+export const inboxCount = (st: AutoState | null): number => (st ? st.queue.filter((q) => q.status === 'queued' || q.status === 'running' || (q.status === 'done' && q.result && !q.seenAt) || q.status === 'failed').length : 0)
 
 export function dismissItem(st: AutoState, id: string): AutoState {
   return { ...st, queue: st.queue.map((q) => (q.id === id ? { ...q, status: 'dismissed' as const } : q)) }

@@ -10,6 +10,7 @@ import { localEngine, useAiThread, type Engine, type Msg, type Step } from '../l
 import { isStale } from '../lib/proposals'
 import { useProposals } from '../lib/proposalStore'
 import { useAutomation } from '../lib/automation'
+import { changedPaths } from '../lib/autoTriggers'
 import { autoInboxCount } from './AutoSettings'
 import { Icon } from './Icon'
 import { Reader } from './Reader'
@@ -99,6 +100,7 @@ function AiMsg({ m, last }: { m: Msg; last: boolean }) {
   const pendingIds = (m.proposals ?? []).filter((id) => items.find((p) => p.id === id)?.status === 'pending')
   const steps = m.steps ?? []
   const busy = m.status === 'running'
+  const stale = !!m.source && changedPaths(m.source.hashes, files).length > 0
   const text = linkifyPaths(m.text, (p) => !!files[p] && !files[p].deleted, Object.keys(files))
   return (
     <div className="ai-a">
@@ -129,7 +131,13 @@ function AiMsg({ m, last }: { m: Msg; last: boolean }) {
           <button className="btn-link" onClick={() => void navigator.clipboard.writeText(m.text).then(() => useApp.getState().say(t('복사했어요')))}>{t('복사')}</button>
         </div>
       )}
-      {m.status === 'done' && m.fix === 'plan' && last && (
+      {m.status === 'done' && m.fix === 'plan' && last && stale && (
+        <div className="ai-plan">
+          <span className="hint small ai-warn">{t('문서가 변경되어 재검토가 필요합니다')}</span>
+          <button className="primary" onClick={() => useAutomation.getState().reanalyze(m.source!.itemId)}>{t('다시 분석')}</button>
+        </div>
+      )}
+      {m.status === 'done' && m.fix === 'plan' && last && !stale && (
         <div className="ai-plan">
           <span className="hint small">{t('계획을 확인한 뒤 누르세요. 누르기 전에는 아무것도 바뀌지 않아요. "결정 필요" 항목은 아래 입력창에 답하면 계획을 고쳐 드려요.')}</span>
           <button className="primary" disabled={running} onClick={() => void useAiThread.getState().applyPlan(m.id)}>{t('이 계획대로 변경 제안 만들기')}</button>
@@ -221,7 +229,7 @@ export function AiPanel() {
       </header>
       {autoNew > 0 && (
         <button className="ai-auto" onClick={() => { useApp.getState().go('settings') }}>
-          {t('AI 문서 관리: 새 문서 문제 {n}건 — 설정에서 보기', { n: autoNew })}
+          {t('AI 문서 관리: 확인할 문제 {n}건 — 설정에서 보기', { n: autoNew })}
         </button>
       )}
 

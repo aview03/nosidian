@@ -5,7 +5,7 @@ import { buildWork } from './work'
 import type { NoteFile } from './types'
 import {
   AI_EXCLUDE_MS, DEFAULT_AUTO, canExecutePlan, changedPaths, classify, collectFindings, consecutiveFailures, describePolicy, dismissItem, dryRun,
-  emptyState, finishRun, isStale, nextRunnable, noteAiChange, normalizeSettings, prune, rulesHash, scan, startRun, usedToday,
+  emptyState, finishRun, inboxCount, isStale, markSeen, nextRunnable, requeue, resumeFailures, noteAiChange, normalizeSettings, prune, rulesHash, scan, startRun, usedToday,
   type AutoSettings, type AutoState, type Finding,
 } from './autoTriggers'
 
@@ -281,5 +281,31 @@ describe('기타', () => {
     expect(describePolicy(DEFAULT_AUTO)).toContain('쓰지 않아요')
     expect(describePolicy({ ...DEFAULT_AUTO, mode: 'notify' })).toContain('AI 는 부르지 않아요')
     expect(describePolicy({ ...DEFAULT_AUTO, mode: 'analyze', dailyCap: 5, debounceSec: 120 })).toMatch(/2분.*하루 최대 5회.*자동으로 수정하지 않아요/)
+  })
+})
+
+describe('확인할 문제 목록·재분석(v1.29)', () => {
+  const mk = (over: Record<string, unknown>) => ({ id: 'x', cacheKey: 'k', kind: 'duplicate', project: 'p', projectName: 'P', paths: ['a'], hashes: { a: '1' }, createdAt: NOW, status: 'queued', attempts: 0, interrupted: 0, ...over }) as never
+  it('개수: 대기·진행·실패 + 아직 안 열어 본 결과. 열어 보거나 무시하면 빠진다', () => {
+    const base = { ...emptyState(), queue: [mk({ id: 'q' }), mk({ id: 'r', status: 'running' }), mk({ id: 'f', status: 'failed' }), mk({ id: 'd', status: 'done', result: { plan: 'p', at: 1, hashes: {} } }), mk({ id: 'x2', status: 'dismissed' }), mk({ id: 'z', status: 'resolved' })] }
+    expect(inboxCount(base)).toBe(4)
+    expect(inboxCount(markSeen(base, 'd', NOW))).toBe(3)
+    expect(inboxCount(null)).toBe(0)
+  })
+  it('재분석: 결과·재시도·열람 표시를 지우고 새 문서 버전으로 대기열에 돌아가며, 이전 분석 캐시도 지운다', () => {
+    const st = { ...emptyState(), analyzed: { k: 1 }, queue: [mk({ status: 'done', attempts: 1, interrupted: 2, seenAt: 5, retryAt: 9, result: { plan: 'p', at: 1, hashes: { a: '1' } } })] }
+    const r = requeue(st, 'x', { a: '2' })
+    expect(r.queue[0]).toMatchObject({ status: 'queued', attempts: 0, interrupted: 0, hashes: { a: '2' } })
+    expect(r.queue[0].result).toBeUndefined()
+    expect(r.queue[0].seenAt).toBeUndefined()
+    expect(r.analyzed).toEqual({})
+  })
+  it('연속 실패 멈춤은 사용자가 다시 시작하면 풀리고, 그 이전 실패는 세지 않는다', () => {
+    const usage = [1, 2, 3].map((i) => ({ at: NOW + i, id: 'x', outcome: 'failed' as const, ms: 1 }))
+    const st = { ...emptyState(), usage, queue: [mk({})] }
+    expect(nextRunnable(st, AN, NOW + 100)).toBeNull()
+    const resumed = resumeFailures(st, NOW + 50)
+    expect(consecutiveFailures(resumed.usage, resumed.failResetAt)).toBe(0)
+    expect(nextRunnable(resumed, { ...AN, dailyCap: 10 }, NOW + 100)).not.toBeNull()
   })
 })
