@@ -64,6 +64,8 @@ export interface HttpRequest {
   method: 'GET' | 'POST'
   headers: Record<string, string>
   body?: string
+  /** 응답을 기다릴 최대 시간(ms). 느린 로컬 모델용. 없으면 기본(2분). 메인 프로세스가 1초~10분으로 제한한다 */
+  timeoutMs?: number
 }
 
 export const PROVIDERS: { kind: ProviderKind; label: string; url: string; needsKey: boolean; hint: string }[] = [
@@ -124,6 +126,8 @@ export interface ChatOpts {
   think?: boolean
   /** Ollama: 문맥 길이(num_ctx). 기본값이 작아 노트를 읽으면 잘릴 수 있다 */
   numCtx?: number
+  /** 응답을 기다릴 최대 시간(ms) */
+  timeoutMs?: number
 }
 
 const hasToolBits = (messages: ChatMessage[], opts: ChatOpts) => !!opts.tools?.length || messages.some((m) => m.role === 'tool' || m.toolCalls?.length)
@@ -153,6 +157,7 @@ export function buildChat(cfg: LlmConfig, messages: ChatMessage[], opts: ChatOpt
   switch (cfg.kind) {
     case 'ollama':
       return {
+        ...(opts.timeoutMs ? { timeoutMs: opts.timeoutMs } : {}),
         url: `${base}/api/chat`,
         method: 'POST',
         headers: common,
@@ -168,6 +173,7 @@ export function buildChat(cfg: LlmConfig, messages: ChatMessage[], opts: ChatOpt
     case 'openai':
     case 'custom':
       return {
+        ...(opts.timeoutMs ? { timeoutMs: opts.timeoutMs } : {}),
         url: `${base}/chat/completions`,
         method: 'POST',
         headers: { ...common, ...(key ? { Authorization: `Bearer ${key}` } : {}) },

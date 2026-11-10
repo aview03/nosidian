@@ -115,13 +115,18 @@ const savePref = (k: string, v: unknown) => {
 
 const uid = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`
 
-/** 대화에서 후속 질문의 맥락이 될 완료된 (질문, 답변) 쌍 */
+/**
+ * 대화에서 후속 질문의 맥락이 될 완료된 (질문, 답변) 쌍.
+ * 로컬 모델이 도구를 하나도 쓰지 않고 한 답변은 뺀다: "노트를 읽었어요" 같은 근거 없는 말이 다음 질문의 본보기가 되어 모델이 그대로 따라 하기 때문이다.
+ */
 export function turnsOf(msgs: Msg[]): Turn[] {
   const out: Turn[] = []
   for (let i = 0; i + 1 < msgs.length; i++) {
     const q = msgs[i]
     const a = msgs[i + 1]
-    if (q.role === 'user' && a.role === 'ai' && a.status === 'done' && a.text.trim()) out.push({ q: q.text, a: a.text })
+    if (q.role !== 'user' || a.role !== 'ai' || a.status !== 'done' || !a.text.trim()) continue
+    if (q.engine === 'ollama' && !(a.steps?.length)) continue
+    out.push({ q: q.text, a: a.text })
   }
   return out
 }
@@ -199,7 +204,7 @@ export const useAiThread = create<AiThread>((set, get) => {
       const out = await runAgent(
         { question: q, note, mode, history, signal: ac.signal },
         {
-          turn: (messages, tools, signal) => chatTurn(cfg, messages, { tools, think: false, numCtx: 16384, temperature: 0.2, maxTokens: 2048 }, signal),
+          turn: (messages, tools, signal) => chatTurn(cfg, messages, { tools, think: false, numCtx: 16384, temperature: 0.2, maxTokens: 2048, timeoutMs: 300_000 }, signal),
           // 도구 호출마다 최신 노트·vault 로 환경을 새로 만든다(열린 vault 하나, 묻기면 읽기 전용)
           exec: (name, args) => callTool(name, args, { ...buildEnv(true, ro), partialPaths: partial }, client),
           onStep: (step) => patchLast((m) => ({ ...m, steps: [...(m.steps ?? []), step] })),

@@ -154,6 +154,11 @@ describe('도구 호출(function calling)', () => {
     expect(b.messages[1].tool_calls).toEqual([{ id: 'call_1', type: 'function', function: { name: 'search_notes', arguments: '{"query":"행사"}' } }])
     expect(b.messages[2]).toEqual({ role: 'tool', tool_call_id: 'call_1', content: '{"count":1}' })
   })
+  it('요청별 시간 제한을 요청에 실어 보낸다(Ollama·OpenAI 호환), 없으면 싣지 않는다', () => {
+    expect(buildChat(cfg(), [{ role: 'user', content: 'q' }], { timeoutMs: 300000 }).timeoutMs).toBe(300000)
+    expect(buildChat({ kind: 'custom', baseUrl: 'http://x/v1', model: 'm' }, [{ role: 'user', content: 'q' }], { timeoutMs: 5000 }).timeoutMs).toBe(5000)
+    expect(buildChat(cfg(), [{ role: 'user', content: 'q' }])).not.toHaveProperty('timeoutMs')
+  })
   it('도구를 안 쓰는 요청은 이전과 같다(think·tools 없음)', () => {
     const b = JSON.parse(buildChat(cfg(), [{ role: 'user', content: 'q' }]).body!)
     expect(b).not.toHaveProperty('tools')

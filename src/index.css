@@ -1033,6 +1033,7 @@ html.popup-win .ee { max-width: none; max-height: none; height: 100%; border-rad
 .ai-wait { margin: 4px 0; font-size: 13px; color: var(--muted); font-style: italic; }
 .ai-warn, .ai-err { color: var(--accent); }
 .ai-note { margin: 0 16px 8px; }
+.ai-notool { margin: 2px 0 6px; color: var(--accent); }
 .ai-prop { margin: 12px 0; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--r); background: var(--bg); }
 .ai-prop > header { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
 .ai-prop-path { font-weight: 600; font-size: 13.5px; word-break: break-all; }

@@ -732,5 +732,6 @@ const dict: Record<string, string> = {
   '설정 > AI 연결에서 도구 호출을 지원하는 모델(Ollama·OpenAI 호환)을 저장해 주세요': 'Save a tool-calling model (Ollama or OpenAI-compatible) in Settings > AI connection',
   '모델이 빈 답을 줬어요': 'The model gave an empty answer',
   '같은 도구를 계속 부르고 있어서 멈췄어요': 'Stopped because the same tool kept being called',
+  '노트를 읽지 않고 답했어요 — 내용이 사실과 다를 수 있어요': 'Answered without reading any note — the content may be inaccurate',
 }
 export default dict

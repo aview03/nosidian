@@ -140,3 +140,27 @@ describe('요청 취소', () => {
     }
   })
 })
+
+describe('요청별 시간 제한', () => {
+  async function slowServer() {
+    // @ts-expect-error 타입 선언 없이 Node 내장 모듈을 쓴다
+    const http: any = await import('node:http')
+    const server = http.createServer(() => { /* 응답하지 않는다 */ })
+    await new Promise<void>((r) => server.listen(0, '127.0.0.1', r))
+    return { server, url: `http://127.0.0.1:${server.address().port}/` }
+  }
+  it('요청이 정한 시간(1초 이상)이 지나면 시간 초과 오류로 끝난다', async () => {
+    const { server, url } = await slowServer()
+    try {
+      const t0 = Date.now()
+      const r = await main.request({ url, method: 'GET', headers: {}, timeoutMs: 1200 }, null)
+      expect(r).toMatchObject({ status: 0 })
+      expect(r.error).toMatch(/오래 걸려요/)
+      expect(Date.now() - t0).toBeGreaterThanOrEqual(1100)
+      expect(Date.now() - t0).toBeLessThan(5000)
+    } finally {
+      server.closeAllConnections?.()
+      server.close()
+    }
+  })
+})

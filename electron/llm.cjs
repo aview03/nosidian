@@ -9,6 +9,7 @@ const KEY_MARK = '{{KEY}}'
 const ALLOWED_HEADERS = new Set(['content-type', 'authorization', 'x-api-key', 'anthropic-version', 'x-goog-api-key'])
 const MAX_BYTES = 8 * 1024 * 1024
 const TIMEOUT_MS = 120_000
+const MAX_TIMEOUT_MS = 600_000
 
 function isPrivateHost(host) {
   const h = String(host).toLowerCase().replace(/^\[|\]$/g, '')
@@ -92,7 +93,9 @@ async function request(req, keys, ac) {
   const headers = injectKey(req.headers, keys ? keys.get() : null)
   if (!headers) return { status: 0, text: '', error: '저장된 API 키를 읽을 수 없어요. 설정에서 다시 저장해 주세요' }
   ac = ac || new AbortController()
-  const timer = setTimeout(() => ac.abort(), TIMEOUT_MS)
+  // 요청이 정한 시간 제한(느린 로컬 모델용). 1초~10분 안으로만 받아들인다
+  const ms = Number.isFinite(req.timeoutMs) ? Math.min(Math.max(req.timeoutMs, 1000), MAX_TIMEOUT_MS) : TIMEOUT_MS
+  const timer = setTimeout(() => ac.abort(), ms)
   try {
     const res = await fetch(req.url, { method: req.method, headers, body: req.method === 'POST' ? req.body : undefined, redirect: 'error', signal: ac.signal })
     const reader = res.body.getReader()

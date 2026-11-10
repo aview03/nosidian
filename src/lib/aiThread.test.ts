@@ -126,6 +126,12 @@ describe('AI 스레드: 모드·맥락', () => {
     expect(prompt).toContain('A: 첫 답변')
     expect(prompt).not.toContain('실패할 질문')
   })
+  it('로컬 모델이 도구를 쓰지 않고 한 답변은 맥락에서 뺀다(근거 없는 "읽었어요"를 따라 하지 않게), 도구를 쓴 답변과 Claude 의 답변은 유지', () => {
+    const u = (text: string, engine: 'claude' | 'ollama'): Msg => ({ id: text, role: 'user', text, at: 1, engine })
+    const a = (text: string, steps: number): Msg => ({ id: 'a' + text, role: 'ai', text, at: 1, status: 'done', steps: Array.from({ length: steps }, () => ({ name: 'read_note', input: '' })) })
+    const msgs = [u('q1', 'ollama'), a('A1', 0), u('q2', 'ollama'), a('A2', 2), u('q3', 'claude'), a('A3', 0)]
+    expect(turnsOf(msgs)).toEqual([{ q: 'q2', a: 'A2' }, { q: 'q3', a: 'A3' }])
+  })
   it('turnsOf: 완료된 (질문, 답변) 쌍만', () => {
     const m = (role: 'user' | 'ai', text: string, status?: Msg['status']): Msg => ({ id: text, role, text, at: 1, status })
     expect(turnsOf([m('user', 'a'), m('ai', 'A', 'done'), m('user', 'b'), m('ai', '', 'running')])).toEqual([{ q: 'a', a: 'A' }])
@@ -226,7 +232,7 @@ describe('로컬 모델(Ollama) 엔진', () => {
     // 두 번째 모델 호출에는 첫 도구 결과가 들어 있다(실제 mcpTools.search_notes 가 실행되어 열린 vault 에서 찾았다)
     const msgs = turnMock.mock.calls[1][1]
     expect(JSON.parse(msgs.at(-1)!.content)).toMatchObject({ vault: '테스트', count: 1 })
-    expect(turnMock.mock.calls[0][2]).toMatchObject({ think: false, numCtx: 16384 })
+    expect(turnMock.mock.calls[0][2]).toMatchObject({ think: false, numCtx: 16384, timeoutMs: 300000 })
   })
   it('묻기에서는 변경 제안 도구를 모델에게 주지 않는다', async () => {
     setup()
@@ -255,6 +261,33 @@ describe('로컬 모델(Ollama) 엔진', () => {
     expect(p).toMatchObject({ status: 'pending', req: { action: 'modify', path: 'p/개요.md' }, summary: '새 줄 추가' })
     expect(p.by).toContain('qwen3.5:4b')
     expect(useApp.getState().files['p/개요.md'].content).not.toContain('새 줄') // 승인 전에는 반영되지 않는다
+  })
+  it('긴 노트는 앞부분만 읽게 되고, 그 노트의 수정 제안은 막힌다(잘린 내용으로 덮어쓰지 않는다) — 같은 상황의 다른 노트는 영향 없음', async () => {
+    const big = '# 큰 노트\n' + '줄\n'.repeat(9000) // 12,000자를 넘는다
+    setup({ 'p/큰.md': big, 'p/작은.md': '# 작음\n', '_workspace/문서규칙.md': '---\nrules: on\nai_write: direct\n---\n' })
+    useAiThread.setState({ mode: 'edit' })
+    let readResult: Record<string, unknown> = {}
+    turnMock
+      .mockResolvedValueOnce({ text: '', toolCalls: [{ name: 'read_note', args: { path: 'p/큰.md' } }] })
+      .mockImplementationOnce(async (_c, messages) => {
+        const read = JSON.parse(messages.at(-1)!.content)
+        readResult = read
+        return { text: '', toolCalls: [{ name: 'propose_change', args: { action: 'modify', path: 'p/큰.md', content: '# 큰 노트\n앞부분만', base_hash: read.content_hash } }] }
+      })
+      .mockImplementationOnce(async (_c, messages) => {
+        const result = JSON.parse(messages.at(-1)!.content)
+        expect(result.error).toMatch(/truncated/) // 모델에게 거절 이유가 돌아간다
+        return { text: '', toolCalls: [{ name: 'propose_change', args: { action: 'modify', path: 'p/작은.md', content: '# 작음\n추가\n', base_hash: '' } }] }
+      })
+      .mockResolvedValueOnce({ text: '큰 노트는 수정하지 못했어요', toolCalls: [] })
+    await useAiThread.getState().send('큰 노트 맨 아래에 추가해 줘')
+    await vi.waitFor(() => expect(useAiThread.getState().running).toBe(false))
+    expect(readResult).toMatchObject({ truncated: true, notice: expect.stringContaining('Do not modify') })
+    expect(readResult.content_hash).toBeTruthy()
+    // 큰 노트의 수정 제안은 만들어지지 않았다(원본 그대로)
+    expect(useProposals.getState().items.filter((p) => p.req.path === 'p/큰.md')).toEqual([])
+    expect(useApp.getState().files['p/큰.md'].content).toBe(big)
+    expect(useAiThread.getState().messages[1].text).toContain('수정하지 못했어요')
   })
   it('설정에 모델이 없으면 오류 메시지로 안내하고 모델을 부르지 않는다', async () => {
     useAiThread.setState({ engine: 'ollama' })

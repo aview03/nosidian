@@ -75,6 +75,7 @@ function AiMsg({ m }: { m: Msg }) {
       )}
       {running && <p className="ai-wait" aria-live="polite">{t('생각하는 중…')}</p>}
       {m.status === 'error' && <p className="hint ai-err">{m.error}</p>}
+      {m.status === 'done' && m.text && steps.length === 0 && <p className="hint small ai-notool">{t('노트를 읽지 않고 답했어요 — 내용이 사실과 다를 수 있어요')}</p>}
       {m.status === 'done' && m.text && (
         <>
           <div className="ai-text"><Reader path="AI" content={text} compact /></div>
