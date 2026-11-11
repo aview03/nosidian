@@ -534,6 +534,8 @@ export function MemoTab({ sync }: { sync?: ReactNode }) {
           <button onClick={() => setMoving(true)}>{t('이동')}</button>
           <button disabled={!one} onClick={() => void rename()}>{t('이름 바꾸기')}</button>
           <button className="danger" onClick={() => void remove()}>{t('삭제')}</button>
+          {/* 엄지가 닿는 맨 오른쪽 아래에서도 선택을 끝낼 수 있게 한다(왼쪽 위 ✕ 는 멀다) */}
+          <button className="memo-cancel" onClick={exit}>{t('취소')}</button>
         </div>
       )}
 

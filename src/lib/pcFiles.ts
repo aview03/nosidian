@@ -6,6 +6,7 @@ import { create } from 'zustand'
 import { pinnedRequest } from './pinnedHttp'
 import { clearSecretRecord, onSecretsReady, readSecretRecord, registerSecret, writeSecretRecord, type SecretSpec } from './secureStore'
 import { t } from './i18n'
+import { clientId } from './deviceId'
 
 const KEY = 'nosidian.pcshare'
 /** 파일 공유 토큰은 안드로이드 보안 저장소(Keystore)에 둔다 */
@@ -106,7 +107,7 @@ export async function pairShare(p: SharePairing, deviceName: string): Promise<Pc
   let last: unknown = new Error('no host')
   for (const host of p.hosts) {
     try {
-      const j = (await Promise.race([call({ host, port: p.port, fp: p.fp }, '/pair', { code: p.code, name: deviceName }, 6000), new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 4500))])) as { token: string; name: string; dirName: string | null }
+      const j = (await Promise.race([call({ host, port: p.port, fp: p.fp }, '/pair', { code: p.code, name: deviceName, clientId: clientId() }, 6000), new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 4500))])) as { token: string; name: string; dirName: string | null }
       const link: PcShare = { host, port: p.port, token: j.token, fp: p.fp, name: j.name || 'PC', dirName: j.dirName ?? null }
       savePcShare(link)
       return link

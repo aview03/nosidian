@@ -9,6 +9,7 @@ import { buildEnv } from './mcpBridge'
 import { callTool } from './mcpTools'
 import type { ClaudeEvent } from './externalIO'
 import { t } from './i18n'
+import { clientId } from './deviceId'
 
 export const DEFAULT_RELAY_PORT = 47410
 const KEY = 'nosidian.pc'
@@ -96,7 +97,7 @@ export async function pairWithPc(p: Pairing, deviceName: string): Promise<PcLink
   for (const host of p.hosts) {
     try {
       // 안 닿는 주소(가상 어댑터 등)에서 오래 기다리지 않게 4초씩만 기다리고 다음 후보로 간다. 서버가 답한 오류(HTTP 상태)는 주소가 맞다는 뜻이라 바로 알린다
-      const j = (await Promise.race([call({ host, port: p.port }, '/pair', { code: p.code, name: deviceName }), new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 4000))])) as { token: string; name: string; upstream: PcLink['upstream']; claude: boolean }
+      const j = (await Promise.race([call({ host, port: p.port }, '/pair', { code: p.code, name: deviceName, clientId: clientId() }), new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 4000))])) as { token: string; name: string; upstream: PcLink['upstream']; claude: boolean }
       const link: PcLink = { host, port: p.port, token: j.token, name: j.name || 'PC', claude: j.claude === true, upstream: j.upstream ?? null }
       savePcLink(link)
       return link

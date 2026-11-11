@@ -68,7 +68,10 @@ function createHostServer(deps) {
     code = { value: newCode(), exp: now() + CODE_TTL_MS }
     return code
   }
-  const codeNow = () => (code && code.exp > now() ? code : issueCode())
+  // 화면용: 지금 유효한 코드(없으면 null). 화면이 열 때마다 코드를 만들어 내지 않는다 — 사용자가 '기기 추가'를 눌렀을 때만 issueCode
+  const codeActive = () => (code && code.exp > now() ? code : null)
+  // 시험용: 유효한 코드가 없으면 발급한다
+  const codeNow = () => codeActive() || issueCode()
 
   const send = (res, status, obj) => {
     res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' })
@@ -129,14 +132,18 @@ function createHostServer(deps) {
     } catch (e) {
       return send(res, (e && e.status) || 412, { error: 'no host folder', code: 'noFolder' })
     }
-    if (state.devices.length >= MAX_DEVICES) return send(res, 409, { error: 'too many devices' })
+    // 기기 하나에 연결 링크(토큰) 하나: 같은 기기(clientId)가 다시 맺으면 기존 항목의 토큰을 바꿔 끼운다(중복 없음, 옛 토큰은 즉시 무효)
+    const cid = typeof b.clientId === 'string' && /^[A-Za-z0-9-]{8,64}$/.test(b.clientId) ? b.clientId : null
+    const prev = cid ? state.devices.find((d) => d.clientId === cid) : null
+    if (!prev && state.devices.length >= MAX_DEVICES) return send(res, 409, { error: 'too many devices' })
     code = null
     fails.delete(remote)
     const token = crypto.randomBytes(24).toString('hex')
     const name = String(b.name || '휴대폰').replace(/[^\p{L}\p{N} ._-]/gu, '').slice(0, 40).trim() || '휴대폰'
-    const id = crypto.randomUUID()
-    // 기본은 읽기 전용: 쓰기·삭제 권한은 PC 에서 명시적으로 켠다
-    state.devices.push({ id, name, hash: sha(token), createdAt: now(), lastSeen: now(), perms: { write: false, delete: false }, writes: 0, lastWriteAt: 0 })
+    const id = prev ? prev.id : crypto.randomUUID() // 같은 기기는 같은 id 를 유지(삭제 기록 반영 확인·기기 목록이 갈라지지 않게)
+    // 기본은 읽기 전용: 쓰기·삭제 권한은 PC 에서 명시적으로 켠다. 다시 맺으면 권한도 처음(읽기만)으로 돌아간다
+    if (prev) Object.assign(prev, { name, hash: sha(token), createdAt: now(), lastSeen: now(), perms: { write: false, delete: false } })
+    else state.devices.push({ id, ...(cid ? { clientId: cid } : {}), name, hash: sha(token), createdAt: now(), lastSeen: now(), perms: { write: false, delete: false }, writes: 0, lastWriteAt: 0 })
     save()
     host.registerDevice(id, { name })
     send(res, 200, { token, deviceId: id, name: deps.hostName || 'PC', folder: path.basename(host.root), fp: tls.fp, perms: { write: false, delete: false } })
@@ -290,7 +297,11 @@ function createHostServer(deps) {
     fingerprint: () => tls.fp,
     allowDelete,
     codeNow,
+    codeActive,
     newCode: issueCode,
+    revokeCode() {
+      code = null
+    },
     listen,
     close,
     isRunning: () => !!srv,

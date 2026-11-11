@@ -258,3 +258,46 @@ describe('설정 보관', () => {
     expect((b.saved() as { dir: unknown }).dir).toBeNull()
   })
 })
+
+describe('연결 코드는 요청할 때만 만든다 (QR 상시 노출 금지)', () => {
+  it('처음엔 없고 newCode 로 생기며 revokeCode 로 바로 없앤다', () => {
+    const b = boot()
+    b.s.setDir(root)
+    expect(b.s.codeActive()).toBeNull()
+    const c = b.s.newCode()
+    expect(b.s.codeActive()?.value).toBe(c.value)
+    b.s.revokeCode()
+    expect(b.s.codeActive()).toBeNull()
+  })
+  it('5분이 지나면 없어진다', () => {
+    let clock = 1_700_000_000_000
+    const b = boot({ now: () => clock })
+    b.s.setDir(root)
+    b.s.newCode()
+    clock += 5 * 60_000 + 1
+    expect(b.s.codeActive()).toBeNull()
+  })
+  it('폐기한 코드로는 짝을 맺을 수 없다(403)', async () => {
+    const b = boot()
+    b.s.setDir(root)
+    const port = await b.s.listen(0, '127.0.0.1')
+    server = b.s
+    const code = b.s.newCode().value as string
+    b.s.revokeCode()
+    expect((await req(port, '/pair', { code, name: 'x' })).status).toBe(403)
+  })
+})
+
+describe('기기 하나에 연결 링크 하나 (폴더 공유)', () => {
+  it('같은 기기가 다시 맺으면 목록에 중복이 없다', async () => {
+    const b = boot()
+    b.s.setDir(root)
+    const port = await b.s.listen(0, '127.0.0.1')
+    server = b.s
+    for (let i = 0; i < 3; i++) {
+      const r = await req(port, '/pair', { code: b.s.newCode().value, name: '내 폰', clientId: 'phone-aaaaaaaa' })
+      expect(r.status).toBe(200)
+    }
+    expect(b.s.state().devices).toHaveLength(1)
+  })
+})

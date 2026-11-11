@@ -1518,3 +1518,12 @@ input.inline.wide { width: 100%; box-sizing: border-box; height: 42px; }
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
   background-repeat: no-repeat; background-position: right 12px center; background-size: 16px;
 }
+
+/* 기기 추가 모달(연결 QR·코드는 요청했을 때만 여기에 나온다) */
+.pair-modal { max-width: 360px; }
+.pair-body { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 14px 0 6px; }
+.pair-body img { border-radius: var(--r); background: #fff; }
+.pair-code { font-size: 30px; letter-spacing: 6px; font-variant-numeric: tabular-nums; }
+.pair-left { color: var(--muted); font-size: 12.5px; }
+.pair-ok { color: var(--text); font-weight: 600; font-size: 16px; }
+.memo-bar button.memo-cancel { flex: 0 0 auto; padding: 0 16px; color: var(--muted); }

@@ -2,7 +2,6 @@
 //  1) 호스트 폴더 고르기 → 2) 미리보기(PC 앱 Vault 와 폴더의 차이) → 3) 사용자가 확인하고 시작 → 스냅샷을 만들고 반영.
 // 확인 전에는 아무것도 덮어쓰거나 지우지 않는다. 최초 연결에는 삭제가 없다. 되돌리려면 "연결 끊기"(노트는 그대로)와 스냅샷 복원.
 import { useCallback, useEffect, useState } from 'react'
-import QRCode from 'qrcode'
 import { t } from '../lib/i18n'
 import { desktop, type HostServerStatus, type HostStatus } from '../lib/externalIO'
 import { useApp } from '../lib/app'
@@ -10,6 +9,8 @@ import { confirmAsk } from '../lib/dialog'
 import { applyHostConnect, leaveHost, pcFolderIO, previewHostConnect, restoreVaultFromSnapshot, type Choice, type ConnectPlan } from '../lib/hostConnect'
 import { Icon } from './Icon'
 import { HostPlanView } from './HostPlan'
+import { PairModal } from './PairModal'
+import { hostState } from '../lib/pairModal'
 
 const PICK_ERR: Record<string, string> = {
   'drive root': '드라이브 전체는 쓸 수 없어요. 폴더를 하나 골라 주세요',
@@ -183,7 +184,7 @@ const ago = (ts: number) => {
 function HostServerSection() {
   const api = desktop()?.hostsrv
   const [st, setSt] = useState<HostServerStatus | null>(null)
-  const [qr, setQr] = useState('')
+  const [adding, setAdding] = useState(false)
   const say = useApp.getState().say
   const refresh = useCallback(async () => {
     if (!api) return
@@ -195,11 +196,6 @@ function HostServerSection() {
     const id = setInterval(() => void refresh(), 4000)
     return () => clearInterval(id)
   }, [refresh])
-  const pair = st?.pair ?? ''
-  useEffect(() => {
-    if (!pair) return void setQr('')
-    void QRCode.toDataURL(pair, { margin: 1, width: 176, errorCorrectionLevel: 'M', color: { dark: '#1d1b1f', light: '#ffffff' } }).then(setQr)
-  }, [pair])
   if (!api || !st) return null
   const apply = (r: Awaited<ReturnType<typeof api.get>>) => {
     if (r.ok) setSt(r)
@@ -226,17 +222,18 @@ function HostServerSection() {
         <>
           {st.error && <p className="hint small ai-warn">{st.error}</p>}
           {st.running && st.ips.length === 0 && <p className="hint small ai-warn">{t('와이파이에 연결돼 있지 않아요. 같은 와이파이에 연결해 주세요.')}</p>}
-          {st.running && st.code && st.pair && (
-            <div className="relay-pair">
-              {qr && <img src={qr} width={176} height={176} alt={t('연결 QR')} />}
-              <div className="relay-code">
-                <small>{t('휴대폰 앱에서 이 PC에 연결')}</small>
-                <b>{st.code}</b>
-                <small>{t('5분 안에, 한 번만 쓸 수 있어요')}</small>
-                <button className="btn-link" onClick={() => void navigator.clipboard.writeText(st.pair ?? '').then(() => say(t('복사했어요')))}>{t('연결 문자열 복사')}</button>
-                <button className="btn-link" onClick={async () => apply(await api.newCode())}>{t('새 코드 만들기')}</button>
-              </div>
-            </div>
+          {st.running && st.hostConfigured && st.ips.length > 0 && <button className="big" onClick={() => setAdding(true)}>{t('기기 추가')}</button>}
+          {adding && (
+            <PairModal
+              title={t('휴대폰 연결')}
+              where={t('휴대폰 앱 > 설정 > 노트와 동기화 > 연결하기 > 내 PC')}
+              source={{
+                get: async () => { const r = await api.get(); return r.ok ? hostState(r) : null },
+                issue: async () => { const r = await api.newCode(); return r.ok ? hostState(r) : null },
+                revoke: async () => { await api.revokeCode() },
+              }}
+              onClose={() => { setAdding(false); void refresh() }}
+            />
           )}
           <div className="relay-devs">
             <div className="auto-sub">{t('연결된 휴대폰')}</div>

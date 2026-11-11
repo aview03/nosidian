@@ -259,3 +259,78 @@ describe('설정 보관', () => {
     expect((b.saved() as { enabled: boolean }).enabled).toBe(false)
   })
 })
+
+describe('연결 코드는 요청할 때만 만든다 (QR 상시 노출 금지)', () => {
+  it('처음엔 코드가 없고, newCode 를 눌러야 생긴다', async () => {
+    const b = boot()
+    await b.relay.listen(0, '127.0.0.1')
+    current = b.relay
+    expect(b.relay.codeActive()).toBeNull()
+    const c = b.relay.newCode()
+    expect(b.relay.codeActive()?.value).toBe(c.value)
+  })
+  it('revokeCode 이후엔 그 코드로 짝을 맺을 수 없다(403)', async () => {
+    const b = boot()
+    const port = await b.relay.listen(0, '127.0.0.1')
+    current = b.relay
+    const code = b.relay.newCode().value as string
+    b.relay.revokeCode()
+    expect(b.relay.codeActive()).toBeNull()
+    expect((await post(`http://127.0.0.1:${port}`, '/pair', { code, name: 'x' })).status).toBe(403)
+    expect(b.relay.state().devices).toHaveLength(0)
+  })
+  it('5분이 지나면 코드가 없어진 것으로 보이고 짝을 맺을 수 없다', async () => {
+    let clock = 1_700_000_000_000
+    const b = boot({ now: () => clock })
+    const port = await b.relay.listen(0, '127.0.0.1')
+    current = b.relay
+    const code = b.relay.newCode().value as string
+    clock += 5 * 60_000 + 1
+    expect(b.relay.codeActive()).toBeNull()
+    expect((await post(`http://127.0.0.1:${port}`, '/pair', { code, name: 'x' })).status).toBe(403)
+  })
+  it('짝을 맺으면 코드는 바로 없어진다(한 번만)', async () => {
+    const s = await start()
+    expect((await post(s.base, '/pair', { code: s.code, name: 'a' })).status).toBe(200)
+    expect(s.relay.codeActive()).toBeNull()
+  })
+})
+
+describe('기기 하나에 연결 링크 하나', () => {
+  const pairAs = async (s: { base: string; relay: any }, clientId: string | undefined, name: string) => {
+    const code = s.relay.newCode().value as string
+    const r = await post(s.base, '/pair', { code, name, clientId })
+    return { status: r.status, token: ((await r.json()) as { token?: string }).token }
+  }
+  it('같은 기기(clientId)가 다시 맺으면 기기 목록에 중복이 없고, 옛 토큰은 바로 무효가 된다', async () => {
+    const s = await start()
+    const a = await pairAs(s, 'phone-aaaaaaaa', '내 폰')
+    const b = await pairAs(s, 'phone-aaaaaaaa', '내 폰')
+    expect(a.status).toBe(200)
+    expect(b.status).toBe(200)
+    expect(s.relay.state().devices).toHaveLength(1)
+    const auth = (t?: string) => fetch(s.base + '/ping', { headers: { authorization: `Bearer ${t}`, Connection: 'close' } }).then((r) => r.status)
+    expect(await auth(a.token)).toBe(401)
+    expect(await auth(b.token)).toBe(200)
+  })
+  it('다른 기기는 따로 늘어난다', async () => {
+    const s = await start()
+    await pairAs(s, 'phone-aaaaaaaa', 'A')
+    await pairAs(s, 'phone-bbbbbbbb', 'B')
+    expect(s.relay.state().devices).toHaveLength(2)
+  })
+  it('clientId 가 없거나 형식이 이상하면 새 기기로 취급한다(기존 클라이언트 호환)', async () => {
+    const s = await start()
+    await pairAs(s, undefined, 'A')
+    await pairAs(s, 'x', 'A')
+    await pairAs(s, '<script>', 'A')
+    expect(s.relay.state().devices).toHaveLength(3)
+  })
+  it('기기 수가 상한(5)이어도 같은 기기의 재연결은 막히지 않는다', async () => {
+    const s = await start()
+    for (let i = 0; i < 5; i++) await pairAs(s, `phone-0000000${i}`, 'p' + i)
+    expect((await pairAs(s, 'phone-00000009', 'new')).status).toBe(409)
+    expect((await pairAs(s, 'phone-00000003', 'p3')).status).toBe(200)
+    expect(s.relay.state().devices).toHaveLength(5)
+  })
+})

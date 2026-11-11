@@ -97,7 +97,10 @@ function createShare(deps) {
     code = { value: newCode(), exp: now() + CODE_TTL_MS }
     return code
   }
-  const codeNow = () => (code && code.exp > now() ? code : issueCode())
+  // 화면용: 지금 유효한 코드(없으면 null). 화면이 열 때마다 코드를 만들어 내지 않는다 — 사용자가 '기기 추가'를 눌렀을 때만 issueCode
+  const codeActive = () => (code && code.exp > now() ? code : null)
+  // 시험용: 유효한 코드가 없으면 발급한다
+  const codeNow = () => codeActive() || issueCode()
 
   const send = (res, status, obj) => {
     res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' })
@@ -152,12 +155,16 @@ function createShare(deps) {
       fails.set(remote, { n, until: n >= 5 ? now() + 60_000 : 0 })
       return send(res, 403, { error: 'invalid code' })
     }
-    if (state.devices.length >= MAX_DEVICES) return send(res, 409, { error: 'too many devices' })
+    // 기기 하나에 연결 링크(토큰) 하나: 같은 기기(clientId)가 다시 맺으면 기존 항목의 토큰을 바꿔 끼운다(중복 없음, 옛 토큰은 즉시 무효)
+    const cid = typeof b.clientId === 'string' && /^[A-Za-z0-9-]{8,64}$/.test(b.clientId) ? b.clientId : null
+    const prev = cid ? state.devices.find((d) => d.clientId === cid) : null
+    if (!prev && state.devices.length >= MAX_DEVICES) return send(res, 409, { error: 'too many devices' })
     code = null
     fails.delete(remote)
     const token = crypto.randomBytes(24).toString('hex')
     const name = String(b.name || '휴대폰').replace(/[^\p{L}\p{N} ._-]/gu, '').slice(0, 40).trim() || '휴대폰'
-    state.devices.push({ id: crypto.randomUUID(), name, hash: sha(token), createdAt: now(), lastSeen: now() })
+    if (prev) Object.assign(prev, { name, hash: sha(token), createdAt: now(), lastSeen: now() })
+    else state.devices.push({ id: crypto.randomUUID(), ...(cid ? { clientId: cid } : {}), name, hash: sha(token), createdAt: now(), lastSeen: now() })
     save()
     send(res, 200, { token, name: deps.hostName || 'PC', dirName: state.dir ? path.basename(state.dir) : null, fp: tls.fp })
   }
@@ -310,7 +317,11 @@ function createShare(deps) {
     state: () => state,
     fingerprint: () => tls.fp,
     codeNow,
+    codeActive,
     newCode: issueCode,
+    revokeCode() {
+      code = null
+    },
     listen,
     close,
     isRunning: () => !!srv,
@@ -431,7 +442,7 @@ function register({ ipcMain, app, dialog, safeStorage, BrowserWindow }) {
     const r = await ensure()
     const ips = lanAddresses()
     const port = r.port()
-    const c = r.state().enabled && r.state().dir ? r.codeNow() : null
+    const c = r.state().enabled && r.state().dir ? r.codeActive() : null
     return {
       enabled: r.state().enabled,
       running: r.isRunning(),
@@ -439,6 +450,7 @@ function register({ ipcMain, app, dialog, safeStorage, BrowserWindow }) {
       ips,
       dir: r.state().dir,
       code: c ? c.value : null,
+      codeExpiresAt: c ? c.exp : null,
       // 주소 후보·포트·코드·인증서 지문. 폰의 QR 스캔 또는 붙여 넣기 — 지문까지 들어 있어 가로채기를 막는다
       pair: c && ips.length ? `nsf1:${ips.join(',')}:${port}:${c.value}:${r.fingerprint()}` : null,
       fingerprint: r.fingerprint(),
@@ -474,6 +486,11 @@ function register({ ipcMain, app, dialog, safeStorage, BrowserWindow }) {
   ipcMain.handle('share:newCode', async () => {
     const r = await ensure()
     r.newCode()
+    return status()
+  })
+  ipcMain.handle('share:revokeCode', async () => {
+    const r = await ensure()
+    r.revokeCode()
     return status()
   })
   ipcMain.handle('share:revoke', async (_e, id) => {

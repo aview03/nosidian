@@ -7,6 +7,7 @@ import { pinnedRequest } from './pinnedHttp'
 import { clearSecretRecord, readSecretRecord, registerSecret, writeSecretRecord, type SecretSpec } from './secureStore'
 import { t } from './i18n'
 import { SyncError } from './sync/types'
+import { clientId } from './deviceId'
 
 const KEY = 'nosidian.pchost'
 const SECRET: SecretSpec = { storageKey: KEY, field: 'token', secretName: 'pchost.token', required: true }
@@ -141,7 +142,7 @@ export async function pairHost(p: HostPairing, deviceName: string): Promise<PcHo
   let last: unknown = new Error('no host')
   for (const host of p.hosts) {
     try {
-      const r = await Promise.race([raw({ port: p.port, fp: p.fp }, host, '/pair', { code: p.code, name: deviceName }, 6000), new Promise<never>((_, rej) => setTimeout(() => rej(new Error('timeout')), 6500))])
+      const r = await Promise.race([raw({ port: p.port, fp: p.fp }, host, '/pair', { code: p.code, name: deviceName, clientId: clientId() }, 6000), new Promise<never>((_, rej) => setTimeout(() => rej(new Error('timeout')), 6500))])
       if (r.status !== 200) throw toError(r)
       const link: PcHostLink = { host, hosts: p.hosts, port: p.port, fp: p.fp, token: String(r.json.token), deviceId: String(r.json.deviceId ?? ''), name: String(r.json.name ?? 'PC'), folder: String(r.json.folder ?? '') }
       savePcHost(link)

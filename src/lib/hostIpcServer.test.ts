@@ -59,7 +59,8 @@ describe('PC 화면 → 호스트 동기화 서버', () => {
     expect(off).toMatchObject({ ok: true, enabled: false, running: false, hostConfigured: true, pair: null, allowDelete: false })
     const on = await ipc('hostsrv:set', { enabled: true })
     expect(on).toMatchObject({ ok: true, enabled: true, running: true })
-    const g = await ipc('hostsrv:get')
+    expect(on).toMatchObject({ code: null, pair: null, codeExpiresAt: null }) // 켠 것만으로는 QR·코드가 생기지 않는다
+    const g = await ipc('hostsrv:newCode') // 코드는 '기기 추가'를 눌렀을 때만 만든다
     expect(g.pair).toMatch(/^nsh1:[\d.,]+:\d+:\d{6}:[0-9a-f]{64}$/)
     expect(g.pair).toContain(tls.fp) // 공유 폴더와 같은 PC 인증서 지문
     const r = await call(g.port, '/pair', { code: g.code, name: '내 폰' })
@@ -72,7 +73,7 @@ describe('PC 화면 → 호스트 동기화 서버', () => {
 
   it('PC 에서 쓰기를 허용·회수하면 폰의 쓰기가 즉시 열리고 닫힌다. 삭제 권한은 켤 수 없다', async () => {
     await ipc('hostsrv:set', { enabled: true })
-    const g = await ipc('hostsrv:get')
+    const g = await ipc('hostsrv:newCode') // 코드는 '기기 추가'를 눌렀을 때만 만든다
     const p = await call(g.port, '/pair', { code: g.code, name: '내 폰' })
     const token = p.json.token as string
     const id = p.json.deviceId as string
@@ -100,7 +101,7 @@ describe('PC 화면 → 호스트 동기화 서버', () => {
 
   it('기기를 해제하면 즉시 접근이 막히고, 서버를 끄면 연결이 거부된다', async () => {
     await ipc('hostsrv:set', { enabled: true })
-    const g = await ipc('hostsrv:get')
+    const g = await ipc('hostsrv:newCode') // 코드는 '기기 추가'를 눌렀을 때만 만든다
     const p = await call(g.port, '/pair', { code: g.code, name: '내 폰' })
     expect((await call(g.port, '/list', {}, p.json.token)).status).toBe(200)
     const rv = await ipc('hostsrv:revoke', p.json.deviceId)
@@ -121,10 +122,19 @@ describe('PC 화면 → 호스트 동기화 서버', () => {
 
   it('새 코드를 만들면 이전 코드는 쓸 수 없다', async () => {
     await ipc('hostsrv:set', { enabled: true })
-    const a = await ipc('hostsrv:get')
+    const a = await ipc('hostsrv:newCode')
     const b = await ipc('hostsrv:newCode')
     expect(b.code).not.toBe(a.code)
     expect((await call(a.port, '/pair', { code: a.code, name: 'x' })).status).toBe(403)
     expect((await call(a.port, '/pair', { code: b.code, name: 'x' })).status).toBe(200)
+  })
+
+  it('코드를 폐기하면 그 코드로는 짝을 맺을 수 없고, 상태에서도 사라진다', async () => {
+    await ipc('hostsrv:set', { enabled: true })
+    const a = await ipc('hostsrv:newCode')
+    expect(a.codeExpiresAt).toBeGreaterThan(Date.now())
+    const r = await ipc('hostsrv:revokeCode')
+    expect(r).toMatchObject({ ok: true, code: null, pair: null, codeExpiresAt: null })
+    expect((await call(a.port, '/pair', { code: a.code, name: 'x' })).status).toBe(403)
   })
 })

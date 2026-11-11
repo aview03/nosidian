@@ -2,10 +2,11 @@
 // QR(또는 복사한 연결 문자열)로 한 번 짝을 맺고 그 폴더의 파일을 **읽기만** 한다. 암호화(HTTPS)·인증서 지문 확인이 들어 있다.
 // 기본은 꺼짐. 폴더 밖·쓰기·삭제·실행은 되지 않고, 기기는 여기서 언제든 해제한다.
 import { useCallback, useEffect, useState } from 'react'
-import QRCode from 'qrcode'
 import { t } from '../lib/i18n'
 import { desktop, type ShareStatus } from '../lib/externalIO'
 import { useApp } from '../lib/app'
+import { PairModal } from './PairModal'
+import { shareState } from '../lib/pairModal'
 
 const ago = (ts: number) => {
   const m = Math.round((Date.now() - ts) / 60000)
@@ -27,18 +28,13 @@ const PICK_ERR: Record<string, string> = {
 export function ShareCard() {
   const api = desktop()?.share
   const [st, setSt] = useState<ShareStatus | null>(null)
-  const [qr, setQr] = useState('')
+  const [adding, setAdding] = useState(false)
   const refresh = useCallback(async () => { if (api) setSt(await api.get()) }, [api])
   useEffect(() => {
     void refresh()
     const id = setInterval(() => void refresh(), 4000)
     return () => clearInterval(id)
   }, [refresh])
-  const pair = st?.pair ?? ''
-  useEffect(() => {
-    if (!pair) return void setQr('')
-    void QRCode.toDataURL(pair, { margin: 1, width: 176, errorCorrectionLevel: 'M', color: { dark: '#1d1b1f', light: '#ffffff' } }).then(setQr)
-  }, [pair])
   if (!api || !st) return null
 
   const say = useApp.getState().say
@@ -47,7 +43,6 @@ export function ShareCard() {
     setSt(r)
     if (r.pickError) say(t(PICK_ERR[r.pickError] ?? '이 폴더는 공유할 수 없어요'))
   }
-  const copy = () => void navigator.clipboard.writeText(st.pair ?? '').then(() => say(t('복사했어요')))
 
   return (
     <section className="card relay share">
@@ -71,17 +66,14 @@ export function ShareCard() {
           {st.error && <p className="hint small ai-warn">{st.error}</p>}
           {!st.running && !st.error && <p className="hint small">{t('시작하는 중…')}</p>}
           {st.running && st.ips.length === 0 && <p className="hint small ai-warn">{t('와이파이에 연결돼 있지 않아요. 같은 와이파이에 연결해 주세요.')}</p>}
-          {st.running && st.dir && st.code && st.pair && (
-            <div className="relay-pair">
-              {qr && <img src={qr} width={176} height={176} alt={t('연결 QR')} />}
-              <div className="relay-code">
-                <small>{t('휴대폰 앱 > 설정 > 노트와 동기화 > 내 PC 폴더 보기')}</small>
-                <b>{st.code}</b>
-                <small>{t('5분 안에, 한 번만 쓸 수 있어요')}</small>
-                <button className="btn-link" onClick={copy}>{t('연결 문자열 복사')}</button>
-                <button className="btn-link" onClick={async () => setSt(await api.newCode())}>{t('새 코드 만들기')}</button>
-              </div>
-            </div>
+          {st.running && st.dir && st.ips.length > 0 && <button className="big" onClick={() => setAdding(true)}>{t('기기 추가')}</button>}
+          {adding && (
+            <PairModal
+              title={t('휴대폰 연결')}
+              where={t('휴대폰 앱 > 설정 > 노트와 동기화 > 내 PC 폴더 보기')}
+              source={{ get: async () => shareState(await api.get()), issue: async () => shareState(await api.newCode()), revoke: async () => { await api.revokeCode() } }}
+              onClose={() => { setAdding(false); void refresh() }}
+            />
           )}
           <div className="relay-devs">
             <div className="auto-sub">{t('연결된 휴대폰')}</div>

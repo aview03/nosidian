@@ -95,6 +95,8 @@ export interface RelayApi {
   get(): Promise<RelayStatus>
   set(patch: { enabled?: boolean }): Promise<RelayStatus>
   newCode(): Promise<RelayStatus>
+  /** 지금 떠 있는 연결 코드를 바로 폐기(모달을 닫을 때) */
+  revokeCode(): Promise<RelayStatus>
   revoke(id: string): Promise<RelayStatus>
   upstream(cfg: { kind: string; baseUrl: string; model: string; keyStored?: boolean } | null): Promise<boolean>
 }
@@ -106,6 +108,7 @@ export interface ShareStatus {
   /** 공유 폴더(절대 경로). 지정 전이면 null */
   dir: string | null
   code: string | null
+  codeExpiresAt: number | null
   /** 연결 문자열("nsf1:ip,ip:port:code:지문") — QR·복사에 쓴다. 인증서 지문이 들어 있다 */
   pair: string | null
   fingerprint: string
@@ -120,6 +123,7 @@ export interface ShareApi {
   pickDir(): Promise<ShareStatus>
   clearDir(): Promise<ShareStatus>
   newCode(): Promise<ShareStatus>
+  revokeCode(): Promise<ShareStatus>
   revoke(id: string): Promise<ShareStatus>
 }
 type HostRes<T> = ({ ok: true } & T) | { ok: false; status: number; code?: string; error: string; currentRev?: string | null; deleted?: boolean }
@@ -167,6 +171,7 @@ export interface HostServerStatus {
   port: number
   ips: string[]
   code: string | null
+  codeExpiresAt: number | null
   /** 연결 문자열("nsh1:ip,ip:port:code:지문") — QR·복사에 쓴다 */
   pair: string | null
   fingerprint: string
@@ -180,6 +185,7 @@ export interface HostServerApi {
   get(): Promise<HostRes<HostServerStatus>>
   set(patch: { enabled?: boolean }): Promise<HostRes<HostServerStatus>>
   newCode(): Promise<HostRes<HostServerStatus>>
+  revokeCode(): Promise<HostRes<HostServerStatus>>
   revoke(id: string): Promise<HostRes<HostServerStatus>>
   setPerms(id: string, patch: { write?: boolean; delete?: boolean }): Promise<HostRes<HostServerStatus>>
 }

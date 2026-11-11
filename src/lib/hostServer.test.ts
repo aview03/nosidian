@@ -416,3 +416,40 @@ describe('폰을 위한 보조 기능: 현재 주소 알림·최초 연결 스�
     expect(host.snapshots()).toEqual([])
   })
 })
+
+describe('연결 코드는 요청할 때만 만든다 (QR 상시 노출 금지)', () => {
+  it('처음엔 없고 newCode 로 생기며 revokeCode 로 바로 없앤다', async () => {
+    const b = await boot()
+    expect(b.s.codeActive()).toBeNull()
+    const c = b.s.newCode()
+    expect(b.s.codeActive()?.value).toBe(c.value)
+    b.s.revokeCode()
+    expect(b.s.codeActive()).toBeNull()
+  })
+  it('5분이 지나면 없어지고, 폐기한 코드로는 짝을 맺을 수 없다(403)', async () => {
+    const b = await boot()
+    const code = b.s.newCode().value as string
+    clock += 5 * 60_000 + 1
+    expect(b.s.codeActive()).toBeNull()
+    expect((await req(b.port, '/pair', { code, name: 'x' })).status).toBe(403)
+  })
+})
+
+describe('기기 하나에 연결 링크 하나 (호스트)', () => {
+  it('같은 기기가 다시 맺으면 같은 id 를 유지하고 권한은 읽기만으로 돌아가며 옛 토큰은 무효', async () => {
+    const b = await boot()
+    const pairOnce = async () => {
+      const r = await req(b.port, '/pair', { code: b.s.newCode().value, name: '내 폰', clientId: 'phone-aaaaaaaa' })
+      return { token: r.json.token as string, id: r.json.deviceId as string }
+    }
+    const a = await pairOnce()
+    b.s.setPerms(a.id, { write: true })
+    expect(b.s.state().devices[0].perms.write).toBe(true)
+    const c = await pairOnce()
+    expect(c.id).toBe(a.id)
+    expect(b.s.state().devices).toHaveLength(1)
+    expect(b.s.state().devices[0].perms.write).toBe(false)
+    expect((await req(b.port, '/ping', {}, a.token)).status).toBe(401)
+    expect((await req(b.port, '/ping', {}, c.token)).status).toBe(200)
+  })
+})

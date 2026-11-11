@@ -113,7 +113,7 @@ function register({ ipcMain, app, dialog, BrowserWindow, getTls, allowDelete }) 
     const ips = lanAddresses()
     const port = s.port()
     const configured = !!cfg.dir
-    const c = s.state().enabled && configured ? s.codeNow() : null
+    const c = s.state().enabled && configured ? s.codeActive() : null
     return {
       hostConfigured: configured,
       enabled: s.state().enabled,
@@ -121,6 +121,7 @@ function register({ ipcMain, app, dialog, BrowserWindow, getTls, allowDelete }) 
       port,
       ips,
       code: c ? c.value : null,
+      codeExpiresAt: c ? c.exp : null,
       // 주소 후보·포트·코드·인증서 지문. 폰은 QR 스캔 또는 붙여 넣기로 짝을 맺는다(지문이 들어 있어 가로채기를 막는다)
       pair: c && ips.length ? `nsh1:${ips.join(',')}:${port}:${c.value}:${s.fingerprint()}` : null,
       fingerprint: s.fingerprint(),
@@ -143,6 +144,7 @@ function register({ ipcMain, app, dialog, BrowserWindow, getTls, allowDelete }) 
       return srvStatus()
     }),
   )
+  ipcMain.handle('hostsrv:revokeCode', wrap(async () => (await ensureServer()).revokeCode() ?? srvStatus()))
   ipcMain.handle('hostsrv:newCode', wrap(async () => (await ensureServer()).newCode() && srvStatus()))
   ipcMain.handle(
     'hostsrv:revoke',
