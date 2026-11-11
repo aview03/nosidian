@@ -65,7 +65,7 @@ function Row({ tk, owners }: { tk: Task; owners: string[] }) {
           />
         )}
       </div>
-      <div role="cell" className={`tbl-c${late ? ' late' : ''}`} data-label={t('마감')}>
+      <div role="cell" className={`tbl-c tbl-due${late ? ' late' : ''}`} data-label={t('마감')}>
         <input
           type="date"
           className="tbl-date"

@@ -1695,3 +1695,8 @@ input.inline.wide { width: 100%; box-sizing: border-box; height: 42px; }
 .g-bar::after, .g-pt::after { content: ''; position: absolute; left: -2px; right: -2px; top: -9px; bottom: -9px; }
 .g-pt::after { left: -14px; right: -14px; top: -14px; bottom: -14px; transform: rotate(-45deg); }
 .g-tools .g-groupsel { width: auto; min-width: 150px; }
+
+/* 안드로이드 날짜 입력은 "2026. 11. 12." 처럼 길어서 칸이 좁으면 잘린다(실기기에서 확인). 폰 폭에서는 남는 폭을 쓰고 최소 168px */
+.tbl-c.tbl-due { flex: 1 1 168px; }
+.tbl-c.tbl-due .tbl-date { width: 100%; min-width: 168px; }
+@media (min-width: 700px) { .tbl-c.tbl-due { flex: none; } .tbl-c.tbl-due .tbl-date { min-width: 0; } }
