@@ -5,14 +5,16 @@ import { t } from '../lib/i18n'
 import { desktop, type ClaudeStatus } from '../lib/externalIO'
 import { readiness } from '../lib/aiAssistant'
 import { currentEngine, useAiThread } from '../lib/aiThread'
-import { loadLlmConfig, providerOf, saveLlmConfig, type LlmConfig, type ProviderKind } from '../lib/llm'
-import { chatTurn, keyStoreStatus, listModels, storeKey } from '../lib/llmNet'
-import { newConnectionId } from '../lib/aiConnections'
+import { loadAllLlmConfigs, loadLlmConfig, providerOf, saveLlmConfig, supportsTools, type LlmConfig, type ProviderKind } from '../lib/llm'
+import { chatTurn, clearStoredKey, keyStoreStatus, listModels, storeKey } from '../lib/llmNet'
+import { newConnectionId, removeConnection, setSelected } from '../lib/aiConnections'
+import { confirmAsk } from '../lib/dialog'
+import { LlmCard } from './LlmSettings'
 import { startAnalysis } from '../lib/autoRunner'
 import { adoptUpstream, forgetPc, loadPcLink, pairWithPc, parsePairing, runClaudeViaPc, type Pairing } from '../lib/pcLink'
 import { useAiConfigVersion } from '../lib/useAiConfig'
 import { QrScan } from './QrScan'
-import { KEY_PROVIDERS, LOCAL_PROVIDERS, aiSummary, pickModel, type WizardWay } from '../lib/aiWizard'
+import { KEY_PROVIDERS, LOCAL_PROVIDERS, aiSummary, connectionBadge, connectionSub, connectionTitle, countConnected, isInUse, pickModel, type WizardWay } from '../lib/aiWizard'
 import { Orb } from './Orb'
 import { Select } from './Select'
 
@@ -30,19 +32,40 @@ export function AiWizard() {
   const engine = currentEngine(useAiThread((s) => s.engine))
   const [step, setStep] = useState<Step>('home')
   const [cs, setCs] = useState<ClaudeStatus | null>(null)
-  const [cfg, setCfg] = useState<LlmConfig | null>(loadLlmConfig())
+  const [conns, setConns] = useState<LlmConfig[]>(() => loadAllLlmConfigs())
   const [pc, setPc] = useState(loadPcLink())
+  /** 새로 추가하는 연결의 id(키를 이 이름으로 보관하므로 연결하기 전에 정해 둔다) */
+  const [target, setTarget] = useState('')
+  /** 지금 "고치기"로 펼쳐 둔 연결 */
+  const [editing, setEditing] = useState<string | null>(null)
   useEffect(() => { void claude?.detect().then(setCs) }, [claude])
-  // 다른 곳(예: 폰의 PC 연결 해제, 다른 카드)에서 설정이 바뀌어도 요약을 다시 읽는다
+  // 다른 곳(예: 폰의 PC 연결 해제, 다른 카드)에서 설정이 바뀌어도 목록을 다시 읽는다
   const cfgVersion = useAiConfigVersion()
-  useEffect(() => { setCfg(loadLlmConfig()); setPc(loadPcLink()) }, [cfgVersion])
-  const sum = aiSummary(engine, cs, cfg, pc)
+  useEffect(() => { setConns(loadAllLlmConfigs()); setPc(loadPcLink()) }, [cfgVersion])
+  const selectedId = loadLlmConfig()?.id ?? null
+  const claudeReady = mobile ? !!pc?.claude : !!(cs?.found && cs.loggedIn)
+  const n = countConnected(claudeReady, conns)
+  const sum = aiSummary(engine, cs, loadLlmConfig(), pc)
 
   const finish = (e: 'claude' | 'ollama') => {
     useAiThread.getState().setEngine(e)
-    setCfg(loadLlmConfig())
+    setConns(loadAllLlmConfigs())
     setPc(loadPcLink())
     setStep('done')
+  }
+  const startAdd = () => { setTarget(newConnectionId()); setStep('pick') }
+  const use = (id: string | 'claude') => {
+    if (id === 'claude') return useAiThread.getState().setEngine('claude')
+    setSelected(id)
+    useAiThread.getState().setEngine('ollama')
+  }
+  const remove = async (c: LlmConfig) => {
+    if (!c.id) return
+    const ok = await confirmAsk(t('"{name}" 연결을 해제할까요?', { name: connectionTitle(c) }), t('이 기기에 저장된 연결 정보와 키가 지워져요. 다른 연결에는 영향이 없어요.'), t('해제'), true)
+    if (!ok) return
+    removeConnection(c.id)
+    void clearStoredKey(c.id)
+    if (editing === c.id) setEditing(null)
   }
 
   return (
@@ -50,13 +73,39 @@ export function AiWizard() {
       <h3>{t('AI 연결')}</h3>
       {step === 'home' && (
         <>
-          <div className={`aiw-status${sum.connected ? ' on' : ''}`}>
-            <Orb size={40} still={!sum.connected} />
-            <span><b>{sum.title}</b>{sum.sub && <small>{sum.sub}</small>}</span>
+          <div className={`aiw-status${n ? ' on' : ''}`}>
+            <Orb size={40} still={!n} />
+            <span><b>{n ? t('AI {n}개 연결됨', { n }) : t('아직 연결 안 됨')}</b><small>{n ? (sum.connected ? t('지금 사용 중: {name}', { name: sum.sub ?? sum.title }) : t('아래에서 쓸 AI 를 골라 주세요')) : t('AI를 연결하면 노트에 대해 묻고 정리를 맡길 수 있어요')}</small></span>
           </div>
-          <button className={sum.connected ? 'big' : 'primary big'} onClick={() => setStep('pick')}>{sum.connected ? t('연결 바꾸기') : t('AI 연결하기')}</button>
-          {sum.connected && <button className="btn-link" onClick={() => useAiThread.getState().setOpen(true)}>{t('AI 패널 열기')}</button>}
-          {mobile && pc && <button className="btn-link" onClick={() => { forgetPc(); setPc(null); setCfg(loadLlmConfig()) }}>{t('이 PC 연결 해제 ({name})', { name: pc.name })}</button>}
+          {n > 0 && (
+            <ul className="aiw-conns" aria-label={t('연결된 AI')}>
+              {claudeReady && (
+                <li className={`aiw-conn${isInUse(engine, selectedId, 'claude') ? ' on' : ''}`}>
+                  <span className="aiw-conn-main"><b>{t('Claude (구독)')}</b><small>{mobile ? `${pc?.name ?? 'PC'} · Claude Code` : cs?.version ? `Claude Code ${cs.version}` : 'Claude Code'}</small></span>
+                  <span className="aiw-conn-badge">{mobile ? t('PC 경유') : t('내 구독 계정')}</span>
+                  <span className="aiw-conn-act">{isInUse(engine, selectedId, 'claude') ? <em>{t('사용 중')}</em> : <button className="btn-link" onClick={() => use('claude')}>{t('사용')}</button>}</span>
+                </li>
+              )}
+              {conns.map((c) => {
+                const inUse = !!c.id && isInUse(engine, selectedId, c.id)
+                return (
+                  <li key={c.id} className={`aiw-conn${inUse ? ' on' : ''}`}>
+                    <span className="aiw-conn-main"><b>{connectionTitle(c)}</b><small>{connectionSub(c)}</small></span>
+                    <span className="aiw-conn-badge">{connectionBadge(c)}</span>
+                    <span className="aiw-conn-act">
+                      {inUse ? <em>{t('사용 중')}</em> : <button className="btn-link" disabled={!supportsTools(c.kind) || !c.model} onClick={() => c.id && use(c.id)}>{t('사용')}</button>}
+                      {!mobile && <button className="btn-link" onClick={() => setEditing(editing === c.id ? null : c.id ?? null)}>{editing === c.id ? t('접기') : t('고치기')}</button>}
+                      <button className="btn-link danger" onClick={() => void remove(c)}>{t('해제')}</button>
+                    </span>
+                    {editing === c.id && !mobile && <div className="aiw-conn-edit"><LlmCard connId={c.id} onClose={() => setEditing(null)} /></div>}
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+          <button className={n ? 'big' : 'primary big'} onClick={startAdd}>{n ? t('+ AI 연결 추가') : t('AI 연결하기')}</button>
+          {n > 0 && <button className="btn-link" onClick={() => useAiThread.getState().setOpen(true)}>{t('AI 패널 열기')}</button>}
+          {mobile && pc && <button className="btn-link" onClick={() => { forgetPc(); setPc(null); setConns(loadAllLlmConfigs()) }}>{t('이 PC 연결 해제 ({name})', { name: pc.name })}</button>}
         </>
       )}
       {step === 'pick' && (
@@ -87,8 +136,8 @@ export function AiWizard() {
       )}
       {step === 'claude' && !mobile && <ClaudeStep cs={cs} refresh={() => void claude.detect().then(setCs)} onBack={() => setStep('pick')} onDone={() => finish('claude')} />}
       {step === 'pc' && mobile && <PcStep onBack={() => setStep('pick')} onDone={finish} />}
-      {step === 'local' && <LocalStep mobile={mobile} onBack={() => setStep('pick')} onDone={() => finish('ollama')} />}
-      {step === 'key' && <KeyStep onBack={() => setStep('pick')} onDone={() => finish('ollama')} />}
+      {step === 'local' && <LocalStep mobile={mobile} targetId={target} onBack={() => setStep('pick')} onDone={() => finish('ollama')} />}
+      {step === 'key' && <KeyStep targetId={target} onBack={() => setStep('pick')} onDone={() => finish('ollama')} />}
       {step === 'done' && (
         <>
           <div className="aiw-status on"><Orb size={40} /><span><b>{t('연결됐어요')}</b><small>{aiSummary(currentEngine(useAiThread.getState().engine), cs, loadLlmConfig(), loadPcLink()).sub}</small></span></div>
@@ -135,8 +184,8 @@ function ClaudeStep({ cs, refresh, onBack, onDone }: { cs: ClaudeStatus | null; 
 }
 
 /** 내 컴퓨터에서 돌리는 AI(Ollama · LM Studio) */
-function LocalStep({ mobile, onBack, onDone }: { mobile: boolean; onBack(): void; onDone(): void }) {
-  const saved = loadLlmConfig()
+function LocalStep({ mobile, targetId, onBack, onDone }: { mobile: boolean; targetId: string; onBack(): void; onDone(): void }) {
+  const saved = null as LlmConfig | null // 항상 새 연결을 추가한다(고치기는 목록의 "고치기")
   const [kind, setKind] = useState<ProviderKind>(saved && LOCAL_PROVIDERS.some((p) => p.kind === saved.kind) ? saved.kind : 'ollama')
   // 폰에서는 localhost 가 이 폰 자신이라 쓸 수 없다 — PC·서버의 주소를 직접 입력한다
   const [url, setUrl] = useState(saved && saved.kind === kind ? saved.baseUrl : mobile ? '' : LOCAL_PROVIDERS.find((p) => p.kind === kind)!.url)
@@ -161,7 +210,7 @@ function LocalStep({ mobile, onBack, onDone }: { mobile: boolean; onBack(): void
     setC({ kind: 'busy', text: t('테스트 질문을 보내는 중…') })
     try {
       const reply = await ping({ ...base, model })
-      saveLlmConfig({ ...base, model })
+      saveLlmConfig({ id: targetId, ...base, model })
       setC({ kind: 'ok', text: t('응답을 받았어요: {r}', { r: reply.trim().slice(0, 40) }) })
       onDone()
     } catch (e) {
@@ -195,7 +244,7 @@ function LocalStep({ mobile, onBack, onDone }: { mobile: boolean; onBack(): void
 }
 
 /** API 키로 연결 */
-function KeyStep({ onBack, onDone }: { onBack(): void; onDone(): void }) {
+function KeyStep({ targetId, onBack, onDone }: { targetId: string; onBack(): void; onDone(): void }) {
   const [kind, setKind] = useState<ProviderKind>('openai')
   const [key, setKey] = useState('')
   const [models, setModels] = useState<string[]>([])
@@ -218,12 +267,12 @@ function KeyStep({ onBack, onDone }: { onBack(): void; onDone(): void }) {
     try {
       const reply = await ping({ ...base, model })
       // 키는 운영체제 보안 저장소에 넣고, 화면·localStorage 에는 남기지 않는다(보안 저장소가 없으면 이 기기에만 저장)
-      const id = loadLlmConfig()?.id ?? newConnectionId() // 지금 선택된 연결을 고치거나, 없으면 새 연결 — 키도 그 연결 이름으로 보관한다
+      const id = targetId // 새 연결 — 키도 이 연결 이름으로 보관한다
       const secure = await keyStoreStatus(id)
       if (secure.available) {
         await storeKey(key.trim(), id)
         saveLlmConfig({ id, kind, baseUrl: base.baseUrl, model, keyStored: true })
-      } else saveLlmConfig({ ...base, model })
+      } else saveLlmConfig({ id, ...base, model })
       setC({ kind: 'ok', text: t('응답을 받았어요: {r}', { r: reply.trim().slice(0, 40) }) })
       onDone()
     } catch (e) {

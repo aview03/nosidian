@@ -1,22 +1,28 @@
-// 설정 > AI 연결: 어떤 AI 서버를 쓸지(제공자·서버 주소·모델·키)를 이 기기에 저장하고 연결을 시험한다.
-// 아직 어떤 기능도 이 연결을 부르지 않는다 — 앞으로 앱 안 AI 기능이 같은 설정을 읽는다. 키는 vault·동기화에 넣지 않는다.
+// 설정 > AI 연결의 직접 설정: 어떤 AI 서버를 쓸지(제공자·서버 주소·모델·키)를 이 기기에 저장하고 연결을 시험한다.
+//  - connId 가 있으면 그 연결을 고친다(목록의 "고치기"). 없으면 새 연결을 추가한다(고급: 직접 입력해서 추가). 키는 vault·동기화에 넣지 않는다.
 import { useEffect, useState } from 'react'
 import { t } from '../lib/i18n'
-import { loadLlmConfig, PROVIDERS, providerOf, saveLlmConfig, supportsTools, validateConfig, type LlmConfig, type ProviderKind } from '../lib/llm'
+import { PROVIDERS, providerOf, saveLlmConfig, supportsTools, toLlmConfig, validateConfig, type LlmConfig, type ProviderKind } from '../lib/llm'
+import { connectionById, newConnectionId, removeConnection } from '../lib/aiConnections'
 import { desktop } from '../lib/externalIO'
 import { chat, clearStoredKey, keyStoreStatus, listModels, storeKey } from '../lib/llmNet'
 import { Select } from './Select'
 
 type Status = { kind: 'idle' } | { kind: 'busy' } | { kind: 'ok'; text: string } | { kind: 'err'; text: string }
 
-export function LlmCard() {
-  const saved = loadLlmConfig()
-  const [cfg, setCfg] = useState<LlmConfig>(saved ?? { kind: 'ollama', baseUrl: providerOf('ollama').url, model: '' })
+const BLANK: LlmConfig = { kind: 'ollama', baseUrl: providerOf('ollama').url, model: '' }
+
+export function LlmCard({ connId, onClose }: { connId?: string; onClose?(): void } = {}) {
+  const saved = connId ? toLlmConfig(connectionById(connId)) : null
+  // 새 연결을 추가할 때는 키를 이 id 로 보관하므로 미리 정해 둔다
+  const [newId, setNewId] = useState(() => newConnectionId())
+  const target = connId ?? newId
+  const [cfg, setCfg] = useState<LlmConfig>(saved ?? BLANK)
   const [models, setModels] = useState<string[]>([])
   const [status, setStatus] = useState<Status>({ kind: 'idle' })
   const [dirty, setDirty] = useState(false)
   const [secure, setSecure] = useState<{ available: boolean; has: boolean }>({ available: false, has: false })
-  useEffect(() => void keyStoreStatus().then(setSecure), [])
+  useEffect(() => void keyStoreStatus(target).then(setSecure), [target])
   const prov = providerOf(cfg.kind)
   const set = (p: Partial<LlmConfig>) => { setCfg((c) => ({ ...c, ...p })); setDirty(true); setStatus({ kind: 'idle' }) }
 
@@ -51,36 +57,46 @@ export function LlmCard() {
     if (typed && secure.available) {
       // 키는 운영체제 보안 저장소(메인 프로세스)로 보내고, 화면과 localStorage 에는 남기지 않는다
       try {
-        await storeKey(typed, cfg.id)
+        await storeKey(typed, target)
       } catch (e) {
         setStatus({ kind: 'err', text: e instanceof Error ? e.message : String(e) })
         return
       }
-      const next: LlmConfig = { id: cfg.id, kind: cfg.kind, baseUrl: cfg.baseUrl, model: cfg.model, keyStored: true }
+      const next: LlmConfig = { id: target, kind: cfg.kind, baseUrl: cfg.baseUrl, model: cfg.model, keyStored: true }
       saveLlmConfig(next)
       setCfg(next)
       setSecure({ available: true, has: true })
     } else {
-      saveLlmConfig(cfg)
+      saveLlmConfig({ ...cfg, id: target })
     }
     setDirty(false)
+    if (!connId) {
+      // 추가 모드: 저장했으면 다음 연결을 위해 빈 칸으로 돌아간다
+      setCfg(BLANK)
+      setModels([])
+      setNewId(newConnectionId())
+      setSecure((x) => ({ ...x, has: false }))
+      setStatus({ kind: 'ok', text: t('연결을 추가했어요. 위 목록에서 쓸 AI 를 고를 수 있어요') })
+      return
+    }
     setStatus({ kind: 'ok', text: t('이 기기에 저장했어요') })
   }
   const clear = () => {
-    void clearStoredKey(cfg.id)
+    void clearStoredKey(target)
     setSecure((x) => ({ ...x, has: false }))
-    saveLlmConfig(null)
-    setCfg({ kind: 'ollama', baseUrl: providerOf('ollama').url, model: '' })
+    if (connId) removeConnection(connId)
+    setCfg(BLANK)
     setModels([])
     setDirty(false)
     setStatus({ kind: 'idle' })
+    onClose?.()
   }
 
   const problems = validateConfig(cfg, { needModel: false })
 
   return (
     <section className="card llm">
-      <h3>{t('AI 연결')}</h3>
+      {!connId && <h3>{t('AI 연결')}</h3>}
       <div className="kv"><span>{t('제공자')}</span>
         <Select<ProviderKind> value={cfg.kind} title={t('제공자')} ariaLabel={t('제공자')} onChange={pickKind} options={PROVIDERS.map((p) => ({ value: p.kind, label: p.label }))} />
       </div>
@@ -103,7 +119,7 @@ export function LlmCard() {
       <div className="llm-actions">
         <button disabled={problems.length > 0 || status.kind === 'busy'} onClick={() => void test()}>{status.kind === 'busy' ? t('시험하는 중…') : t('연결 시험')}</button>
         <button className="primary" disabled={!dirty || problems.length > 0} onClick={() => void save()}>{t('저장')}</button>
-        {saved && <button onClick={clear}>{t('연결 지우기')}</button>}
+        {connId && <button onClick={clear}>{t('연결 지우기')}</button>}
       </div>
       {status.kind === 'ok' && <p className="hint small llm-ok">{status.text}</p>}
       {status.kind === 'err' && <p className="hint small llm-err">{status.text}</p>}

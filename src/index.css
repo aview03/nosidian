@@ -1527,3 +1527,19 @@ input.inline.wide { width: 100%; box-sizing: border-box; height: 42px; }
 .pair-left { color: var(--muted); font-size: 12.5px; }
 .pair-ok { color: var(--text); font-weight: 600; font-size: 16px; }
 .memo-bar button.memo-cancel { flex: 0 0 auto; padding: 0 16px; color: var(--muted); }
+
+/* 설정 > AI: 연결된 AI 목록 */
+.aiw-conns { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.aiw-conn { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; align-items: center; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--r); background: var(--bg); }
+.aiw-conn.on { border-color: var(--accent); }
+.aiw-conn-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.aiw-conn-main b { font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.aiw-conn-main small { color: var(--muted); font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.aiw-conn-badge { color: var(--muted); font-size: 12px; white-space: nowrap; }
+.aiw-conn-act { grid-column: 1 / -1; display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.aiw-conn-act em { font-style: normal; color: var(--accent); font-size: 13px; font-weight: 600; padding: 4px 12px 4px 0; }
+.aiw-conn-act .btn-link { padding: 4px 12px 4px 0; min-height: 32px; }
+.aiw-conn-act .btn-link:disabled { opacity: .4; }
+.aiw-conn-act .btn-link.danger { margin-left: auto; padding-right: 0; color: var(--danger); }
+.aiw-conn-edit { grid-column: 1 / -1; padding-top: 6px; }
+.aiw-conn-edit .card { margin: 0; padding: 4px 0 0; border: none; }

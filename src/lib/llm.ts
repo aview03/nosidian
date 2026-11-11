@@ -6,7 +6,7 @@
 //  - OpenAI·Anthropic·Gemini 의 요청 형식은 공식 문서 기준으로 만들었지만 실제 서버로는 시험하지 못했다(키가 없음). Ollama·OpenAI 호환은 가짜 서버로 시험했다.
 //  - API 키는 이 기기에만 둔다(vault·동기화에 넣지 않는다).
 
-import { addConnection, removeConnection, selectedConnection, updateConnection } from './aiConnections'
+import { addConnection, listConnections, removeConnection, selectedConnection, updateConnection, type AiConnection } from './aiConnections'
 
 export type ProviderKind = 'ollama' | 'openai' | 'custom' | 'anthropic' | 'gemini'
 
@@ -311,14 +311,27 @@ export function describeFailure(status: number, body: unknown): string {
  * 여러 연결을 다루는 코드는 aiConnections.ts 를 직접 쓴다. 비밀 보관은 거기서(연결별 이름) 한다.
  */
 
+/** 연결 하나를 옛 설정 모양으로(종류를 알 수 없으면 null) */
+export function toLlmConfig(v: AiConnection | null): LlmConfig | null {
+  if (!v || !PROVIDERS.some((p) => p.kind === v.kind)) return null
+  return { id: v.id, ...(v.label ? { label: v.label } : {}), kind: v.kind as ProviderKind, baseUrl: v.baseUrl, model: v.model, apiKey: v.apiKey, ...(v.keyStored ? { keyStored: true } : {}), ...(v.viaPc ? { viaPc: true } : {}) }
+}
+
 /** 기기에 저장된 연결 설정(지금 선택된 연결, 없으면 null). vault 와 동기화에 넣지 않는다 */
 export function loadLlmConfig(): LlmConfig | null {
   try {
-    const v = selectedConnection()
-    if (!v || !PROVIDERS.some((p) => p.kind === v.kind)) return null
-    return { id: v.id, ...(v.label ? { label: v.label } : {}), kind: v.kind as ProviderKind, baseUrl: v.baseUrl, model: v.model, apiKey: v.apiKey, ...(v.keyStored ? { keyStored: true } : {}), ...(v.viaPc ? { viaPc: true } : {}) }
+    return toLlmConfig(selectedConnection())
   } catch {
     return null
+  }
+}
+
+/** 연결해 둔 모든 AI(종류를 알 수 없는 것은 뺀다) */
+export function loadAllLlmConfigs(): LlmConfig[] {
+  try {
+    return listConnections().map(toLlmConfig).filter((c): c is LlmConfig => c !== null)
+  } catch {
+    return []
   }
 }
 /** 지금 선택된 연결의 내용을 cfg 로 바꾼다(cfg.id 가 있으면 그 연결을, 연결이 하나도 없으면 새로 추가). null 이면 선택된 연결을 지운다 */

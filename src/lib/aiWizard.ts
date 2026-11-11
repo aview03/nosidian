@@ -58,3 +58,39 @@ export const LOCAL_PROVIDERS: { kind: ProviderKind; label: string; url: string }
   { kind: 'ollama', label: 'Ollama', url: 'http://localhost:11434' },
   { kind: 'custom', label: 'LM Studio', url: 'http://localhost:1234/v1' },
 ]
+
+/** 연결 하나의 화면 이름: 직접 지은 이름이 있으면 그것, 없으면 "종류 · 주소" */
+export function connectionTitle(c: LlmConfig): string {
+  if (c.label?.trim()) return c.label.trim()
+  const kindName = c.kind === 'custom' ? t('내 서버') : providerOf(c.kind).label.split(' ')[0]
+  if (c.viaPc) return `PC · ${kindName}`
+  if (c.kind === 'ollama' || c.kind === 'custom') {
+    try {
+      return `${kindName} · ${new URL(c.baseUrl).host}`
+    } catch {
+      return kindName
+    }
+  }
+  return kindName
+}
+
+/** 연결의 종류 이름표 */
+export function connectionBadge(c: LlmConfig): string {
+  if (c.viaPc) return t('PC 경유')
+  if (c.kind === 'ollama' || c.kind === 'custom') return t('내 컴퓨터')
+  return t('API 키')
+}
+
+/** 연결의 설명 줄: 모델과(도구 호출을 못 하면) 이유 */
+export function connectionSub(c: LlmConfig): string {
+  const model = c.model || t('모델 안 고름')
+  return supportsTools(c.kind) ? model : `${model} · ${t('도구 호출을 지원하지 않아 AI 패널에서는 쓸 수 없어요')}`
+}
+
+/** 지금 연결돼 있는 AI 개수: Claude 구독(있으면 1) + 연결 목록 */
+export function countConnected(claudeReady: boolean, conns: LlmConfig[]): number {
+  return (claudeReady ? 1 : 0) + conns.length
+}
+
+/** 목록 행이 "지금 사용 중"인지. Claude 는 엔진이 claude 일 때, 연결은 엔진이 ollama 이고 선택된 연결일 때 */
+export const isInUse = (engine: EngineChoice, selectedId: string | null, rowId: string | 'claude') => (rowId === 'claude' ? engine === 'claude' : engine === 'ollama' && selectedId === rowId)

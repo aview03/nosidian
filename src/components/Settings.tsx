@@ -287,7 +287,7 @@ function AiGroup() {
           <div id="set-auto"><AutoCard /></div>
           <RelayCard />
           <details className="more adv-card">
-            <summary>{t('고급: 연결 직접 설정 (서버 주소·모델·키)')}</summary>
+            <summary>{t('고급: 직접 입력해서 AI 연결 추가 (서버 주소·모델·키)')}</summary>
             <LlmCard />
           </details>
           <details className="more adv-card">

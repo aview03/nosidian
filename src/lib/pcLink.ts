@@ -4,7 +4,8 @@
 // 네트워크는 llmNet.send(안드로이드는 네이티브 HTTP)를 쓴다 — 웹뷰의 https 출처에서 http 사설망으로 보내도 막히지 않는다.
 import { send } from './llmNet'
 import { clearSecretRecord, readSecretRecord, registerSecret, writeSecretRecord, type SecretSpec } from './secureStore'
-import { loadLlmConfig, saveLlmConfig, type LlmConfig } from './llm'
+import { loadAllLlmConfigs, saveLlmConfig, type LlmConfig } from './llm'
+import { newConnectionId, removeConnection, setSelected } from './aiConnections'
 import { buildEnv } from './mcpBridge'
 import { callTool } from './mcpTools'
 import type { ClaudeEvent } from './externalIO'
@@ -139,19 +140,20 @@ export function llmConfigVia(l: PcLink): LlmConfig | null {
   return up.kind === 'ollama' ? { kind: 'ollama', baseUrl: root, model: up.model, apiKey: l.token, viaPc: true } : { kind: 'custom', baseUrl: `${root}/v1`, model: up.model, apiKey: l.token, viaPc: true }
 }
 
-/** 짝을 맺은 뒤: PC 의 AI 서버를 폰의 AI 연결로 저장한다(이미 있던 다른 연결은 덮어쓴다) */
+/** 짝을 맺은 뒤: PC 의 AI 서버를 폰의 AI 연결로 추가한다. 이미 있던 내 연결은 건드리지 않고, 같은 PC 경유 연결이 있으면 그것만 새로 고친다 */
 export function adoptUpstream(l: PcLink): boolean {
   const cfg = llmConfigVia(l)
   if (!cfg) return false
-  saveLlmConfig(cfg)
+  const id = loadAllLlmConfigs().find((c) => c.viaPc)?.id ?? newConnectionId()
+  saveLlmConfig({ ...cfg, id })
+  setSelected(id, cfg.model) // 방금 연결한 것을 쓴다
   return true
 }
 
 /** 연결 해제(폰 쪽): 토큰을 지우고, PC 를 통한 AI 연결 설정도 지운다 */
 export function forgetPc() {
   savePcLink(null)
-  const cfg = loadLlmConfig()
-  if (cfg?.viaPc) saveLlmConfig(null)
+  for (const c of loadAllLlmConfigs()) if (c.viaPc && c.id) removeConnection(c.id) // PC 를 거치는 연결은 모두 함께 지운다(내가 직접 연결한 다른 AI 는 그대로)
 }
 
 export interface RelayRun {
