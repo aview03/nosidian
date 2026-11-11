@@ -1578,3 +1578,10 @@ input.inline.wide { width: 100%; box-sizing: border-box; height: 42px; }
 .te-more { align-self: flex-start; padding: 4px 0; color: var(--muted); }
 
 .hub-addtask { margin: 6px 0 4px; }
+
+/* 프로젝트 허브 "보기" 칩 줄: 탭 바로 아래, 칩이 많아지면 가로로 밀어 본다(docs/PROJECT-VIEWS.md) */
+.hub > .hub-views { display: flex; gap: 8px; margin: 0 16px 12px; padding: 2px 0; overflow-x: auto; scrollbar-width: none; }
+.hub > .hub-views::-webkit-scrollbar { display: none; }
+.hub-views button { flex: none; min-height: 36px; padding: 0 14px; border: 1px solid var(--border); border-radius: 999px; background: none; color: var(--muted); font-size: 14px; font-weight: 500; }
+.hub-views button.on { background: var(--text); border-color: var(--text); color: var(--bg); font-weight: 600; }
+@media (min-width: 900px) { .hub > .hub-views { margin-left: 20px; margin-right: 20px; } }

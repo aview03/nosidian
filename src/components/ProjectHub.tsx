@@ -13,9 +13,22 @@ import { templateFromProject } from '../lib/projectTemplates'
 import { DocCheck } from './DocCheck'
 import { HumanDocs } from './HumanDocs'
 import { Icon } from './Icon'
+import { HUB_VIEWS, loadHubView, saveHubView, type HubView } from '../lib/hubViews'
 import { healthLabel, signalText, useHealth, useWork } from './WorkHome'
 
-type Tab = 'tasks' | 'board' | 'docs' | 'timeline' | 'check'
+type Tab = 'tasks' | 'views' | 'docs' | 'check'
+
+/** 탭·칩 줄에서 좌우 화살표로 옆 항목으로 옮기며 고른다(role=tab 의 키보드 조작) */
+function arrowNav(e: React.KeyboardEvent<HTMLElement>) {
+  if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+  const list = [...e.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]')]
+  const i = list.indexOf(document.activeElement as HTMLButtonElement)
+  if (i < 0) return
+  const next = list[(i + (e.key === 'ArrowRight' ? 1 : list.length - 1)) % list.length]
+  next.focus()
+  next.click()
+  e.preventDefault()
+}
 
 const COLS: { key: UiState | 'done'; title: string }[] = [
   { key: 'todo', title: '할 일' },
@@ -124,6 +137,17 @@ export function ProjectHub() {
   const index = useApp((s) => s.index)
   const cal = useCalMap()
   const [tab, setTab] = useState<Tab>('tasks')
+  // 보기(보드·타임라인…): 프로젝트마다 마지막에 쓴 것을 기억한다
+  const [view, setViewState] = useState<HubView>(() => loadHubView(path ?? ''))
+  useEffect(() => setViewState(loadHubView(path ?? '')), [path])
+  const setView = (v: HubView) => {
+    setViewState(v)
+    if (path) saveHubView(path, v)
+  }
+  const chips = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    chips.current?.querySelector<HTMLElement>('[aria-selected="true"]')?.scrollIntoView?.({ inline: 'nearest', block: 'nearest' })
+  }, [view, tab])
   const project = work.projects.find((p) => p.path === path)
   const tasks = useMemo(() => (project ? work.byProject.get(project.path) ?? [] : []), [work, project])
 
@@ -202,18 +226,24 @@ export function ProjectHub() {
         {project.health && <span className="hub-chip"><small>{t('판단')}</small><b>{project.health}</b></span>}
         {healthMap.get(project.path) && <span className={`hub-chip wrk-health ${healthMap.get(project.path)!.level}`} title={healthMap.get(project.path)!.signals.map(signalText).join(' · ') || t('기한이 지난 일·오래 기다리는 일·담당자 없는 일을 보고 정한 프로젝트 상태예요')}><small>{t('건강도')}</small><b>{healthLabel(healthMap.get(project.path)!)}</b></span>}
       </div></div>
-      {/* 탭 순서: 일을 보는 화면(할 일·보드·타임라인) → 문서를 보는 화면(문서·문서 점검) */}
-      <div className="seg wide hub-tabs" role="tablist">
-        <button role="tab" aria-selected={tab === 'tasks'} className={tab === 'tasks' ? 'on' : ''} onClick={() => setTab('tasks')}>{t('할 일')}</button>
-        <button role="tab" aria-selected={tab === 'board'} className={tab === 'board' ? 'on' : ''} onClick={() => setTab('board')}>{t('보드')}</button>
-        <button role="tab" aria-selected={tab === 'timeline'} className={tab === 'timeline' ? 'on' : ''} onClick={() => setTab('timeline')}>{t('타임라인')}</button>
+      {/* 탭 순서: 일을 보는 화면(할 일·보기) → 문서를 보는 화면(문서·문서 점검). 보기는 아래 칩 줄에서 고른다 */}
+      <div className="seg wide hub-tabs" role="tablist" onKeyDown={arrowNav}>
+        <button role="tab" tabIndex={tab === 'tasks' ? 0 : -1} aria-selected={tab === 'tasks'} className={tab === 'tasks' ? 'on' : ''} onClick={() => setTab('tasks')}>{t('할 일')}</button>
+        <button role="tab" tabIndex={tab === 'views' ? 0 : -1} aria-selected={tab === 'views'} className={tab === 'views' ? 'on' : ''} onClick={() => setTab('views')}>{t('보기')} · {t(HUB_VIEWS.find((x) => x.key === view)!.label)}</button>
         <span className="hub-tab-sep" aria-hidden="true" />
-        <button role="tab" aria-selected={tab === 'docs'} className={tab === 'docs' ? 'on' : ''} onClick={() => setTab('docs')}>{t('문서')}</button>
-        <button role="tab" aria-selected={tab === 'check'} className={tab === 'check' ? 'on' : ''} onClick={() => setTab('check')}>{t('문서 점검')}</button>
+        <button role="tab" tabIndex={tab === 'docs' ? 0 : -1} aria-selected={tab === 'docs'} className={tab === 'docs' ? 'on' : ''} onClick={() => setTab('docs')}>{t('문서')}</button>
+        <button role="tab" tabIndex={tab === 'check' ? 0 : -1} aria-selected={tab === 'check'} className={tab === 'check' ? 'on' : ''} onClick={() => setTab('check')}>{t('문서 점검')}</button>
       </div>
+      {tab === 'views' && (
+        <div className="hub-views" role="tablist" aria-label={t('보기')} ref={chips} onKeyDown={arrowNav}>
+          {HUB_VIEWS.map((v) => (
+            <button key={v.key} role="tab" tabIndex={view === v.key ? 0 : -1} aria-selected={view === v.key} className={view === v.key ? 'on' : ''} title={t(v.hint)} onClick={() => setView(v.key)}>{t(v.label)}</button>
+          ))}
+        </div>
+      )}
 
       <div className="wrk-scroll">
-        <div className={`wrk-inner${tab === 'board' ? ' wide' : ''}`}>
+        <div className={`wrk-inner${tab === 'views' && view === 'board' ? ' wide' : ''}`}>
           {tab === 'tasks' && (
             <>
               {groups.map((g) =>
@@ -236,7 +266,7 @@ export function ProjectHub() {
             </>
           )}
 
-          {tab === 'board' && <Board tasks={tasks} />}
+          {tab === 'views' && view === 'board' && <Board tasks={tasks} />}
 
           {tab === 'docs' && (
             <HumanDocs project={project} open={open.length} decisions={decisions.length} onCheck={() => setTab('check')}>
@@ -255,7 +285,7 @@ export function ProjectHub() {
 
           {tab === 'check' && <DocCheck project={project} />}
 
-          {tab === 'timeline' && (
+          {tab === 'views' && view === 'timeline' && (
             <div className="tl">
               {grouped.days.length === 0 && <p className="hint pad">{t('아직 날짜가 있는 항목이 없어요. 업무에 마감일을 넣거나 프로젝트에 마감을 적으면 여기에 나타나요.')}</p>}
               {grouped.days.map((d, i) => (

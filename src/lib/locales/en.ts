@@ -1385,5 +1385,7 @@ const dict: Record<string, string> = {
   '이미지 {n}장을 넣었어요(저장소에는 다음 동기화 때 올라가요)': "Added {n} image(s) (uploaded to the repository on the next sync)",
   '이미지 {n}장을 넣었어요(이 기기에만 저장돼요)': "Added {n} image(s) (stored on this device only)",
   '큰 사진은 줄여서 저장했어요': "Large photos were downscaled",
+  '상태별 칸으로 나눠 보고, 끌어서 옮겨요': "Columns by status; drag cards to move them",
+  '날짜 순으로 쭉 늘어놓아 봐요': "Everything in date order",
 }
 export default dict
