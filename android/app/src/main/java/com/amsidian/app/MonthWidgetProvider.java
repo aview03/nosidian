@@ -7,12 +7,8 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
-import android.text.SpannableStringBuilder;
-import android.text.Spanned;
 import android.text.format.DateUtils;
-import android.text.style.BackgroundColorSpan;
-import android.text.style.ForegroundColorSpan;
-import android.text.style.RelativeSizeSpan;
+import android.view.View;
 import android.widget.RemoteViews;
 
 import java.text.DateFormatSymbols;
@@ -27,6 +23,8 @@ public class MonthWidgetProvider extends AppWidgetProvider {
     static final String ACT_NEXT = "com.amsidian.app.MONTH_NEXT";
     static final String ACT_TODAY = "com.amsidian.app.MONTH_TODAY";
     private static final String KEY_OFF = "month_off";
+    /** 칸 하나에 둘 수 있는 일정 줄(칩) 수 — widget_month.xml 의 ce_N_0..2 */
+    private static final int MAX_CHIPS = 3;
 
     @Override
     public void onUpdate(Context ctx, AppWidgetManager mgr, int[] ids) {
@@ -57,28 +55,6 @@ public class MonthWidgetProvider extends AppWidgetProvider {
         for (int id : ids) mgr.updateAppWidget(id, build(ctx, mgr, id));
     }
 
-    /** 글자 폭 추정: 한글·한자는 1, 그 외는 0.55 */
-    private static float units(String s) {
-        float u = 0;
-        for (int i = 0; i < s.length(); i++) u += s.charAt(i) >= 0x1100 ? 1f : 0.55f;
-        return u;
-    }
-
-    /** 칸 너비(최대 폭 단위)에 맞춰 제목을 줄이고 넘치면 … 를 붙인다 */
-    private static String fit(String s, float max) {
-        s = s.replace('\n', ' ').trim();
-        if (units(s) <= max) return s;
-        StringBuilder sb = new StringBuilder();
-        float u = 0;
-        for (int i = 0; i < s.length(); i++) {
-            float w = s.charAt(i) >= 0x1100 ? 1f : 0.55f;
-            if (u + w > max - 0.7f) break;
-            sb.append(s.charAt(i));
-            u += w;
-        }
-        return sb.append('…').toString();
-    }
-
     private static PendingIntent action(Context ctx, String act, int code) {
         Intent i = new Intent(ctx, MonthWidgetProvider.class).setAction(act);
         return PendingIntent.getBroadcast(ctx, code, i, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
@@ -103,8 +79,7 @@ public class MonthWidgetProvider extends AppWidgetProvider {
         if (hDp <= 0) hDp = 300;
         float colDp = (wDp - 16) / 7f;
         float rowDp = (hDp - 16 - 32 - 16) / 6f;
-        float maxUnits = Math.max(2f, (colDp - 2f) / 9f); // 9sp 글자 기준
-        int lines = Math.max(2, (int) ((rowDp - 4 - 15) / 11.5f)); // 날짜 줄을 뺀 나머지 줄 수 (+N 줄 포함)
+        int lines = Math.min(MAX_CHIPS, Math.max(2, (int) ((rowDp - 4 - 15) / 12.5f))); // 날짜 줄을 뺀 나머지 줄 수 (+N 줄 포함)
         int off = CalStore.prefs(ctx).getInt(KEY_OFF, 0);
 
         Calendar first = Calendar.getInstance();
@@ -135,34 +110,31 @@ public class MonthWidgetProvider extends AppWidgetProvider {
             int fg = color(ctx, red ? R.color.w_accent : inMonth ? R.color.w_text : R.color.w_muted);
             if (!inMonth) fg = (fg & 0x00FFFFFF) | 0x80000000; // 이웃 달은 흐리게
 
-            SpannableStringBuilder sb = new SpannableStringBuilder(String.valueOf(day.get(Calendar.DAY_OF_MONTH)));
-            // 일정이 lines 줄 안에 다 들어가면 모두, 아니면 (lines-1)개 + "+N"
-            int shown = n <= lines ? n : lines - 1;
+            // 칸 = 날짜 + 일정 칩 최대 3줄(각 칩은 칸 폭을 꽉 채우는 박스, 글자는 한 줄 말줄임)
+            int shown = n <= lines ? n : lines - 1; // 다 들어가면 모두, 아니면 (lines-1)개 + "+N"
             int accent = color(ctx, R.color.w_accent);
-            int chipBg = (accent & 0x00FFFFFF) | 0x2E000000;
-            for (int k = 0; k < shown; k++) {
-                boolean isHol = hn != null && k == 0;
-                CalStore.Ev e = isHol ? null : list.get(k - (hn != null ? 1 : 0));
-                String text = fit(isHol ? hn : e.title, maxUnits);
-                sb.append('\n');
-                int s = sb.length();
-                sb.append(text);
-                sb.setSpan(new RelativeSizeSpan(0.75f), s, sb.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-                int chipFg = isHol ? accent : (e.done ? (color(ctx, R.color.w_muted)) : color(ctx, R.color.w_text));
-                sb.setSpan(new ForegroundColorSpan(chipFg), s, sb.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-                sb.setSpan(new BackgroundColorSpan(chipBg), s, sb.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-            }
-            if (n > shown) {
-                sb.append('\n');
-                int s = sb.length();
-                sb.append('+').append(String.valueOf(n - shown));
-                sb.setSpan(new RelativeSizeSpan(0.75f), s, sb.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-                sb.setSpan(new ForegroundColorSpan(color(ctx, R.color.w_muted)), s, sb.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-            }
-
+            int muted = color(ctx, R.color.w_muted);
             int cid = ctx.getResources().getIdentifier("cell_" + i, "id", ctx.getPackageName());
-            rv.setTextViewText(cid, sb);
-            rv.setTextColor(cid, fg);
+            int did = ctx.getResources().getIdentifier("cd_" + i, "id", ctx.getPackageName());
+            rv.setTextViewText(did, String.valueOf(day.get(Calendar.DAY_OF_MONTH)));
+            rv.setTextColor(did, fg);
+            for (int k = 0; k < MAX_CHIPS; k++) {
+                int eid = ctx.getResources().getIdentifier("ce_" + i + "_" + k, "id", ctx.getPackageName());
+                if (k < shown) {
+                    boolean isHol = hn != null && k == 0;
+                    CalStore.Ev e = isHol ? null : list.get(k - (hn != null ? 1 : 0));
+                    rv.setTextViewText(eid, (isHol ? hn : e.title).replace('\n', ' ').trim());
+                    rv.setTextColor(eid, isHol ? accent : (e.done ? muted : color(ctx, R.color.w_text)));
+                    rv.setViewVisibility(eid, View.VISIBLE);
+                } else if (k == shown && n > shown) {
+                    rv.setTextViewText(eid, "+" + (n - shown)); // 칩 없이 글자만
+                    rv.setTextColor(eid, muted);
+                    rv.setInt(eid, "setBackgroundResource", 0);
+                    rv.setViewVisibility(eid, View.VISIBLE);
+                } else {
+                    rv.setViewVisibility(eid, View.GONE);
+                }
+            }
             rv.setInt(cid, "setBackgroundResource", key.equals(today) ? R.drawable.w_cell_today : R.drawable.w_cell);
             rv.setOnClickPendingIntent(cid, Links.pending(ctx, 100 + i, key, false));
             day.add(Calendar.DAY_OF_MONTH, 1);

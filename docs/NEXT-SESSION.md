@@ -49,6 +49,8 @@
 - 창으로 폴더 고르는 대화상자 경로(공유 폴더↔호스트 폴더 겹침 거절)는 자동 시험 못 함
 
 ## 5.5 수정 필요한 항목 (알려진 버그 — 사용자가 직접 발견, 아직 고치지 않음)
+
+> **처리 상태 (2026-11-11)** — 1번: 수정·단위 시험 5개 통과·변이 시험 확인(`4ba4ac3`), 실제 앱 화면 확인은 아직. 2번: CSS·포탈 수정(`4ba4ac3`), 끌어서 확인은 아직(마우스 끌기는 자동화 불가). 3번: 월간 위젯을 칸=날짜+칩 3줄 구조로 재작성, APK 빌드 통과, **폰 화면 확인 전**. 4번·6번·7번은 미착수.
 1. **설정에서 AI 를 새로 등록/변경해도 열려 있는 AI 패널에 바로 반영되지 않는다.** AI 패널을 닫았다가 다시 열어야 새 모델(엔진 선택 목록·모델 이름·준비 상태)이 뜬다. *(2026-11-10 사용자 보고)*
    - 원인(코드로 확인): `src/components/AiPanel.tsx` 의 `const [local, setLocal] = useState(() => localEngine())` 는 패널이 **열릴 때만** 갱신된다(`useEffect([open, claude, vault])` 안의 `setLocal(localEngine())`). `saveLlmConfig()`(`src/lib/llm.ts`)가 설정 저장 때 `window` 에 `nosidian-llm-changed` 이벤트를 내보내지만 AI 패널은 이 이벤트를 듣지 않는다(지금은 `relayBridge.ts` 만 듣는다).
    - 고칠 방향: AI 패널(PC 도킹 패널·모바일 시트 모두)이 `nosidian-llm-changed`(필요하면 `storage`)를 구독해 `setLocal(localEngine())` 하고 `ready`/엔진 목록을 다시 계산. 같은 이유로 **`AiWizard`(설정의 "AI 연결" 카드)의 `cfg`/요약**과 폰의 PC 연결(`viaPc`) 설정 변경, `pcLink` 변경 후 `currentEngine()` 도 같은 방식으로 최신화되는지 함께 확인.

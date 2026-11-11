@@ -4,5 +4,6 @@
     <color name="w_text">#F4F4F4</color>
     <color name="w_muted">#B4B4B4</color>
     <color name="w_accent">#FF5555</color>
+    <color name="w_chip">#2EFF5555</color>
     <color name="w_today">#33FF5555</color>
 </resources>
