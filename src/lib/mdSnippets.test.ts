@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { codeInsert, helpItems, parentFolder, plainSnippet, splitTitleLinks } from './mdSnippets'
+import { codeInsert, helpItems, parentFolder, plainSnippet, searchSnippet, splitTitleLinks } from './mdSnippets'
 
 describe('툴바 코드 버튼', () => {
   it('한 줄 선택은 인라인 코드, 커서는 닫는 backtick 앞', () => {
@@ -57,5 +57,17 @@ describe('경로의 바로 위 폴더', () => {
   it('폴더가 있으면 그 이름, 없으면 빈 글', () => {
     expect(parentFolder('프로젝트/결제/할 일.md')).toBe('결제')
     expect(parentFolder('할 일.md')).toBe('')
+  })
+})
+
+describe('searchSnippet (연구자 P2)', () => {
+  it('제목·체크박스·링크·강조 기호를 걷는다', () => {
+    expect(searchSnippet('# 스케일링 법칙 규모 - [ ] 관련 논문 [[스케일링 법칙]] **굵게** `코드`')).toBe('스케일링 법칙 규모 ☐ 관련 논문 스케일링 법칙 굵게 코드')
+  })
+  it('별칭 링크는 보일 글, 잘린 대괄호도 지운다', () => {
+    expect(searchSnippet('…[[노트#절|별칭]] 와 [[잘린')).toBe('…별칭 와 잘린')
+  })
+  it('기호 없는 글은 그대로', () => {
+    expect(searchSnippet('평문   그대로')).toBe('평문 그대로')
   })
 })

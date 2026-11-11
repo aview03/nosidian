@@ -3,6 +3,7 @@ import { tx } from '../lib/tx'
 import { useMemo } from 'react'
 import { useApp } from '../lib/app'
 import { baseName } from '../lib/links'
+import { searchSnippet } from '../lib/mdSnippets'
 
 interface Hit {
   path: string
@@ -58,7 +59,7 @@ export function search(q: string, limit = 80): Hit[] {
     if (!ok) continue
     const from = Math.max(0, at - 40)
     const snippet = at < 0 ? f.content.slice(0, 100) : f.content.slice(from, at + 100)
-    hits.push({ path: f.path, score, snippet: (from > 0 ? '…' : '') + snippet.replace(/\s+/g, ' '), at })
+    hits.push({ path: f.path, score, snippet: (from > 0 ? '…' : '') + searchSnippet(snippet), at })
   }
   return hits.sort((a, b) => b.score - a.score || a.path.localeCompare(b.path)).slice(0, limit)
 }

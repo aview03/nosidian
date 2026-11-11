@@ -78,3 +78,17 @@ export const parentFolder = (path: string): string => {
   const parts = path.split('/')
   return parts.length > 1 ? parts[parts.length - 2] : ''
 }
+
+/** 검색 결과 발췌: 줄바꿈이 뭉개진 한 줄에서 제목 #·체크박스·[[링크]]·굵게/코드 기호를 걷어 읽기 쉽게(연구자 P2). 잘려서 남은 `[[` `]]` 도 지운다 */
+export function searchSnippet(raw: string): string {
+  return raw
+    .replace(/\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|([^\]]+))?\]\]/g, (_m, a: string, b?: string) => b ?? a)
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+    .replace(/(^|\s)#{1,6}\s+/g, '$1')
+    .replace(/(^|\s)[-*+]\s+\[ \]\s+/g, '$1☐ ')
+    .replace(/(^|\s)[-*+]\s+\[[xX]\]\s+/g, '$1☑ ')
+    .replace(/\[\[|\]\]/g, '')
+    .replace(/[*_`]{1,3}/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
