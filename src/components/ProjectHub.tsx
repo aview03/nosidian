@@ -4,8 +4,8 @@ import { useApp } from '../lib/app'
 import { t } from '../lib/i18n'
 import { addDays, fmtDay, todayYmd } from '../lib/calendar'
 import { baseName } from '../lib/links'
-import { parseMe, uiStateOf, type Task, type UiState } from '../lib/work'
-import { moveTask, useWorkUi } from '../lib/workOps'
+import { parseMe, uiStateOf, type Task } from '../lib/work'
+import { useWorkUi } from '../lib/workOps'
 import { EventRow, useCalMap } from './Calendar'
 import { buildTimeline, groupByDate } from '../lib/timeline'
 import { ask } from '../lib/dialog'
@@ -17,13 +17,15 @@ import { TaskLine } from './TaskLine'
 import { HubTable } from './HubTable'
 import { HubOwners } from './HubOwners'
 import { HubGantt } from './HubGantt'
+import { Board } from './HubBoard'
+import { HubInfo, levelText } from './HubInfo'
 import { filterTasks } from '../lib/projectViews'
 import { HUB_VIEWS, loadHubView, saveHubView, type HubView } from '../lib/hubViews'
-import { healthLabel, signalText, useHealth, useWork } from './WorkHome'
+import { useHealth, useWork } from './WorkHome'
 
 export { TaskLine }
 
-type Tab = 'tasks' | 'views' | 'docs' | 'check'
+type Tab = 'tasks' | 'views' | 'info' | 'docs' | 'check'
 
 /** 탭·칩 줄에서 좌우 화살표로 옆 항목으로 옮기며 고른다(role=tab 의 키보드 조작) */
 function arrowNav(e: React.KeyboardEvent<HTMLElement>) {
@@ -35,59 +37,6 @@ function arrowNav(e: React.KeyboardEvent<HTMLElement>) {
   next.focus()
   next.click()
   e.preventDefault()
-}
-
-const COLS: { key: UiState | 'done'; title: string }[] = [
-  { key: 'todo', title: '할 일' },
-  { key: 'doing', title: '진행 중' },
-  { key: 'waiting', title: '대기' },
-  { key: 'done', title: '완료' },
-]
-const colOf = (tk: Task): UiState | 'done' => (tk.done ? 'done' : uiStateOf(tk))
-
-/** 칸반 보드: 카드를 끌어 놓거나 ‹ › 로 옮기면 그 줄의 status 가 바뀐다 */
-function Board({ tasks }: { tasks: Task[] }) {
-  const [over, setOver] = useState<string | null>(null)
-  const shown = tasks.filter((x) => uiStateOf(x) !== 'dropped')
-  const byDue = (a: Task, b: Task) => (a.due ?? '9999').localeCompare(b.due ?? '9999') || (a.p ?? 9) - (b.p ?? 9)
-  return (
-    <div className="board">
-      {COLS.map((c, ci) => {
-        const items = shown.filter((x) => colOf(x) === c.key).sort(byDue)
-        return (
-          <section
-            key={c.key}
-            className={`board-col${over === c.key ? ' over' : ''}`}
-            onDragOver={(e) => { e.preventDefault(); setOver(c.key) }}
-            onDragLeave={() => setOver((o) => (o === c.key ? null : o))}
-            onDrop={(e) => {
-              e.preventDefault()
-              setOver(null)
-              const tk = shown.find((x) => x.id === e.dataTransfer.getData('text/plain'))
-              if (tk && colOf(tk) !== c.key) moveTask(tk, c.key)
-            }}
-          >
-            <h3>{t(c.title)}<span className="wrk-count">{items.length}</span></h3>
-            {items.map((tk) => (
-              <div key={tk.id} className="board-card" draggable onDragStart={(e) => e.dataTransfer.setData('text/plain', tk.id)}>
-                <button className="board-body" onClick={() => useWorkUi.getState().openEditor(tk)}>
-                  <span className="wrk-title">{tk.kind === 'decision' && <b className="wrk-kind">{t('결정')}</b>}{tk.p === 1 && <b className="wrk-p">!</b>}{tk.title}</span>
-                  <span className="wrk-meta">
-                    {tk.due && <span className={!tk.done && tk.due < todayYmd() ? 'wrk-late' : 'wrk-due'}>{tk.due.slice(5)}</span>}
-                    {tk.owner.length > 0 && <span className="wrk-owner">{tk.owner.join(', ')}</span>}
-                  </span>
-                </button>
-                <span className="board-move">
-                  <button disabled={ci === 0} aria-label={t('이전 칸으로')} onClick={() => moveTask(tk, COLS[ci - 1].key)}>‹</button>
-                  <button disabled={ci === COLS.length - 1} aria-label={t('다음 칸으로')} onClick={() => moveTask(tk, COLS[ci + 1].key)}>›</button>
-                </span>
-              </div>
-            ))}
-          </section>
-        )
-      })}
-    </div>
-  )
 }
 
 /** 제목 줄 오른쪽의 ⋯ 메뉴(자주 쓰지 않는 동작을 모아 둔다) */
@@ -148,6 +97,7 @@ export function ProjectHub() {
   }, [files, project])
 
   const goBack = () => useApp.getState().go('work')
+  const health = project ? healthMap.get(project.path) : null
 
   // 이 프로젝트의 문서·할 일을 틀로 만들어 vault 의 Templates/ 에 저장한다(새 프로젝트에서 고를 수 있다)
   const saveAsTemplate = async () => {
@@ -190,13 +140,15 @@ export function ProjectHub() {
   const grouped = groupByDate(timeline.entries, today)
 
   const docs = notePaths.filter((p) => p !== project.path).sort((a, b) => a.localeCompare(b))
-  const statusLabel = project.status
 
   return (
     <div className="work hub">
       <div className="panel-head hub-head">
         <button className="icon-btn" onClick={goBack} aria-label={t('내 업무로')}><Icon name="back" /></button>
         <h2>{project.name}</h2>
+        {health && health.level !== 'ok' && (
+          <button className={`hub-badge ${health.level}`} title={t('건강도 자세히 보기')} onClick={() => setTab('info')}>{levelText(health)}</button>
+        )}
         <div className="head-actions">
           <button className="icon-btn" title={t('업무 추가')} onClick={() => useWorkUi.getState().openEditor(undefined, project.path)}><Icon name="plus" /></button>
           <HubMenu items={[
@@ -205,20 +157,12 @@ export function ProjectHub() {
           ]} />
         </div>
       </div>
-      {/* 프로젝트 요약 띠: 제목과 탭 사이에서 배경으로 구분한다 */}
-      <div className="hub-meta"><div className="hub-meta-in">
-        {statusLabel && <span className="hub-chip status"><small>{t('상태')}</small><b>{statusLabel}</b></span>}
-        {project.owner.length > 0 && <span className="hub-chip"><small>{t('담당')}</small><b>{project.owner.join(', ')}</b></span>}
-        {project.due && <span className="hub-chip"><small>{t('마감')}</small><b>{project.due}</b></span>}
-        <span className="hub-chip"><small>{t('열린 일')}</small><b>{open.length}/{tasks.length}</b></span>
-        {project.health && <span className="hub-chip"><small>{t('판단')}</small><b>{project.health}</b></span>}
-        {healthMap.get(project.path) && <span className={`hub-chip wrk-health ${healthMap.get(project.path)!.level}`} title={healthMap.get(project.path)!.signals.map(signalText).join(' · ') || t('기한이 지난 일·오래 기다리는 일·담당자 없는 일을 보고 정한 프로젝트 상태예요')}><small>{t('건강도')}</small><b>{healthLabel(healthMap.get(project.path)!)}</b></span>}
-      </div></div>
-      {/* 탭 순서: 일을 보는 화면(할 일·보기) → 문서를 보는 화면(문서·문서 점검). 보기는 아래 칩 줄에서 고른다 */}
+      {/* 탭 순서: 일을 보는 화면(할 일·보기) → 프로젝트를 설명하는 화면(기본 정보·문서·문서 점검). 보기는 아래 칩 줄에서 고른다 */}
       <div className="seg wide hub-tabs" role="tablist" onKeyDown={arrowNav}>
         <button role="tab" tabIndex={tab === 'tasks' ? 0 : -1} aria-selected={tab === 'tasks'} className={tab === 'tasks' ? 'on' : ''} onClick={() => setTab('tasks')}>{t('할 일')}</button>
-        <button role="tab" tabIndex={tab === 'views' ? 0 : -1} aria-selected={tab === 'views'} className={tab === 'views' ? 'on' : ''} onClick={() => setTab('views')}>{t('보기')} · {t(HUB_VIEWS.find((x) => x.key === view)!.label)}</button>
+        <button role="tab" tabIndex={tab === 'views' ? 0 : -1} aria-selected={tab === 'views'} className={tab === 'views' ? 'on' : ''} onClick={() => setTab('views')}>{t('보기')}</button>
         <span className="hub-tab-sep" aria-hidden="true" />
+        <button role="tab" tabIndex={tab === 'info' ? 0 : -1} aria-selected={tab === 'info'} className={tab === 'info' ? 'on' : ''} onClick={() => setTab('info')}>{t('기본 정보')}</button>
         <button role="tab" tabIndex={tab === 'docs' ? 0 : -1} aria-selected={tab === 'docs'} className={tab === 'docs' ? 'on' : ''} onClick={() => setTab('docs')}>{t('문서')}</button>
         <button role="tab" tabIndex={tab === 'check' ? 0 : -1} aria-selected={tab === 'check'} className={tab === 'check' ? 'on' : ''} onClick={() => setTab('check')}>{t('문서 점검')}</button>
       </div>
@@ -260,10 +204,12 @@ export function ProjectHub() {
               <button aria-pressed={showDone} className={showDone ? 'on' : ''} onClick={() => setShowDone(!showDone)}>{t('완료 포함')}</button>
             </div>
           )}
-          {tab === 'views' && view === 'board' && <Board tasks={tasks} />}
+          {tab === 'views' && view === 'board' && <Board tasks={tasks} project={project.path} />}
           {tab === 'views' && view === 'table' && <HubTable tasks={filterTasks(tasks, { mineOnly, showDone, me })} owners={[...new Set(tasks.flatMap((x) => x.owner))].sort((a, b) => a.localeCompare(b, 'ko'))} />}
           {tab === 'views' && view === 'gantt' && <HubGantt tasks={filterTasks(tasks, { mineOnly, showDone, me })} projectDue={project.due} />}
           {tab === 'views' && view === 'owners' && <HubOwners tasks={filterTasks(tasks, { mineOnly, showDone, me })} me={me} />}
+
+          {tab === 'info' && <HubInfo project={project} open={open.length} total={tasks.length} health={health} onOpenNote={() => useApp.getState().openNote(project.path)} />}
 
           {tab === 'docs' && (
             <HumanDocs project={project} open={open.length} decisions={decisions.length} onCheck={() => setTab('check')}>

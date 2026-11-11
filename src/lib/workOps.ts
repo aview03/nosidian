@@ -4,6 +4,7 @@ import { registerScreen, useApp } from './app'
 import { t } from './i18n'
 import { buildWork, findTaskLine, rewriteTaskLine, tokensForState, uiStateOf, type Task, type TaskEdit, type UiState } from './work'
 import { formatWorkTokens } from './taskTokens'
+import { moveTaskBlock } from './taskOrder'
 import { forgetTile, loadLayout, renameTile, saveLayout, type Layout } from './tiles'
 import { removeView, upsertView, VIEWS_PATH, viewsNoteHeader, type View } from './views'
 
@@ -171,6 +172,18 @@ export function withUndo(task: Task, message: string, run: () => boolean): boole
     useApp.getState().setContent(task.path, before)
     say(t('되돌렸어요'))
   })
+  return true
+}
+
+/** 같은 노트 안에서 task 의 줄(과 그 아래 들여쓴 줄)을 target 업무의 앞/뒤로 옮긴다. 다른 노트이거나 바뀌는 게 없으면 false */
+export function reorderTask(task: Task, target: Task, where: 'before' | 'after'): boolean {
+  if (task.path !== target.path) return false
+  const app = useApp.getState()
+  const f = app.files[task.path]
+  if (!f || f.deleted) return false
+  const next = moveTaskBlock(f.content, task, target, where)
+  if (next === null) return false
+  app.setContent(task.path, next)
   return true
 }
 

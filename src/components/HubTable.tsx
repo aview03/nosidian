@@ -18,6 +18,8 @@ const COLS: { key: SortKey; label: string }[] = [
 const STATE_LABEL: Record<RowState, string> = { todo: '할 일', doing: '진행 중', waiting: '대기', dropped: '취소됨', done: '완료' }
 const P_LABEL: Record<string, string> = { '0': '없음', '1': '높음', '2': '보통', '3': '낮음' }
 const short = (s: string) => (s.length > 18 ? s.slice(0, 18) + '…' : s)
+/** 폰 행에 보이는 짧은 날짜: 올해면 11/06, 다른 해면 2027/01/05 */
+const shortDate = (d: string, today: string) => (d.slice(0, 4) === today.slice(0, 4) ? d.slice(5).replace('-', '/') : d.replace(/-/g, '/'))
 
 function Row({ tk, owners }: { tk: Task; owners: string[] }) {
   const state = rowStateOf(tk)
@@ -51,7 +53,7 @@ function Row({ tk, owners }: { tk: Task; owners: string[] }) {
           </button>
         ) : (
           <Select
-            className="tbl-sel"
+            className={`tbl-sel${tk.owner.length ? '' : ' is-empty'}`}
             ariaLabel={t('담당')}
             title={t('담당')}
             value={tk.owner[0] ?? ''}
@@ -66,20 +68,24 @@ function Row({ tk, owners }: { tk: Task; owners: string[] }) {
         )}
       </div>
       <div role="cell" className={`tbl-c tbl-due${late ? ' late' : ''}`} data-label={t('마감')}>
-        <input
-          type="date"
-          className="tbl-date"
-          aria-label={t('마감')}
-          value={tk.due ?? ''}
-          onChange={(e) => {
-            const v = e.target.value
-            withUndo(tk, v ? t('"{name}" 마감을 {to}(으)로 바꿨어요', { name, to: v }) : t('"{name}" 마감을 지웠어요', { name }), () => patchTask(tk, { due: v || null }))
-          }}
-        />
+        {/* 폰: 짧은 글자(11/06)를 보이고 그 위에 투명한 날짜 입력을 덮어, 누르면 안드로이드 날짜 선택기가 열린다. PC: 입력이 그대로 보인다 */}
+        <span className={`tbl-datewrap${tk.due ? '' : ' is-empty'}${late ? ' late' : ''}`}>
+          <span className="tbl-datetext" aria-hidden="true">{tk.due ? shortDate(tk.due, todayYmd()) : t('마감 없음')}</span>
+          <input
+            type="date"
+            className="tbl-date"
+            aria-label={t('마감')}
+            value={tk.due ?? ''}
+            onChange={(e) => {
+              const v = e.target.value
+              withUndo(tk, v ? t('"{name}" 마감을 {to}(으)로 바꿨어요', { name, to: v }) : t('"{name}" 마감을 지웠어요', { name }), () => patchTask(tk, { due: v || null }))
+            }}
+          />
+        </span>
       </div>
       <div role="cell" className="tbl-c" data-label={t('우선순위')}>
         <Select
-          className="tbl-sel"
+          className={`tbl-sel${tk.p ? '' : ' is-empty'}`}
           ariaLabel={t('우선순위')}
           title={t('우선순위')}
           value={String(tk.p ?? 0)}
@@ -104,7 +110,7 @@ export function HubTable({ tasks, owners }: { tasks: Task[]; owners: string[] })
       <div className="tbl-sortbar">
         <span>{t('정렬')}</span>
         <Select<SortKey>
-          className="tbl-sel"
+          className="tbl-sortsel"
           ariaLabel={t('정렬')}
           title={t('정렬')}
           value={sort.key}

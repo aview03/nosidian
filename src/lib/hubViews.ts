@@ -15,12 +15,13 @@ export const HUB_VIEWS: { key: HubView; label: string; hint: string }[] = [
 
 export const DEFAULT_HUB_VIEW: HubView = 'board'
 const KEY = 'nosidian.hubViews'
+const BOARD_KEY = 'nosidian.boardSort'
 
 const isView = (v: unknown): v is HubView => HUB_VIEWS.some((x) => x.key === v)
 
-function read(): Record<string, unknown> {
+function read(key = KEY): Record<string, unknown> {
   try {
-    const raw = JSON.parse(localStorage.getItem(KEY) ?? '{}')
+    const raw = JSON.parse(localStorage.getItem(key) ?? '{}')
     return raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {}
   } catch {
     return {}
@@ -36,6 +37,21 @@ export function loadHubView(project: string): HubView {
 export function saveHubView(project: string, view: HubView): void {
   try {
     localStorage.setItem(KEY, JSON.stringify({ ...read(), [project]: view }))
+  } catch {
+    /* 저장소를 못 써도 화면은 동작한다 */
+  }
+}
+
+/** 보드 정렬: 마감순(기본) / 직접 정렬(노트의 줄 순서). 프로젝트마다 기억한다 */
+export type BoardSort = 'due' | 'manual'
+
+export function loadBoardSort(project: string): BoardSort {
+  return read(BOARD_KEY)[project] === 'manual' ? 'manual' : 'due'
+}
+
+export function saveBoardSort(project: string, sort: BoardSort): void {
+  try {
+    localStorage.setItem(BOARD_KEY, JSON.stringify({ ...read(BOARD_KEY), [project]: sort }))
   } catch {
     /* 저장소를 못 써도 화면은 동작한다 */
   }

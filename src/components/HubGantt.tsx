@@ -208,7 +208,8 @@ export function HubGantt({ tasks, projectDue }: { tasks: Task[]; projectDue?: st
   return (
     <div className="gantt">
       <div className="g-tools">
-        <div className="hub-filter g-scale" role="group" aria-label={t('눈금')}>
+        <span className="tool-label">{t('눈금')}</span>
+        <div className="seg-mini g-scale" role="group" aria-label={t('눈금')}>
           {(['week', 'month'] as const).map((s) => (
             <button key={s} aria-pressed={scale === s} className={scale === s ? 'on' : ''} onClick={() => setScale(s)}>{s === 'week' ? t('주') : t('월')}</button>
           ))}

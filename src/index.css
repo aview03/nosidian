@@ -1700,3 +1700,98 @@ input.inline.wide { width: 100%; box-sizing: border-box; height: 42px; }
 .tbl-c.tbl-due { flex: 1 1 168px; }
 .tbl-c.tbl-due .tbl-date { width: 100%; min-width: 168px; }
 @media (min-width: 700px) { .tbl-c.tbl-due { flex: none; } .tbl-c.tbl-due .tbl-date { min-width: 0; } }
+
+/* 프로젝트 허브: 기본 정보 탭, 제목 옆 건강도 배지 */
+.hub-badge { flex: none; min-height: 0; padding: 2px 10px; border: 1px solid var(--accent, #c98a00); border-radius: 999px; background: none; color: var(--accent, #c98a00); font-size: 12px; font-weight: 700; cursor: pointer; }
+.hub-badge.risk { border-color: var(--danger, #e5484d); color: var(--danger, #e5484d); }
+.hub-info dl { margin: 0 0 12px; }
+.hub-info dl > div { display: flex; gap: 16px; padding: 12px 2px; border-bottom: 1px solid var(--border); }
+.hub-info dt { flex: none; width: 76px; color: var(--muted); font-size: 13px; }
+.hub-info dd { margin: 0; min-width: 0; flex: 1; font-size: 15px; overflow-wrap: anywhere; }
+.hub-info-none { color: var(--muted); }
+.hub-info-status { color: var(--accent); }
+.hub-info-note { color: var(--muted); font-size: 13px; }
+.hub-info-note.late { color: var(--danger, #e5484d); font-weight: 600; }
+.hub-info-level { font-weight: 700; }
+.hub-info-level.risk { color: var(--danger, #e5484d); }
+.hub-info-level.warn, .hub-info-level.warning { color: var(--accent, #c98a00); }
+.hub-info-signals { margin: 6px 0 0; padding-left: 18px; font-size: 14px; color: var(--muted); }
+.hub-info .link-btn { margin-top: 8px; }
+
+/* 보드: 정렬 전환과 순서 바꾸기 */
+.board-tools { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+.board-tools .hub-filter { margin: 0; }
+.board-sorthint { margin: 0; }
+.board-card { position: relative; }
+.board-card.ins-before::before, .board-card.ins-after::after { content: ''; position: absolute; left: 0; right: 0; height: 3px; border-radius: 2px; background: var(--accent, #4c8dff); z-index: 3; }
+.board-card.ins-before::before { top: -5px; }
+.board-card.ins-after::after { bottom: -5px; }
+.board-order { display: flex; flex-direction: column; justify-content: space-between; }
+.board-order button { min-width: 0; min-height: 0; width: 28px; height: 28px; padding: 0; border: none; background: none; color: var(--muted); font-size: 11px; }
+.board-order button:disabled { opacity: 0.25; }
+
+/* 폰 폭: 탭이 5개라 한 줄에 다 들어가게 여백을 줄인다(현재 보기는 탭 아래 칩 줄에서 보인다) */
+@media (max-width: 480px) {
+  .hub > .hub-tabs { gap: 0; }
+  .hub > .hub-tabs button { padding: 0 9px; }
+}
+
+/* 층위 구분: 보기 칩(알약) > 필터(체크박스형) · 정렬/눈금(작은 사각 분절). 같은 알약 모양이 줄줄이 쌓여 헷갈리던 것을 정리 */
+.hub-filter { gap: 16px; }
+.hub-filter button { min-height: 32px; padding: 0; border: none; border-radius: 0; background: none; color: var(--muted); font-size: 13px; display: inline-flex; align-items: center; gap: 7px; }
+.hub-filter button::before { content: ''; flex: none; width: 17px; height: 17px; border: 1.5px solid var(--muted); border-radius: 4px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; line-height: 1; }
+.hub-filter button.on { color: var(--text); font-weight: 600; }
+.hub-filter button.on::before { content: '✓'; background: var(--text); border-color: var(--text); color: var(--bg); }
+.tool-label { font-size: 12px; color: var(--muted); }
+.seg-mini { display: inline-flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; margin: 0; }
+.seg-mini button { min-height: 30px; padding: 0 12px; border: none; border-right: 1px solid var(--border); border-radius: 0; background: none; color: var(--muted); font-size: 13px; font-weight: 500; }
+.seg-mini button:last-child { border-right: none; }
+.seg-mini button.on { background: var(--bg3); color: var(--text); font-weight: 700; }
+.board-tools, .g-tools { gap: 8px 10px; }
+.board-tools { margin-top: 2px; }
+
+/* ── 표: 폰 폭은 "읽는 목록"(2줄 행) — 1줄 체크박스+제목, 2줄 작은 칩(탭하면 그 항목만 고친다). 큰 선택 상자 4개를 쌓던 것을 대체 ── */
+.tbl-row { gap: 8px 6px; padding: 12px 2px; }
+.tbl-c.tbl-title-c { flex: 1 1 100%; }
+.tbl-c { flex: 0 0 auto; }
+.tbl-c .tbl-sel.sel-btn { width: auto; min-width: 0; height: 32px; min-height: 32px; padding: 0 11px; gap: 0; border: 1px solid var(--border); background: var(--bg2); color: var(--text); font-size: 13px; }
+.tbl-c .tbl-sel.sel-btn svg { display: none; }
+.tbl-c .tbl-sel.is-empty { border-style: dashed; background: none; color: var(--muted); }
+.tbl-c.tbl-due { flex: 0 0 auto; }
+.tbl-c.tbl-due .tbl-datewrap { position: relative; display: inline-flex; align-items: center; height: 32px; padding: 0 11px; border: 1px solid var(--border); border-radius: var(--r); background: var(--bg2); font-size: 13px; }
+.tbl-c.tbl-due .tbl-datewrap.is-empty { border-style: dashed; background: none; color: var(--muted); }
+.tbl-c.tbl-due .tbl-datewrap.late { color: var(--danger, #e5484d); border-color: var(--danger, #e5484d); font-weight: 600; }
+.tbl-c.tbl-due .tbl-datewrap .tbl-date { position: absolute; inset: 0; width: 100%; min-width: 0; height: 100%; min-height: 0; padding: 0; border: none; opacity: 0; }
+.tbl-sortbar { margin-bottom: 2px; }
+.tbl-sortbar .sel-btn.tbl-sortsel { width: auto; min-width: 0; height: 32px; min-height: 32px; padding: 0 10px; gap: 8px; font-size: 13px; }
+.tbl-dir { min-width: 32px; min-height: 32px; height: 32px; padding: 0; }
+@media (min-width: 700px) {
+  .tbl-c .tbl-sel.sel-btn { width: 100%; height: 32px; padding: 0 12px; gap: 8px; background: none; border-color: var(--text); font-size: 13px; }
+  .tbl-c .tbl-sel.sel-btn svg { display: block; }
+  .tbl-c .tbl-sel.is-empty { border-style: solid; color: var(--muted); }
+  .tbl-c.tbl-due .tbl-datewrap { display: block; position: static; height: auto; padding: 0; border: none; background: none; font-size: inherit; }
+  .tbl-c.tbl-due .tbl-datewrap .tbl-datetext { display: none; }
+  .tbl-c.tbl-due .tbl-datewrap .tbl-date { position: static; inset: auto; width: 100%; height: auto; min-height: 32px; padding: 0 8px; border: 1px solid var(--border); opacity: 1; }
+  .tbl-c.tbl-due .tbl-datewrap.late .tbl-date { color: var(--danger, #e5484d); }
+}
+
+/* ── 표 폰 행: 고정 열 격자. 1줄 체크박스+제목, 2줄 상태·담당·마감·우선 칩이 항상 같은 열에 놓이고 시작선이 제목 글자와 맞는다 ── */
+.tbl-row { display: grid; grid-template-columns: 30px 1.15fr 1fr 0.95fr 1.3fr; column-gap: 6px; row-gap: 8px; align-items: center; padding: 12px 2px; }
+.tbl-c.tbl-title-c { grid-column: 1 / -1; flex: none; }
+.tbl-row > .tbl-c:nth-child(2) { grid-column: 2; }
+.tbl-row > .tbl-c:nth-child(3) { grid-column: 3; }
+.tbl-row > .tbl-c:nth-child(4) { grid-column: 4; }
+.tbl-row > .tbl-c:nth-child(5) { grid-column: 5; }
+.tbl-c, .tbl-c.tbl-due { flex: none; min-width: 0; }
+.tbl-c .tbl-sel.sel-btn { width: 100%; justify-content: center; padding: 0 4px; }
+.tbl-c .tbl-sel.sel-btn .sel-label { flex: none; max-width: 100%; }
+.tbl-c.tbl-due .tbl-datewrap { display: flex; justify-content: center; width: 100%; padding: 0 4px; box-sizing: border-box; }
+.hint-desktop { display: none; }
+@media (min-width: 700px) {
+  .tbl-row > .tbl-c:nth-child(n) { grid-column: auto; }
+  .tbl-c.tbl-title-c { grid-column: auto; }
+  .tbl-c .tbl-sel.sel-btn { justify-content: space-between; padding: 0 12px; }
+  .tbl-c .tbl-sel.sel-btn .sel-label { flex: 1; }
+  .tbl-c.tbl-due .tbl-datewrap { display: block; width: auto; padding: 0; }
+  .hint-desktop { display: inline; }
+}

@@ -96,6 +96,17 @@ describe('프로젝트 허브: 표·담당자별 보기', () => {
       act(() => undo.click())
       expect(useApp.getState().files[TASKS].content).toBe(before)
     })
+    it('폰 행: 마감은 짧은 글자(11/20)로 보이고, 비어 있는 담당·마감은 점선 칩(is-empty)으로 보인다', () => {
+      openView('표')
+      const rows = q('.tbl-row')
+      const row = (title: string) => rows.find((r) => r.querySelector('.tbl-title')!.textContent!.startsWith(title))!
+      expect(row('가 장소').querySelector('.tbl-datetext')!.textContent).toBe('11/20')
+      expect(row('다 정산').querySelector('.tbl-datewrap')!.classList.contains('is-empty')).toBe(true)
+      expect(row('다 정산').querySelector('.tbl-datetext')!.textContent).toBe(t('마감 없음'))
+      const owner = (title: string) => row(title).querySelector(`[aria-label="${t('담당')}"]`)!
+      expect(owner('다 정산').classList.contains('is-empty')).toBe(true) // 담당 없음
+      expect(owner('가 장소').classList.contains('is-empty')).toBe(false)
+    })
     it('마감을 비우면 지운다', () => {
       openView('표')
       setValue(q<HTMLInputElement>('.tbl-date')[1], '')

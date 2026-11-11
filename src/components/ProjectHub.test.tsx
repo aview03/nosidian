@@ -46,11 +46,6 @@ describe('프로젝트 허브의 업무 추가', () => {
     expect(ed!.project).toBe(PROJECT)
     expect(ed!.task).toBeUndefined()
   })
-  it('프로젝트 요약 칩 이름이 "건강도"이고 "문서 점검" 탭과 겹치지 않는다', () => {
-    const chips = [...host.querySelectorAll('.hub-chip small')].map((x) => x.textContent)
-    expect(chips).toContain(t('건강도'))
-    expect(chips).not.toContain(t('점검'))
-  })
 })
 
 describe('프로젝트 허브의 보기 탭', () => {
@@ -80,8 +75,8 @@ describe('프로젝트 허브의 보기 탭', () => {
     useWorkUi.setState({ hub: null, editor: null })
   })
 
-  it('1단 탭은 4개(할 일·보기·문서·문서 점검)이고 보기 탭에 현재 보기 이름이 붙는다', () => {
-    expect(tabs().map((b) => b.textContent)).toEqual([t('할 일'), `${t('보기')} · ${t('보드')}`, t('문서'), t('문서 점검')])
+  it('1단 탭은 5개(할 일·보기·기본 정보·문서·문서 점검)이고 보기 탭 이름은 그냥 "보기"다', () => {
+    expect(tabs().map((b) => b.textContent)).toEqual([t('할 일'), t('보기'), t('기본 정보'), t('문서'), t('문서 점검')])
     expect(host.querySelector('.hub-views')).toBeNull() // 보기 탭을 열기 전에는 칩 줄이 없다
   })
   it('보기 탭을 열면 칩 줄이 보이고 기본은 보드(칸반)다', () => {
@@ -90,16 +85,16 @@ describe('프로젝트 허브의 보기 탭', () => {
     expect(chips()[0].getAttribute('aria-selected')).toBe('true')
     expect(host.querySelector('.board')).not.toBeNull()
   })
-  it('타임라인 칩을 고르면 그 화면이 열리고, 탭 이름이 바뀌고, 다시 열어도 기억한다', () => {
+  it('타임라인 칩을 고르면 그 화면이 열리고(탭 이름은 그대로 "보기"), 다시 열어도 기억한다', () => {
     act(() => tabs()[1].click())
     act(() => chips().find((b) => b.textContent === t('타임라인'))!.click())
     expect(host.querySelector('.tl')).not.toBeNull()
     expect(host.querySelector('.board')).toBeNull()
-    expect(tabs()[1].textContent).toBe(`${t('보기')} · ${t('타임라인')}`)
+    expect(tabs()[1].textContent).toBe(t('보기'))
+    expect(chips().find((b) => b.getAttribute('aria-selected') === 'true')!.textContent).toBe(t('타임라인'))
     act(() => root.unmount())
     host.remove()
     mount() // 허브를 닫았다 다시 연 것과 같다
-    expect(tabs()[1].textContent).toBe(`${t('보기')} · ${t('타임라인')}`)
     act(() => tabs()[1].click())
     expect(host.querySelector('.tl')).not.toBeNull()
   })
