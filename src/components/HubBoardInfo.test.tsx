@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ProjectHub } from './ProjectHub'
 import { Dialogs } from './Dialogs'
+import { HOLD_MS } from './HubBoard'
 import { useApp } from '../lib/app'
 import { useWorkUi } from '../lib/workOps'
 import { buildIndex } from '../lib/links'
@@ -79,29 +80,45 @@ describe('프로젝트 허브: 기본 정보 탭', () => {
   })
 })
 
-describe('프로젝트 허브: 보드 순서 바꾸기', () => {
+describe('프로젝트 허브: 보드 끌기(포인터)', () => {
   let host: HTMLDivElement
   let root: ReturnType<typeof createRoot>
-  const q = <T extends Element>(s: string) => [...host.querySelectorAll<T>(s)]
+  const q = <T extends Element>(sel: string) => [...host.querySelectorAll<T>(sel)]
   const text = (p = TASKS) => useApp.getState().files[p].content
   const col = (title: string) => q('.board-col').find((c) => c.querySelector('h3')!.textContent!.startsWith(t(title)))!
   const titles = (title: string) => [...col(title).querySelectorAll('.board-card .wrk-title')].map((x) => x.textContent)
+  const order = () => text().split('\n').filter((l) => l.startsWith('- [ ]')).map((l) => l.slice(6, 7))
   const openBoard = () => act(() => q<HTMLButtonElement>('.hub-tabs [role="tab"]')[1].click())
   const manual = () => act(() => q<HTMLButtonElement>('.board-tools .seg-mini button').find((b) => b.textContent === t('직접 정렬'))!.click())
   const card = (title: string) => q<HTMLElement>('.board-card').find((c) => c.querySelector('.wrk-title')!.textContent === title)!
-  const dnd = (type: string, el: Element, id: string, clientY = 0) => {
-    const e = new MouseEvent(type, { bubbles: true, cancelable: true, clientY })
-    Object.defineProperty(e, 'dataTransfer', { value: { getData: () => id, setData: () => {} } })
+
+  // 포인터 이벤트를 흉내 낸다(jsdom 에는 PointerEvent 가 없어 MouseEvent 에 속성을 붙인다). elementFromPoint 는 "지금 손가락 아래에 있는 요소"를 직접 정해 준다
+  let under: Element | null = null
+  const ptr = (type: string, target: EventTarget, x: number, y: number, pointerType = 'mouse', id = 1) => {
+    const e = new MouseEvent(type, { bubbles: true, cancelable: true, clientX: x, clientY: y, button: 0 })
+    Object.defineProperty(e, 'pointerType', { value: pointerType })
+    Object.defineProperty(e, 'pointerId', { value: id })
     act(() => {
-      el.dispatchEvent(e)
+      target.dispatchEvent(e)
     })
   }
-  const idOf = (title: string) => {
-    const i = text().split('\n').findIndex((l) => l.includes(`] ${title}`))
-    return `${TASKS}:${i}`
+  /** from 카드를 집어서(마우스: 움직이면 바로, 터치: 길게 눌러서) over 요소 위(y: 음수=위쪽 절반, 양수=아래쪽 절반)에 놓는다 */
+  const drag = (from: Element, over: Element, y: number, pointerType = 'mouse') => {
+    ptr('pointerdown', from, 100, 100, pointerType)
+    if (pointerType !== 'mouse') act(() => void vi.advanceTimersByTime(HOLD_MS + 50))
+    under = over
+    ptr('pointermove', window, 100, y, pointerType)
+    ptr('pointermove', window, 100, y + 1, pointerType)
+    ptr('pointerup', window, 100, y, pointerType)
   }
+
   beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(2026, 10, 11, 12, 0, 0))
+    vi.stubGlobal('requestAnimationFrame', () => 0)
+    vi.stubGlobal('cancelAnimationFrame', () => {})
     Element.prototype.scrollIntoView = () => {}
+    document.elementFromPoint = () => under as Element | null
     setLang('ko')
     localStorage.clear()
     const files = Object.fromEntries([note(PROJECT, FM), note(TASKS, BODY), note(OTHER, '- [ ] 외부 due:2026-11-30\n')].map((f) => [f.path, f]))
@@ -117,78 +134,140 @@ describe('프로젝트 허브: 보드 순서 바꾸기', () => {
     act(() => root.unmount())
     host.remove()
     useWorkUi.setState({ hub: null, editor: null })
+    vi.useRealTimers()
+    vi.unstubAllGlobals()
   })
 
-  it('기본은 마감순(마감 → 우선순위), 순서 바꾸기 버튼은 없다', () => {
+  it('기본은 마감순이고, 화살표 버튼(▲▼ ‹ ›)은 어디에도 없다', () => {
     expect(titles('할 일')).toEqual(['나', '가', '외부', '다'])
-    expect(q('.board-order')).toHaveLength(0)
+    expect(host.textContent).not.toMatch(/[▲▼‹›]/)
+    expect(q('.board-order, .board-move').filter((e) => e.children.length > 0)).toHaveLength(0)
   })
 
-  it('직접 정렬로 바꾸면 노트 → 줄 순서대로(다른 노트의 카드는 노트 이름 순으로 한 덩어리) 보이고 ▲▼ 가 생기며, 프로젝트별로 기억한다', () => {
+  it('직접 정렬로 바꾸면 노트 → 줄 순서(다른 노트의 카드는 노트 이름 순으로 한 덩어리)로 보이고, 프로젝트별로 기억한다', () => {
     manual()
     expect(titles('할 일')).toEqual(['외부', '가', '나', '다'])
-    expect(q('.board-order').length).toBeGreaterThan(0)
     expect(JSON.parse(localStorage.getItem('nosidian.boardSort')!)[PROJECT]).toBe('manual')
   })
 
-  it('▼ 로 내리면 노트의 줄 순서가 바뀌고(하위 메모도 같이), 되돌리기로 복원된다', () => {
+  it('마우스: 다른 카드의 위쪽 절반에 놓으면 그 앞으로, 아래쪽 절반이면 그 뒤로(노트 줄 순서가 바뀐다)', () => {
+    manual()
+    drag(card('다'), card('가'), -5)
+    expect(order()).toEqual(['다', '가', '나', '라'])
+    drag(card('다'), card('나'), 5)
+    expect(order()).toEqual(['가', '나', '다', '라'])
+  })
+
+  it('끄는 동안에는 노트를 바꾸지 않고, 유령 카드와 삽입선을 보이며, 놓으면 사라진다', () => {
     manual()
     const before = text()
-    act(() => card('가').querySelector<HTMLButtonElement>('.board-order button:last-child')!.click())
-    expect(text()).toBe(['# 할 일', '', '- [ ] 나 due:2026-11-15', '- [ ] 가 due:2026-11-20', '  - 가 메모', '- [ ] 다', '- [ ] 라 status:doing due:2026-11-12', ''].join('\n'))
-    expect(titles('할 일')).toEqual(['외부', '나', '가', '다'])
+    ptr('pointerdown', card('다'), 100, 100)
+    under = card('가')
+    ptr('pointermove', window, 100, -5)
+    expect(host.querySelector('.board-ghost')!.textContent).toBe('다')
+    expect(card('가').className).toContain('ins-before')
+    expect(card('다').className).toContain('src')
+    expect(document.body.classList.contains('board-dragging')).toBe(true)
+    expect(text()).toBe(before)
+    ptr('pointerup', window, 100, -5)
+    expect(host.querySelector('.board-ghost')).toBeNull()
+    expect(document.body.classList.contains('board-dragging')).toBe(false)
+  })
+
+  it('하위 메모가 있는 업무는 메모와 함께 움직이고, 되돌리기로 복원된다', () => {
+    manual()
+    const before = text()
+    drag(card('가'), card('다'), 5)
+    expect(text()).toContain('- [ ] 다\n- [ ] 가 due:2026-11-20\n  - 가 메모')
     act(() => q<HTMLButtonElement>('.toast-undo')[0].click())
     expect(text()).toBe(before)
   })
 
-  it('칸의 맨 끝 카드의 ▼ 와, 위쪽이 다른 노트의 카드인 ▲ 는 눌리지 않는다', () => {
-    manual()
-    expect(card('외부').querySelector<HTMLButtonElement>('.board-order button:first-child')!.disabled).toBe(true) // 맨 위
-    expect(card('가').querySelector<HTMLButtonElement>('.board-order button:first-child')!.disabled).toBe(true) // 위가 다른 노트의 외부
-    expect(card('다').querySelector<HTMLButtonElement>('.board-order button:last-child')!.disabled).toBe(true) // 맨 끝
-    expect(card('나').querySelector<HTMLButtonElement>('.board-order button:last-child')!.disabled).toBe(false)
-  })
-
-  it('카드를 다른 카드 위쪽에 끌어 놓으면 그 앞으로, 아래쪽이면 그 뒤로', () => {
-    manual()
-    // 다 를 가 의 위쪽(clientY 가 중간보다 작음)에 놓기
-    dnd('drop', card('가'), idOf('다'), -5) // dragover 없이 곧바로 놓아도(이벤트가 연달아 와도) 놓는 순간의 위치로 정한다
-    expect(text().split('\n').filter((l) => l.startsWith('- [ ]')).map((l) => l.slice(6, 7))).toEqual(['다', '가', '나', '라'])
-  })
-
   it('다른 칸의 카드 위에 놓으면 칸(status)도 바뀌고 그 자리로 들어간다', () => {
     manual()
-    dnd('dragover', card('나'), idOf('라'), -5)
-    dnd('drop', card('나'), idOf('라'), -5) // 진행 중의 라 를 할 일 칸의 나 앞으로
-    const lines = text().split('\n').filter((l) => l.startsWith('- [ ]'))
-    expect(lines.map((l) => l.slice(6, 7))).toEqual(['가', '라', '나', '다'])
-    expect(lines[1]).not.toContain('status:doing') // 할 일 칸으로 왔으니 status 가 지워진다
+    drag(card('라'), card('나'), -5) // 진행 중의 라 를 할 일 칸의 나 앞으로
+    expect(order()).toEqual(['가', '라', '나', '다'])
+    expect(text()).not.toContain('라 status:doing')
   })
 
-  it('칸의 빈 곳에 놓으면 그 칸의 맨 끝으로(같은 노트일 때)', () => {
+  it('빈 칸에 놓으면 칸만 바뀐다(대기)', () => {
     manual()
-    dnd('drop', col('대기'), idOf('가')) // 가 를 대기 칸으로: 칸 안에 카드가 없으니 칸만 바뀐다
+    drag(card('가'), col('대기'), 5)
     expect(text()).toMatch(/- \[ \] 가 status:waiting side:other due:2026-11-20/)
   })
 
-  it('마감순에서는 카드 위에 놓아도 순서는 바뀌지 않는다(칸만 바뀜)', () => {
+  it('마감순에서는 같은 칸 카드 위에 놓아도 순서는 그대로, 다른 칸이면 칸만 바뀐다', () => {
     const before = text()
-    dnd('drop', card('나'), idOf('가')) // 같은 칸의 카드 위에 놓기
+    drag(card('다'), card('가'), -5)
     expect(text()).toBe(before)
+    drag(card('나'), col('진행 중'), 5)
+    expect(text()).toContain('나 status:doing')
   })
 
   it('다른 노트의 카드 앞으로는 옮기지 못하고 이유를 알린다', () => {
     manual()
     const before = text()
-    dnd('dragover', card('외부'), idOf('가'), -5)
-    dnd('drop', card('외부'), idOf('가'), -5)
+    drag(card('가'), card('외부'), -5)
     expect(text()).toBe(before)
     expect(useApp.getState().toast).toBe(t('다른 노트에 있는 업무라서 이 자리로는 옮길 수 없어요'))
   })
 
-  it('‹ › 로 칸을 옮겨도 되돌리기가 뜬다', () => {
-    act(() => card('나').querySelector<HTMLButtonElement>('.board-move button:last-child')!.click())
-    expect(text()).toContain('나 status:doing')
-    expect(useApp.getState().toastUndo).not.toBeNull()
+  it('터치: 길게 눌러야 집힌다(0.35초). 집은 뒤에 끌어 놓으면 옮겨진다', () => {
+    manual()
+    drag(card('다'), card('가'), -5, 'touch')
+    expect(order()).toEqual(['다', '가', '나', '라'])
+  })
+
+  it('터치: 길게 누르기 전에 손가락이 움직이면 끌기가 아니라 스크롤이다(아무것도 바뀌지 않음)', () => {
+    manual()
+    const before = text()
+    ptr('pointerdown', card('다'), 100, 100, 'touch')
+    under = card('가')
+    ptr('pointermove', window, 100, 130, 'touch') // 30px 이동 = 스크롤하려는 것
+    act(() => void vi.advanceTimersByTime(HOLD_MS + 50))
+    expect(host.querySelector('.board-ghost')).toBeNull()
+    ptr('pointerup', window, 100, 130, 'touch')
+    expect(text()).toBe(before)
+  })
+
+  it('터치: 짧게 누르고 떼면 끌기가 아니라 눌림이라 편집기가 열린다', () => {
+    ptr('pointerdown', card('나'), 100, 100, 'touch')
+    act(() => void vi.advanceTimersByTime(100))
+    ptr('pointerup', window, 100, 100, 'touch')
+    act(() => card('나').querySelector<HTMLButtonElement>('.board-body')!.click())
+    expect(useWorkUi.getState().editor?.task?.title).toBe('나')
+  })
+
+  it('끌고 난 직후의 클릭은 편집기를 열지 않는다', () => {
+    manual()
+    drag(card('다'), card('가'), -5)
+    act(() => card('다').querySelector<HTMLButtonElement>('.board-body')!.click())
+    expect(useWorkUi.getState().editor).toBeNull()
+  })
+
+  it('Esc 로 끌기를 취소한다', () => {
+    manual()
+    const before = text()
+    ptr('pointerdown', card('다'), 100, 100)
+    under = card('가')
+    ptr('pointermove', window, 100, -5)
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    })
+    ptr('pointerup', window, 100, -5)
+    expect(text()).toBe(before)
+    expect(host.querySelector('.board-ghost')).toBeNull()
+  })
+
+  it('키보드: Alt+↓ 로 한 칸 뒤로, Alt+→ 로 이웃 칸으로', () => {
+    manual()
+    const key = (el: Element, k: string) =>
+      act(() => {
+        el.dispatchEvent(new KeyboardEvent('keydown', { key: k, altKey: true, bubbles: true, cancelable: true }))
+      })
+    key(card('가').querySelector('.board-body')!, 'ArrowDown')
+    expect(order()).toEqual(['나', '가', '다', '라'])
+    key(card('가').querySelector('.board-body')!, 'ArrowRight')
+    expect(text()).toMatch(/가 status:doing/)
   })
 })

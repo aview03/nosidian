@@ -1447,5 +1447,7 @@ const dict: Record<string, string> = {
   '▲▼ 로 순서를 바꿔요': "Use ▲▼ to reorder",
   '(PC는 카드를 끌어도 돼요)': "(on desktop you can also drag cards)",
   '노트의 목록 순서가 바뀌어요': "This changes the order of the list in the note",
+  '카드를 끌어 순서를 바꿔요(폰은 길게 눌러서)': "Drag cards to reorder (on a phone, press and hold first)",
+  '카드를 끌어 다른 칸으로 옮겨요(폰은 길게 눌러서)': "Drag cards to another column (on a phone, press and hold first)",
 }
 export default dict
