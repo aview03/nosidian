@@ -1803,3 +1803,9 @@ input.inline.wide { width: 100%; box-sizing: border-box; height: 42px; }
 .board-order, .board-move { display: none; }
 .board-ghost { position: fixed; z-index: 300; pointer-events: none; box-sizing: border-box; padding: 12px; border: 1px solid var(--accent, #4c8dff); border-radius: var(--r, 10px); background: var(--bg2); color: var(--text); font-size: 15px; font-weight: 600; line-height: 1.4; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45); opacity: 0.96; transform: rotate(1.5deg); }
 body.board-dragging, body.board-dragging * { cursor: grabbing !important; user-select: none !important; -webkit-user-select: none !important; }
+
+/* 캘린더 오른쪽 패널: 일정 목록 접기(노트 영역 넓히기) */
+.day-events { max-height: 30%; }
+.day-toggle { flex: none; display: flex; align-items: center; gap: 6px; width: 100%; min-height: 32px; padding: 0 16px; border: none; border-top: 1px solid var(--border); background: none; color: var(--muted); font: inherit; font-size: 12.5px; font-weight: 600; text-align: left; cursor: pointer; }
+.day-toggle small { margin-left: auto; font-weight: 400; opacity: 0.8; }
+.day-toggle:hover { color: var(--text); }

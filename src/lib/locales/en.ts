@@ -1449,5 +1449,9 @@ const dict: Record<string, string> = {
   '노트의 목록 순서가 바뀌어요': "This changes the order of the list in the note",
   '카드를 끌어 순서를 바꿔요(폰은 길게 눌러서)': "Drag cards to reorder (on a phone, press and hold first)",
   '카드를 끌어 다른 칸으로 옮겨요(폰은 길게 눌러서)': "Drag cards to another column (on a phone, press and hold first)",
+  '{day}에 추가했어요': "Added to {day}",
+  '일정 {n}개': "{n} events",
+  '접으면 노트가 넓어져요': "Collapse to give the note more room",
+  '눌러서 펼치기': "Tap to expand",
 }
 export default dict

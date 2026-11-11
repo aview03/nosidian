@@ -81,8 +81,9 @@ function QuickAddInput({ date }: { date: string }) {
   const submit = () => {
     if (!q) return
     addEvent(q)
-    useCal.getState().select(q.date)
     setV('')
+    // 보고 있는 날짜를 옮기지 않는다(이어서 쓰는 필기가 엉뚱한 날 노트로 들어가던 문제). 다른 날에 넣었으면 어느 날인지 알려 준다
+    if (q.date !== date) useApp.getState().say(t('{day}에 추가했어요', { day: fmtDay(q.date) }))
   }
   return (
     <div className="quick-add">
@@ -303,16 +304,42 @@ export function CalendarMain() {
 }
 
 /** PC 오른쪽: 선택한 날 + 그날의 Daily 노트 */
+const EVENTS_OPEN_KEY = 'nosidian.dayEventsOpen'
+const readEventsOpen = () => {
+  try {
+    return localStorage.getItem(EVENTS_OPEN_KEY) !== '0'
+  } catch {
+    return true
+  }
+}
+
 export function DayPanel() {
   const sel = useCal((s) => s.sel)
+  const cal = useCalMap()
   const path = dailyPath(sel)
   const file = useApp((s) => s.files[path])
   const exists = !!file && !file.deleted
+  // 일정 목록을 접으면 아래 노트(수업 필기처럼 긴 글)가 그만큼 넓어진다. 접은 상태는 기억한다
+  const [open, setOpen] = useState(readEventsOpen)
+  const toggle = () => {
+    const next = !open
+    setOpen(next)
+    try {
+      localStorage.setItem(EVENTS_OPEN_KEY, next ? '1' : '0')
+    } catch {
+      /* 저장소를 못 써도 동작한다 */
+    }
+  }
+  const count = (cal.get(sel) ?? []).length
   return (
     <aside className="day-panel">
       <DayHead date={sel} />
       <QuickAdd date={sel} />
-      <div className="day-events"><DayList date={sel} /></div>
+      <button className="day-toggle" aria-expanded={open} onClick={toggle}>
+        <span aria-hidden="true">{open ? '▾' : '▸'}</span> {t('일정 {n}개', { n: count })}
+        <small>{open ? t('접으면 노트가 넓어져요') : t('눌러서 펼치기')}</small>
+      </button>
+      {open && <div className="day-events"><DayList date={sel} /></div>}
       <div className="day-memo">
         {exists ? (
           <Editor key={path} path={path} initial={file.content} externalContent={file.content} onChange={(c) => useApp.getState().setContent(path, c)} />
