@@ -86,7 +86,7 @@ describe('프로젝트 허브의 보기 탭', () => {
   })
   it('보기 탭을 열면 칩 줄이 보이고 기본은 보드(칸반)다', () => {
     act(() => tabs()[1].click())
-    expect(chips().map((b) => b.textContent)).toEqual([t('보드'), t('타임라인')])
+    expect(chips().map((b) => b.textContent)).toEqual([t('보드'), t('타임라인'), t('표'), t('담당자별')])
     expect(chips()[0].getAttribute('aria-selected')).toBe('true')
     expect(host.querySelector('.board')).not.toBeNull()
   })

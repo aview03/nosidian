@@ -110,6 +110,8 @@ interface AppState {
   palette: null | 'switcher' | 'command'
   syncing: boolean
   toast: string | null
+  /** 알림에 붙는 '되돌리기'(있으면 알림이 5초 동안 눌러 볼 수 있게 남는다) */
+  toastUndo: (() => void) | null
   searchQuery: string
   vaultSheet: boolean
   /** 문서 안 찾기(Ctrl+F) 막대가 열려 있는가. findFocus 는 다시 누를 때마다 올라가 입력칸으로 포커스를 돌려준다 */
@@ -142,6 +144,8 @@ interface AppState {
   openFind(): void
   closeFind(): void
   say(msg: string): void
+  /** 알림 + '되돌리기' 버튼(5초). 누르면 undo 를 실행하고 알림을 닫는다 */
+  sayUndo(msg: string, undo: () => void): void
 
   setContent(path: string, content: string): void
   createNote(path: string, content?: string, open?: boolean): string
@@ -340,6 +344,7 @@ export const useApp = create<AppState>((set, get) => {
     palette: null,
     syncing: false,
     toast: null,
+    toastUndo: null,
     searchQuery: '',
     vaultSheet: false,
     findOpen: false,
@@ -405,8 +410,12 @@ export const useApp = create<AppState>((set, get) => {
       set({ tab, sheet: null })
     },
     say(msg) {
-      set({ toast: msg })
+      set({ toast: msg, toastUndo: null })
       setTimeout(() => get().toast === msg && set({ toast: null }), 2600)
+    },
+    sayUndo(msg, undo) {
+      set({ toast: msg, toastUndo: undo })
+      setTimeout(() => get().toast === msg && get().toastUndo === undo && set({ toast: null, toastUndo: null }), 5000)
     },
 
     openNote(path, anchor = null, opts = {}) {

@@ -2,7 +2,7 @@
 import { create } from 'zustand'
 import { registerScreen, useApp } from './app'
 import { t } from './i18n'
-import { buildWork, findTaskLine, rewriteTaskLine, tokensForState, type Task, type TaskEdit, type UiState } from './work'
+import { buildWork, findTaskLine, rewriteTaskLine, tokensForState, uiStateOf, type Task, type TaskEdit, type UiState } from './work'
 import { formatWorkTokens } from './taskTokens'
 import { forgetTile, loadLayout, renameTile, saveLayout, type Layout } from './tiles'
 import { removeView, upsertView, VIEWS_PATH, viewsNoteHeader, type View } from './views'
@@ -135,6 +135,42 @@ export function moveTask(task: Task, to: UiState | 'done'): boolean {
   const base = { kind: task.kind, due: task.due ?? undefined, owner: task.owner.length ? task.owner : undefined, p: task.p ?? undefined, impact: task.impact ?? undefined, conclusion: task.conclusion ?? undefined, proj: task.explicitProj ?? undefined }
   const ui: UiState = to === 'done' ? 'todo' : to
   return updateTask(task, { title: task.title, done: to === 'done', tokens: tokensForState(ui, base) })
+}
+
+/** 업무의 마감·담당·우선순위만 바꾼다(null = 지움, 안 적으면 그대로). 상태·종류·영향·결론·프로젝트 꼬리표는 그대로 둔다 */
+export function patchTask(task: Task, patch: { due?: string | null; owner?: string[] | null; p?: 1 | 2 | 3 | null }): boolean {
+  const pick = <T,>(v: T | null | undefined, cur: T | undefined): T | undefined => (v === undefined ? cur : v === null ? undefined : v)
+  const owner = pick(patch.owner, task.owner.length ? task.owner : undefined)
+  const base = {
+    kind: task.kind,
+    due: pick(patch.due, task.due ?? undefined),
+    owner: owner && owner.length ? owner : undefined,
+    p: pick(patch.p, task.p ?? undefined),
+    impact: task.impact ?? undefined,
+    conclusion: task.conclusion ?? undefined,
+    proj: task.explicitProj ?? undefined,
+  }
+  return updateTask(task, { title: task.title, done: task.done, tokens: tokensForState(uiStateOf(task), base) })
+}
+
+/**
+ * 보기(표·담당자별 등)에서 한 변경을 "되돌리기" 알림과 함께 한다. run 이 성공하면 알림을 띄우고, 누르면 그 노트를 변경 전 내용으로 되돌린다.
+ * 그새 노트가 또 바뀌었으면(동기화·다른 편집) 덮어쓰지 않고 이유를 알린다.
+ */
+export function withUndo(task: Task, message: string, run: () => boolean): boolean {
+  const before = useApp.getState().files[task.path]?.content
+  if (before === undefined || !run()) return false
+  const after = useApp.getState().files[task.path]?.content
+  useApp.getState().sayUndo(message, () => {
+    const now = useApp.getState().files[task.path]?.content
+    if (now !== after) {
+      say(t('그새 노트가 바뀌어서 되돌리지 못했어요'))
+      return
+    }
+    useApp.getState().setContent(task.path, before)
+    say(t('되돌렸어요'))
+  })
+  return true
 }
 
 /** 프로젝트 밖(받은 업무 등)에 있는 업무를 프로젝트의 '할 일' 노트로 옮긴다: 새 위치에 먼저 쓰고, 성공하면 원래 줄을 지운다 */

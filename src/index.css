@@ -1585,3 +1585,52 @@ input.inline.wide { width: 100%; box-sizing: border-box; height: 42px; }
 .hub-views button { flex: none; min-height: 36px; padding: 0 14px; border: 1px solid var(--border); border-radius: 999px; background: none; color: var(--muted); font-size: 14px; font-weight: 500; }
 .hub-views button.on { background: var(--text); border-color: var(--text); color: var(--bg); font-weight: 600; }
 @media (min-width: 900px) { .hub > .hub-views { margin-left: 20px; margin-right: 20px; } }
+
+/* '되돌리기'가 붙은 알림은 눌러 볼 수 있어야 한다 */
+.toast.has-action { pointer-events: auto; display: flex; align-items: center; gap: 14px; }
+.toast-undo { flex: none; min-height: 32px; padding: 0 10px; border: none; border-radius: 6px; background: none; color: inherit; font: inherit; font-weight: 700; text-decoration: underline; cursor: pointer; }
+
+/* 프로젝트 허브: 표·담당자별 보기 (docs/PROJECT-VIEWS.md) */
+.hub-filter { display: flex; gap: 8px; margin: 0 0 12px; }
+.hub-filter button { min-height: 32px; padding: 0 12px; border: 1px solid var(--border); border-radius: 999px; background: none; color: var(--muted); font-size: 13px; }
+.hub-filter button.on { border-color: var(--text); color: var(--text); font-weight: 600; }
+
+.tbl-sortbar { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 13px; color: var(--muted); white-space: nowrap; }
+.tbl-sortbar .sel-btn { min-width: 150px; }
+.tbl-dir { min-width: 36px; min-height: 36px; border: 1px solid var(--border); border-radius: 8px; background: none; color: var(--text); font-size: 12px; }
+.tbl-head { display: none; }
+.tbl-row { display: flex; flex-wrap: wrap; gap: 6px 8px; padding: 10px 4px 12px; border-bottom: 1px solid var(--border); align-items: center; }
+.tbl-row.fin .tbl-title { color: var(--muted); text-decoration: line-through; }
+.tbl-c.tbl-title-c { flex: 1 1 100%; display: flex; align-items: center; gap: 10px; min-width: 0; }
+.tbl-title { flex: 1; min-width: 0; padding: 4px 0; border: none; background: none; color: var(--text); font: inherit; font-weight: 600; text-align: left; line-height: 1.4; }
+.tbl-c { min-width: 0; flex: 0 0 auto; }
+.tbl-c .tbl-sel { width: auto; min-width: 84px; }
+.tbl-c .tbl-date { width: 136px; }
+.tbl-c.late .tbl-date { color: var(--danger, #e5484d); font-weight: 600; }
+.tbl-sel { width: 100%; min-height: 36px; font-size: 14px; }
+.tbl-date { width: 100%; min-height: 36px; padding: 0 8px; border: 1px solid var(--border); border-radius: 8px; background: none; color: var(--text); font: inherit; font-size: 14px; color-scheme: light dark; }
+@media (min-width: 700px) {
+  .tbl-sortbar { display: none; }
+  .tbl-sel, .tbl-c .tbl-sel, .tbl-c .tbl-date { width: 100%; min-width: 0; }
+  .tbl-head, .tbl-row { display: grid; grid-template-columns: minmax(180px, 1fr) 112px 120px 140px 104px; gap: 8px; align-items: center; }
+  .tbl-head { padding: 0 4px 6px; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--bg); z-index: 1; }
+  .tbl-head button { padding: 8px 0; border: none; background: none; color: var(--muted); font: inherit; font-size: 13px; font-weight: 500; text-align: left; cursor: pointer; }
+  .tbl-head button.on { color: var(--text); font-weight: 700; }
+  .tbl-c, .tbl-c.tbl-title-c { flex: none; }
+  .tbl-sel, .tbl-date { min-height: 32px; font-size: 13px; }
+}
+
+.own-lane { margin-bottom: 10px; border: 1px solid var(--border); border-radius: var(--r, 10px); }
+.own-lane.none { border-color: var(--danger, #e5484d); }
+.own-lane.over { background: var(--bg2); outline: 2px dashed var(--muted); outline-offset: -2px; }
+.own-head { display: grid; grid-template-columns: auto 1fr; grid-template-areas: 'caret name' 'caret stats' 'bar bar'; gap: 2px 8px; width: 100%; padding: 10px 12px; border: none; background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.own-caret { grid-area: caret; color: var(--muted); align-self: center; }
+.own-name { grid-area: name; font-weight: 700; }
+.own-name em { font-style: normal; font-weight: 500; color: var(--muted); }
+.own-stats { grid-area: stats; font-size: 13px; color: var(--muted); }
+.own-late { color: var(--danger, #e5484d); font-weight: 600; }
+.own-bar { grid-area: bar; display: block; height: 4px; margin-top: 6px; border-radius: 2px; background: var(--bg3); overflow: hidden; }
+.own-bar i { display: block; height: 100%; background: var(--text); opacity: 0.55; }
+.own-body { padding: 0 8px 8px; }
+.own-hint { margin: 0 4px 6px; }
+.own-task { cursor: grab; }

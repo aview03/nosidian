@@ -7,6 +7,7 @@ import { usePresence } from '../lib/presence'
 export function Dialogs() {
   const d = useDialog()
   const toast = useApp((s) => s.toast)
+  const toastUndo = useApp((s) => s.toastUndo)
   const input = useRef<HTMLInputElement>(null)
 
   // 닫히는 동안에도 내용이 남아 있어야 퇴장 모션이 자연스럽다 → 마지막 값을 붙들고 있는다
@@ -60,7 +61,22 @@ export function Dialogs() {
           </form>
         </div>
       )}
-      {toastP.mounted && <div className={`toast${toastP.closing ? ' closing' : ''}`}>{toast ?? lastToast.current}</div>}
+      {toastP.mounted && (
+        <div className={`toast${toastP.closing ? ' closing' : ''}${toastUndo ? ' has-action' : ''}`}>
+          <span>{toast ?? lastToast.current}</span>
+          {toastUndo && (
+            <button
+              className="toast-undo"
+              onClick={() => {
+                toastUndo()
+                useApp.setState({ toast: null, toastUndo: null })
+              }}
+            >
+              {t('되돌리기')}
+            </button>
+          )}
+        </div>
+      )}
     </>
   )
 }

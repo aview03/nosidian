@@ -4,8 +4,8 @@ import { useApp } from '../lib/app'
 import { t } from '../lib/i18n'
 import { addDays, fmtDay, todayYmd } from '../lib/calendar'
 import { baseName } from '../lib/links'
-import { uiStateOf, type Task, type UiState } from '../lib/work'
-import { moveTask, toggleOrClose, useWorkUi } from '../lib/workOps'
+import { parseMe, uiStateOf, type Task, type UiState } from '../lib/work'
+import { moveTask, useWorkUi } from '../lib/workOps'
 import { EventRow, useCalMap } from './Calendar'
 import { buildTimeline, groupByDate } from '../lib/timeline'
 import { ask } from '../lib/dialog'
@@ -13,8 +13,14 @@ import { templateFromProject } from '../lib/projectTemplates'
 import { DocCheck } from './DocCheck'
 import { HumanDocs } from './HumanDocs'
 import { Icon } from './Icon'
+import { TaskLine } from './TaskLine'
+import { HubTable } from './HubTable'
+import { HubOwners } from './HubOwners'
+import { filterTasks } from '../lib/projectViews'
 import { HUB_VIEWS, loadHubView, saveHubView, type HubView } from '../lib/hubViews'
 import { healthLabel, signalText, useHealth, useWork } from './WorkHome'
+
+export { TaskLine }
 
 type Tab = 'tasks' | 'views' | 'docs' | 'check'
 
@@ -83,30 +89,6 @@ function Board({ tasks }: { tasks: Task[] }) {
   )
 }
 
-export function TaskLine({ tk, showProject }: { tk: Task; showProject?: string }) {
-  const ui = uiStateOf(tk)
-  const today = todayYmd()
-  const late = !tk.done && ui !== 'dropped' && !!tk.due && tk.due < today
-  return (
-    <div className={`wrk-row${late ? ' late' : ''}${tk.done || ui === 'dropped' ? ' fin' : ''}`}>
-      <input type="checkbox" className="task" checked={tk.done} onChange={() => toggleOrClose(tk)} aria-label={tk.title} />
-      <button className="wrk-main" onClick={() => useWorkUi.getState().openEditor(tk)}>
-        <span className="wrk-body">
-          <span className="wrk-title">{tk.kind === 'decision' && <b className="wrk-kind">{t('결정')}</b>}{tk.p === 1 && <b className="wrk-p">!</b>}{tk.title}</span>
-          <span className="wrk-meta">
-            {tk.due && <span className={late ? 'wrk-late' : 'wrk-due'}>{tk.due.slice(5)}</span>}
-            {tk.owner.length > 0 && <span className="wrk-owner">{tk.owner.join(', ')}</span>}
-            {showProject && <span className="wrk-proj">{showProject}</span>}
-            {tk.conclusion && <span className="wrk-concl">→ {tk.conclusion}</span>}
-          </span>
-        </span>
-        {ui !== 'todo' && !tk.done && <em className={`wrk-why ${ui}`}>{ui === 'doing' ? t('진행 중') : ui === 'waiting' ? t('대기') : t('취소됨')}</em>}
-        {late && ui === 'todo' && <em className="wrk-why overdue">{t('기한 지남')}</em>}
-      </button>
-    </div>
-  )
-}
-
 /** 제목 줄 오른쪽의 ⋯ 메뉴(자주 쓰지 않는 동작을 모아 둔다) */
 function HubMenu({ items }: { items: { label: string; run(): void }[] }) {
   const [open, setOpen] = useState(false)
@@ -144,6 +126,11 @@ export function ProjectHub() {
     setViewState(v)
     if (path) saveHubView(path, v)
   }
+  // 표·담당자별 공통 필터(보기를 바꿔도 유지)
+  const myName = useApp((s) => s.settings.myName)
+  const me = useMemo(() => parseMe(myName), [myName])
+  const [mineOnly, setMineOnly] = useState(false)
+  const [showDone, setShowDone] = useState(false)
   const chips = useRef<HTMLDivElement>(null)
   useEffect(() => {
     chips.current?.querySelector<HTMLElement>('[aria-selected="true"]')?.scrollIntoView?.({ inline: 'nearest', block: 'nearest' })
@@ -266,7 +253,15 @@ export function ProjectHub() {
             </>
           )}
 
+          {tab === 'views' && (view === 'table' || view === 'owners') && (
+            <div className="hub-filter">
+              {me.length > 0 && <button aria-pressed={mineOnly} className={mineOnly ? 'on' : ''} onClick={() => setMineOnly(!mineOnly)}>{t('내 것만')}</button>}
+              <button aria-pressed={showDone} className={showDone ? 'on' : ''} onClick={() => setShowDone(!showDone)}>{t('완료 포함')}</button>
+            </div>
+          )}
           {tab === 'views' && view === 'board' && <Board tasks={tasks} />}
+          {tab === 'views' && view === 'table' && <HubTable tasks={filterTasks(tasks, { mineOnly, showDone, me })} owners={[...new Set(tasks.flatMap((x) => x.owner))].sort((a, b) => a.localeCompare(b, 'ko'))} />}
+          {tab === 'views' && view === 'owners' && <HubOwners tasks={filterTasks(tasks, { mineOnly, showDone, me })} me={me} />}
 
           {tab === 'docs' && (
             <HumanDocs project={project} open={open.length} decisions={decisions.length} onCheck={() => setTab('check')}>
