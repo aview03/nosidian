@@ -125,7 +125,7 @@ export function PcFilesSheet() {
           {view.folders.map((f) => (
             <button key={f.path} className="row memo-dest" onClick={() => setDir(f.path)}>
               <span className="row-title"><Icon name="folder" size={16} /> {f.name}</span>
-              <span className="row-sub">{f.count}</span>
+              <span className="row-sub">{t('{n}개', { n: f.count })}</span>
             </button>
           ))}
           {view.files.map((f) => (

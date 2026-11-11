@@ -1,6 +1,6 @@
 import { setLang } from './i18n'
 import { describe, expect, it } from 'vitest'
-import { formatSize, gate, isExecutable, LARGE_BYTES, MAX_PHONE_BYTES, othersIn } from './attachments'
+import { formatSize, gate, isExecutable, isShareCancel, LARGE_BYTES, MAX_PHONE_BYTES, othersIn } from './attachments'
 import { capOthers, isOther, MAX_OTHERS } from './sync'
 
 setLang('ko')
@@ -110,5 +110,13 @@ describe('이름 바꾸기 경로', () => {
     expect(renamedPath('proj/a.zip', 'x/y:z.zip')).toBe('proj/x y z.zip')
     expect(renamedPath('a.zip', '   ')).toBeNull()
     expect(renamedPath('a.zip', '.hidden')).toBeNull()
+  })
+})
+
+describe('공유 창 닫기', () => {
+  it('Share canceled 는 오류로 보지 않고 다른 오류는 그대로', () => {
+    expect(isShareCancel(new Error('Share canceled'))).toBe(true)
+    expect(isShareCancel('Share Canceled')).toBe(true)
+    expect(isShareCancel(new Error('disk full'))).toBe(false)
   })
 })

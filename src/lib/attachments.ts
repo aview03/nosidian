@@ -86,6 +86,9 @@ const mimeOf = (name: string) => {
 }
 const baseName = (p: string) => p.split('/').pop()!.replace(/[\\/:*?"<>|]/g, '_')
 
+/** 사용자가 공유 창을 닫아서 생긴 오류인가(플러그인이 'Share canceled' 로 던진다) */
+export const isShareCancel = (e: unknown): boolean => /cancel/i.test(e instanceof Error ? e.message : String(e))
+
 /**
  * base64 로 받은 파일을 사용자에게 건넨다. 폰: 임시 폴더에 쓰고 공유 시트(다른 앱으로 열기·저장)를, PC·웹: 브라우저 다운로드.
  */
@@ -93,7 +96,12 @@ export async function handOver(path: string, b64: string): Promise<void> {
   const name = baseName(path)
   if (Capacitor.isNativePlatform()) {
     const w = await Filesystem.writeFile({ path: `nosidian-files/${Date.now()}/${name}`, data: b64, directory: Directory.Cache, recursive: true })
-    await Share.share({ title: name, url: w.uri, dialogTitle: name })
+    try {
+      await Share.share({ title: name, url: w.uri, dialogTitle: name })
+    } catch (e) {
+      if (isShareCancel(e)) return // 공유 창을 그냥 닫은 것은 오류가 아니다(연구자 P3: 영어 'Share canceled' 알림이 떴다)
+      throw e
+    }
     return
   }
   const bin = atob(b64)
