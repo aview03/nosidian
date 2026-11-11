@@ -86,7 +86,10 @@ export function PcFilesSheet() {
   }, [open, link, load])
   if (!open || !link) return null
 
+  const up = dir.includes('/') ? dir.slice(0, dir.lastIndexOf('/')) : ''
   const view = entriesIn(entries ?? [], dir)
+  const root = link.dirName || t('처음 위치')
+  const upName = up ? up.split('/').pop() : root // 한 칸 위 폴더의 이름(맨 위면 공유한 폴더 이름)
   const phone = Capacitor.isNativePlatform()
   const get = async (f: { name: string; path: string; size: number }) => {
     if (busy) return
@@ -102,7 +105,6 @@ export function PcFilesSheet() {
       setBusy(null)
     }
   }
-  const up = dir.includes('/') ? dir.slice(0, dir.lastIndexOf('/')) : ''
 
   return (
     <div className="sheet-wrap" onClick={close}>
@@ -114,10 +116,13 @@ export function PcFilesSheet() {
         </div>
         <div className="list">
           {dir && (
-            <button className="row memo-dest" onClick={() => setDir(up)}>
-              <span className="row-title"><Icon name="chevron-up" size={16} /> {t('위로')}</span>
-              <span className="row-sub">{dir}</span>
-            </button>
+            <>
+              <p className="pcf-path" aria-label={t('지금 위치')}>{[root, ...dir.split('/')].join(' › ')}</p>
+              <button className="row memo-dest pcf-up" onClick={() => setDir(up)}>
+                <span className="row-title"><Icon name="chevron-up" size={16} /> {t('상위 폴더')}</span>
+                <span className="row-sub">{upName}</span>
+              </button>
+            </>
           )}
           {entries === null && <p className="hint pad">{t('불러오는 중…')}</p>}
           {err && <p className="hint pad ai-warn">{err}</p>}
@@ -136,7 +141,9 @@ export function PcFilesSheet() {
           ))}
           {truncated && <p className="hint small pad">{t('파일이 많아 일부만 보여요')}</p>}
         </div>
-        <button className="link-btn" onClick={close}>{t('닫기')}</button>
+        <div className="sheet-foot">
+          <button className="pcf-close" onClick={close}>{t('닫기')}</button>
+        </div>
       </div>
     </div>
   )

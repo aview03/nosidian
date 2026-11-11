@@ -1872,3 +1872,9 @@ body.board-dragging, body.board-dragging * { cursor: grabbing !important; user-s
 .code-block:has(.code-copy) pre { padding-top: 40px; }
 .code-block .code-copy { top: 2px; right: 2px; width: 36px; height: 36px; }
 .code-block .code-lang { right: 46px; top: 12px; }
+
+/* PC 폴더 보기 시트: 위치 표시, '상위 폴더', 오른손 엄지가 닿는 오른쪽 아래의 큰 닫기 */
+.pcf-path { margin: 0; padding: 4px 16px 8px; font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
+.pcf-up { border-bottom: 1px solid var(--line, rgba(128,128,128,.25)); }
+.sheet-foot { position: sticky; bottom: 0; display: flex; justify-content: flex-end; padding: 10px 16px calc(10px + var(--safe-b, 0px)); background: var(--bg); border-top: 1px solid var(--line, rgba(128,128,128,.25)); }
+.pcf-close { min-width: 120px; min-height: 48px; padding: 0 22px; border: 1px solid var(--text); border-radius: var(--r); background: var(--bg); color: var(--text); font: inherit; font-weight: 700; cursor: pointer; }

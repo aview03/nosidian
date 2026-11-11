@@ -1478,5 +1478,8 @@ const dict: Record<string, string> = {
   '콜아웃': "Callout",
   '다이어그램 (mermaid)': "Diagram (mermaid)",
   '"{name}" 완료했어요': "Completed \"{name}\"",
+  '상위 폴더': "Parent folder",
+  '처음 위치': "Top",
+  '지금 위치': "Current location",
 }
 export default dict
