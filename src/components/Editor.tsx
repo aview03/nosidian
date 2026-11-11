@@ -1,5 +1,5 @@
 import { t } from '../lib/i18n'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { EditorState, type Extension } from '@codemirror/state'
 import { EditorView, keymap, drawSelection, placeholder } from '@codemirror/view'
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
@@ -11,6 +11,7 @@ import { livePreview } from '../lib/livepreview'
 import { findHighlight } from '../lib/findEngine'
 import { useApp, attachImages } from '../lib/app'
 import { isImageFile } from '../lib/images'
+import { codeInsert, helpItems, type HelpItem } from '../lib/mdSnippets'
 import { baseName } from '../lib/links'
 
 interface Props {
@@ -200,6 +201,40 @@ export function Editor({ path, initial, onChange, externalContent }: Props) {
       if (t === '[[]]') import('@codemirror/autocomplete').then((m) => m.startCompletion(v))
     })
 
+  // 코드 버튼: 한 줄이면 인라인 코드, 여러 줄을 골랐거나 빈 줄이면 코드 블록(개발자 P2)
+  const codeBtn = run((v) => {
+    const { from, to } = v.state.selection.main
+    const sel = v.state.sliceDoc(from, to)
+    const line = v.state.doc.lineAt(from)
+    const r = codeInsert(sel, line.text.trim() === '')
+    const lead = r.block && from > line.from ? NL : '' // 코드 블록은 줄 맨 앞에서 시작해야 한다
+    const text = lead + r.insert
+    if (!r.block && sel) {
+      v.dispatch({ changes: { from, to, insert: text }, selection: { anchor: from + 1, head: from + 1 + sel.length } })
+    } else {
+      v.dispatch({ changes: { from, to, insert: text }, selection: { anchor: from + lead.length + r.cursor } })
+    }
+  })
+
+  // 마크다운 도움: 문법 이름을 누르면 그 예를 커서 자리에 넣는다
+  const [help, setHelp] = useState(false)
+  useEffect(() => {
+    if (!help) return
+    const f = (e: KeyboardEvent) => e.key === 'Escape' && setHelp(false)
+    window.addEventListener('keydown', f)
+    return () => window.removeEventListener('keydown', f)
+  }, [help])
+  const putSnippet = (it: HelpItem) => {
+    const v = view.current
+    if (!v) return
+    const { from, to } = v.state.selection.main
+    const line = v.state.doc.lineAt(from)
+    const lead = it.snippet.includes(NL) && from > line.from ? NL : ''
+    v.dispatch({ changes: { from, to, insert: lead + it.snippet }, selection: { anchor: from + lead.length + (it.cursor ?? it.snippet.length) } })
+    setHelp(false)
+    v.focus()
+  }
+
   return (
     <div className="editor-wrap">
       <div className="cm-host" ref={host} />
@@ -215,6 +250,19 @@ export function Editor({ path, initial, onChange, externalContent }: Props) {
           void addImages(files)
         }}
       />
+      {help && (
+        <div className="md-help" role="dialog" aria-label={t('마크다운 도움')} onMouseDown={(e) => e.preventDefault()}>
+          <div className="md-help-head"><b>{t('마크다운 도움')}</b><small>{t('누르면 커서 자리에 넣어요')}</small></div>
+          <div className="md-help-list">
+            {helpItems().map((it) => (
+              <button key={it.id} onClick={() => putSnippet(it)}>
+                <span>{it.label}</span>
+                <code>{it.snippet.split(NL)[0]}</code>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="edit-toolbar" onMouseDown={(e) => e.preventDefault()}>
         <button onClick={insert('[[]]', 2)} title={t('링크')}>[[ ]]</button>
         <button onClick={insert('#')} title={t('태그')}>#</button>
@@ -224,11 +272,12 @@ export function Editor({ path, initial, onChange, externalContent }: Props) {
         <button onClick={wrapSel('**')} title={t('굵게')}><b>B</b></button>
         <button onClick={wrapSel('*')} title={t('기울임')}><i>I</i></button>
         <button onClick={wrapSel('==')} title={t('하이라이트')}>▮</button>
-        <button onClick={wrapSel('`')} title={t('코드')}>{'</>'}</button>
+        <button onClick={codeBtn} title={t('코드 (여러 줄이나 빈 줄이면 코드 블록)')}>{'</>'}</button>
         <button onClick={linePrefix('> ')} title={t('인용')}>❝</button>
         <button onClick={() => fileIn.current?.click()} title={t('이미지')} aria-label={t('이미지')}>🖼</button>
         <button onClick={run((v) => import('@codemirror/commands').then((m) => m.undo(v)))} title={t('실행 취소')}>↶</button>
         <button onClick={run((v) => import('@codemirror/commands').then((m) => m.redo(v)))} title={t('다시 실행')}>↷</button>
+        <button onClick={() => setHelp((h) => !h)} aria-pressed={help} title={t('마크다운 도움')} aria-label={t('마크다운 도움')}>?</button>
       </div>
     </div>
   )

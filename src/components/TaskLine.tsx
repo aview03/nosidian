@@ -3,6 +3,7 @@ import { t } from '../lib/i18n'
 import { todayYmd } from '../lib/calendar'
 import { uiStateOf, type Task } from '../lib/work'
 import { toggleOrClose, useWorkUi } from '../lib/workOps'
+import { TitleText, openTitleLink } from './TitleText'
 
 export function TaskLine({ tk, showProject }: { tk: Task; showProject?: string }) {
   const ui = uiStateOf(tk)
@@ -11,9 +12,9 @@ export function TaskLine({ tk, showProject }: { tk: Task; showProject?: string }
   return (
     <div className={`wrk-row${late ? ' late' : ''}${tk.done || ui === 'dropped' ? ' fin' : ''}`}>
       <input type="checkbox" className="task" checked={tk.done} onChange={() => toggleOrClose(tk)} aria-label={tk.title} />
-      <button className="wrk-main" onClick={() => useWorkUi.getState().openEditor(tk)}>
+      <button className="wrk-main" onClick={(e) => { if (openTitleLink(e)) return; useWorkUi.getState().openEditor(tk) }}>
         <span className="wrk-body">
-          <span className="wrk-title">{tk.kind === 'decision' && <b className="wrk-kind">{t('결정')}</b>}{tk.p === 1 && <b className="wrk-p">!</b>}{tk.title}</span>
+          <span className="wrk-title">{tk.kind === 'decision' && <b className="wrk-kind">{t('결정')}</b>}{tk.p === 1 && <b className="wrk-p">!</b>}<TitleText title={tk.title} /></span>
           <span className="wrk-meta">
             {tk.due && <span className={late ? 'wrk-late' : 'wrk-due'}>{tk.due.slice(5)}</span>}
             {tk.owner.length > 0 && <span className="wrk-owner">{tk.owner.join(', ')}</span>}

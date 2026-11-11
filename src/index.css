@@ -1842,3 +1842,29 @@ body.board-dragging, body.board-dragging * { cursor: grabbing !important; user-s
 .nt-due { flex: 0 0 172px; min-width: 172px; }
 .nt-owner { flex: 1 1 70px; min-width: 0; }
 .nt-concl .nt-owner { flex: none; }
+
+/* 개발자 P2: 읽기 화면 코드 복사 버튼, 어두운 테마 문법 강조, 제목 안 링크, 백링크 폴더, 마크다운 도움 */
+.code-block .code-copy { position: absolute; top: 4px; right: 4px; width: 30px; height: 30px; min-width: 0; min-height: 0; padding: 0; display: inline-flex; align-items: center; justify-content: center; border: none; border-radius: 6px; background: transparent; color: var(--muted); cursor: pointer; }
+.code-block .code-copy:hover, .code-block .code-copy:focus-visible { background: var(--bg3); color: var(--text); }
+.code-block .code-lang { right: 40px; top: 10px; }
+:root[data-theme='dark'] .hljs-comment, :root[data-theme='dark'] .hljs-quote { color: #8b949e; }
+:root[data-theme='dark'] .hljs-keyword, :root[data-theme='dark'] .hljs-doctag, :root[data-theme='dark'] .hljs-template-tag, :root[data-theme='dark'] .hljs-template-variable, :root[data-theme='dark'] .hljs-type { color: #ff7b72; }
+:root[data-theme='dark'] .hljs-title, :root[data-theme='dark'] .hljs-title.class_, :root[data-theme='dark'] .hljs-title.function_ { color: #d2a8ff; }
+:root[data-theme='dark'] .hljs-attr, :root[data-theme='dark'] .hljs-attribute, :root[data-theme='dark'] .hljs-literal, :root[data-theme='dark'] .hljs-meta, :root[data-theme='dark'] .hljs-number, :root[data-theme='dark'] .hljs-operator, :root[data-theme='dark'] .hljs-variable, :root[data-theme='dark'] .hljs-selector-attr, :root[data-theme='dark'] .hljs-selector-class, :root[data-theme='dark'] .hljs-selector-id { color: #79c0ff; }
+:root[data-theme='dark'] .hljs-string, :root[data-theme='dark'] .hljs-regexp, :root[data-theme='dark'] .hljs-meta .hljs-string { color: #a5d6ff; }
+:root[data-theme='dark'] .hljs-built_in, :root[data-theme='dark'] .hljs-symbol { color: #ffa657; }
+:root[data-theme='dark'] .hljs-code, :root[data-theme='dark'] .hljs-formula, :root[data-theme='dark'] .hljs-name, :root[data-theme='dark'] .hljs-quote, :root[data-theme='dark'] .hljs-selector-tag, :root[data-theme='dark'] .hljs-selector-pseudo { color: #7ee787; }
+:root[data-theme='dark'] .hljs-subst, :root[data-theme='dark'] .hljs-params, :root[data-theme='dark'] .hljs-property { color: #e6edf3; }
+:root[data-theme='dark'] .hljs-addition { color: #aff5b4; background-color: #033a16; }
+:root[data-theme='dark'] .hljs-deletion { color: #ffdcd7; background-color: #67060c; }
+.tl-link { color: var(--accent); text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px; cursor: pointer; }
+.tl-link:hover { text-decoration-style: solid; }
+.row-folder { margin-left: 8px; font-size: 11px; font-weight: 500; color: var(--muted); }
+.editor-wrap { position: relative; }
+.md-help { position: absolute; left: 8px; right: 8px; bottom: 56px; max-height: min(60vh, 420px); overflow: auto; z-index: 40; background: var(--bg); border: 1px solid var(--text); border-radius: var(--r); box-shadow: 0 8px 28px rgba(0, 0, 0, 0.4); }
+.md-help-head { display: flex; align-items: baseline; gap: 10px; padding: 10px 12px 6px; position: sticky; top: 0; background: var(--bg); }
+.md-help-head small { color: var(--muted); }
+.md-help-list { display: flex; flex-direction: column; padding: 0 6px 8px; }
+.md-help-list button { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 40px; padding: 6px 8px; border: none; border-radius: 6px; background: none; color: var(--text); font: inherit; font-size: 14px; text-align: left; cursor: pointer; }
+.md-help-list button:hover, .md-help-list button:focus-visible { background: var(--bg2); }
+.md-help-list code { font-size: 12px; color: var(--muted); max-width: 55%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: none; padding: 0; }

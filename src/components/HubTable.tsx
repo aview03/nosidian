@@ -7,6 +7,7 @@ import { rowStateOf, sortTasks, type RowState, type SortDir, type SortKey } from
 import type { Task } from '../lib/work'
 import { moveTask, patchTask, toggleOrClose, useWorkUi, withUndo } from '../lib/workOps'
 import { Select } from './Select'
+import { TitleText, openTitleLink } from './TitleText'
 
 const COLS: { key: SortKey; label: string }[] = [
   { key: 'title', label: '제목' },
@@ -30,10 +31,10 @@ function Row({ tk, owners }: { tk: Task; owners: string[] }) {
     <div role="row" className={`tbl-row${late ? ' late' : ''}${state === 'done' || state === 'dropped' ? ' fin' : ''}`}>
       <div role="cell" className="tbl-c tbl-title-c">
         <input type="checkbox" className="task" checked={tk.done} onChange={() => toggleOrClose(tk)} aria-label={tk.title} />
-        <button className="tbl-title" onClick={() => useWorkUi.getState().openEditor(tk)}>
+        <button className="tbl-title" onClick={(e) => { if (openTitleLink(e)) return; useWorkUi.getState().openEditor(tk) }}>
           {tk.kind === 'decision' && <b className="wrk-kind">{t('결정')}</b>}
           {tk.p === 1 && <b className="wrk-p">!</b>}
-          {tk.title}
+          <TitleText title={tk.title} />
         </button>
       </div>
       <div role="cell" className="tbl-c" data-label={t('상태')}>

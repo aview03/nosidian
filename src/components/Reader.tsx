@@ -125,6 +125,19 @@ export function Reader({ path, content, compact = false }: { path: string; conte
         }
       })
     }
+    // 노트 읽기 화면: 코드 블록마다 복사 버튼(개발자 P2). 폰은 마우스를 올릴 수 없으니 늘 보인다
+    if (!compact) {
+      root.querySelectorAll<HTMLElement>('.code-block').forEach((b) => {
+        if (b.querySelector('.code-copy')) return
+        const btn = document.createElement('button')
+        btn.type = 'button'
+        btn.className = 'code-copy'
+        btn.title = t('코드 복사')
+        btn.setAttribute('aria-label', t('코드 복사'))
+        btn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 9h11v11H9zM5 15V5h10"/></svg>'
+        b.appendChild(btn)
+      })
+    }
     if (anchor && !compact) requestAnimationFrame(() => scrollToAnchor(root, anchor))
   }, [html, anchor, dark, compact])
 
@@ -132,6 +145,12 @@ export function Reader({ path, content, compact = false }: { path: string; conte
     const t = e.target as HTMLElement
     const card = t.closest('.codecard')
     const tr = (k: string) => translate(k)
+    const cc = t.closest('.code-copy')
+    if (cc) {
+      const text = cc.closest('.code-block')?.querySelector('pre')?.textContent ?? ''
+      void navigator.clipboard.writeText(text.replace(/\n$/, '')).then(() => useApp.getState().say(tr('복사했어요')))
+      return
+    }
     if (card && t.closest('.codecard-copy')) {
       const text = card.querySelector('pre')?.textContent ?? ''
       void navigator.clipboard.writeText(text.replace(/\n$/, '')).then(() => useApp.getState().say(tr('복사했어요')))

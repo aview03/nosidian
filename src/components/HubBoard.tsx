@@ -13,6 +13,7 @@ import { todayYmd } from '../lib/calendar'
 import { loadBoardSort, saveBoardSort, type BoardSort } from '../lib/hubViews'
 import { uiStateOf, type Task, type UiState } from '../lib/work'
 import { moveTask, reorderTask, useWorkUi, withUndo } from '../lib/workOps'
+import { TitleText, openTitleLink } from './TitleText'
 
 type Col = UiState | 'done'
 const COLS: { key: Col; title: string }[] = [
@@ -279,12 +280,12 @@ export function Board({ tasks, project }: { tasks: Task[]; project: string }) {
                   <button
                     className="board-body"
                     onKeyDown={(e) => keyMove(e, tk, list, ci)}
-                    onClick={() => {
-                      if (justDragged.current) return
+                    onClick={(e) => {
+                      if (justDragged.current || openTitleLink(e)) return
                       useWorkUi.getState().openEditor(tk)
                     }}
                   >
-                    <span className="wrk-title">{tk.kind === 'decision' && <b className="wrk-kind">{t('결정')}</b>}{tk.p === 1 && <b className="wrk-p">!</b>}{tk.title}</span>
+                    <span className="wrk-title">{tk.kind === 'decision' && <b className="wrk-kind">{t('결정')}</b>}{tk.p === 1 && <b className="wrk-p">!</b>}<TitleText title={tk.title} /></span>
                     <span className="wrk-meta">
                       {tk.due && <span className={!tk.done && tk.due < todayYmd() ? 'wrk-late' : 'wrk-due'}>{tk.due.slice(5)}</span>}
                       {tk.owner.length > 0 && <span className="wrk-owner">{tk.owner.join(', ')}</span>}

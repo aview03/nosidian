@@ -12,6 +12,7 @@ import type { Task } from '../lib/work'
 import { patchTask, useWorkUi, withUndo } from '../lib/workOps'
 import { Select } from './Select'
 import { TaskLine } from './TaskLine'
+import { TitleText, openTitleLink } from './TitleText'
 
 const STATE_LABEL: Record<RowState, string> = { todo: '할 일', doing: '진행 중', waiting: '대기', dropped: '취소됨', done: '완료' }
 const short = (s: string) => (s.length > 18 ? s.slice(0, 18) + '…' : s)
@@ -159,10 +160,10 @@ export function HubGantt({ tasks, projectDue }: { tasks: Task[]; projectDue?: st
     const aria = `${tk.title}, ${range}, ${t(STATE_LABEL[st])}${late ? `, ${t('기한 지남')}` : ''}`
     return (
       <div role="listitem" key={tk.id} className={`g-row${st === 'done' || st === 'dropped' ? ' fin' : ''}`}>
-        <button className="g-label" onClick={() => open(tk)} title={tk.title}>
+        <button className="g-label" onClick={(e) => { if (openTitleLink(e)) return; open(tk) }} title={tk.title}>
           {tk.kind === 'decision' && <b className="wrk-kind">{t('결정')}</b>}
           {tk.p === 1 && <b className="wrk-p">!</b>}
-          <span>{tk.title}</span>
+          <span><TitleText title={tk.title} /></span>
         </button>
         <div className="g-track" style={trackStyle}>
           {todayIdx >= 0 && todayIdx < days && <i className="g-today" style={{ left: (todayIdx + 0.5) * dw }} />}

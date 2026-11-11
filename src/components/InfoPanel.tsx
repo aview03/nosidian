@@ -3,6 +3,7 @@ import { tx } from '../lib/tx'
 import { useMemo, useState } from 'react'
 import { useApp } from '../lib/app'
 import { baseName, unlinkedMentions } from '../lib/links'
+import { parentFolder, plainSnippet } from '../lib/mdSnippets'
 import { Graph } from './Graph'
 
 type T = 'back' | 'out' | 'outline'
@@ -54,14 +55,14 @@ export function InfoPanel({ path, onScroll }: { path: string; onScroll(line: num
           {back.length === 0 && <p className="hint">{t('이 노트를 가리키는 노트가 없습니다.')}<br />{tx('다른 노트에서 {link} 로 연결해 보세요.', { link: <code>[[{baseName(path)}]]</code> })}</p>}
           {back.map((p) => (
             <button key={p} className="row" onClick={() => open(p)}>
-              <span className="row-title">{baseName(p)}</span>
-              <span className="row-sub snippet">{snippetFor(p)}</span>
+              <span className="row-title">{baseName(p)}{parentFolder(p) && <small className="row-folder">{parentFolder(p)}</small>}</span>
+              <span className="row-sub snippet">{plainSnippet(snippetFor(p) ?? '')}</span>
             </button>
           ))}
           <button className="link-btn" onClick={() => setShowUnlinked((v) => !v)}>
             {showUnlinked ? '▾' : '▸'} {t('링크되지 않은 언급')}
           </button>
-          {showUnlinked && (unlinked.length ? unlinked.map((u) => line(u.path, u.snippet)) : <p className="hint">{t('없습니다.')}</p>)}
+          {showUnlinked && (unlinked.length ? unlinked.map((u) => line(u.path, plainSnippet(u.snippet))) : <p className="hint">{t('없습니다.')}</p>)}
         </div>
       )}
 

@@ -1466,5 +1466,16 @@ const dict: Record<string, string> = {
   '결정 기록으로 남기기': "Record as a decision",
   '안건': "Topic",
   '결론': "Conclusion",
+  '코드 복사': "Copy code",
+  '{name} 열기': "Open {name}",
+  '마크다운 도움': "Markdown help",
+  '누르면 커서 자리에 넣어요': "Tap one to insert it at the cursor",
+  '코드 (여러 줄이나 빈 줄이면 코드 블록)': "Code (a code block for several lines or an empty line)",
+  '굵게 · 기울임': "Bold / italic",
+  '할 일 (담당·마감)': "Task (owner, due date)",
+  '다른 노트 링크': "Link to another note",
+  '코드 블록 (언어 이름 적기)': "Code block (add the language name)",
+  '콜아웃': "Callout",
+  '다이어그램 (mermaid)': "Diagram (mermaid)",
 }
 export default dict

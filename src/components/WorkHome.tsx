@@ -6,6 +6,7 @@ import { t } from '../lib/i18n'
 import { fmtDay, todayYmd } from '../lib/calendar'
 import { addDaysYmd, buildQueues, buildWork, diffDays, parseMe, type Project, type Task, type QueueItem, type Queues, type WorkIndex } from '../lib/work'
 import { EventRow, QuickAdd, useCalMap } from './Calendar'
+import { TitleText, openTitleLink } from './TitleText'
 import { Icon } from './Icon'
 import { Select } from './Select'
 import { TileAdder, TileArranger } from './TileArranger'
@@ -93,9 +94,9 @@ function TaskRow({ q, projects }: { q: QueueItem; projects: Map<string, Project>
   return (
     <div className={`wrk-row${q.reason === 'overdue' ? ' late' : ''}`}>
       <input type="checkbox" className="task" checked={tk.done} onChange={() => toggleOrClose(tk)} aria-label={tk.title} />
-      <button className="wrk-main" onClick={() => useWorkUi.getState().openEditor(tk)}>
+      <button className="wrk-main" onClick={(e) => { if (openTitleLink(e)) return; useWorkUi.getState().openEditor(tk) }}>
         <span className="wrk-body">
-          <span className="wrk-title">{tk.kind === 'decision' && <b className="wrk-kind">{t('결정')}</b>}{tk.p === 1 && <b className="wrk-p">!</b>}{tk.title}</span>
+          <span className="wrk-title">{tk.kind === 'decision' && <b className="wrk-kind">{t('결정')}</b>}{tk.p === 1 && <b className="wrk-p">!</b>}<TitleText title={tk.title} /></span>
           <span className="wrk-meta">
             {proj && <span className="wrk-proj">{proj.name}</span>}
             {tk.owner.length > 0 && <span className="wrk-owner">{tk.owner.join(', ')}</span>}
