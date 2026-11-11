@@ -23,7 +23,7 @@ export function signalText(s: Signal): string {
   switch (s.key) {
     case 'overdue': return t('기한 지난 일 {n}', { n: s.count })
     case 'decisionLate': return t('확인일이 지난 결정 {n}', { n: s.count })
-    case 'waitingLate': return t('답이 늦은 대기 {n}', { n: s.count })
+    case 'waitingLate': return t('답을 오래 기다리는 일 {n}', { n: s.count })
     default: return t('담당자 없는 일 {n}', { n: s.count })
   }
 }
@@ -188,6 +188,30 @@ const BUILTIN_TITLE: Record<BuiltinTile, string> = {
   triage: '정리할 업무',
   projects: '프로젝트',
 }
+/** 켜 둔 타일이 비었을 때 마우스를 올리면 보이는 설명(이 타일에 어떤 일이 모이는지). 제목을 되풀이하지 않고 화면에는 "지금은 없어요"만 보인다 */
+export const EMPTY_TEXT: Record<BuiltinTile, string> = {
+  today: '오늘의 일정과 할 일이 여기에 모여요',
+  overdue: '마감이 지났는데 아직 끝나지 않은 일이 여기에 모여요',
+  decisions: '결정이 필요한 일이 여기에 모여요',
+  dueToday: '오늘이 마감인 일이 여기에 모여요',
+  week: '이번 주에 마감인 일이 여기에 모여요',
+  waiting: '내가 답이나 결과를 기다리는 일이 여기에 모여요',
+  doing: '지금 하고 있는 일이 여기에 모여요',
+  unowned: '담당자가 정해지지 않은 일이 여기에 모여요',
+  triage: '아직 프로젝트에 넣지 않은 새 업무가 여기에 모여요',
+  projects: '프로젝트가 여기에 모여요',
+}
+
+/** 켜 둔 타일인데 비어 있을 때: 화면에서 빼지 않고 얇은 한 줄로 보인다(역할에 맞춰 고른 구성이 보이도록) */
+export function EmptyTile({ title, text, tone }: { title: string; /** 이 타일에 모이는 일(마우스를 올리면) */ text: string; tone?: string }) {
+  return (
+    <section className={`wrk-sec wrk-tile wrk-tile-empty ${tone ?? ''}`} title={text}>
+      <span className="wrk-tname">{title}</span>
+      <span className="hint">{t('지금은 없어요')}</span>
+    </section>
+  )
+}
+
 const QUEUE_OF: Partial<Record<BuiltinTile, keyof Omit<Queues, 'total'>>> = { overdue: 'overdue', decisions: 'decisions', dueToday: 'today', week: 'week', waiting: 'waiting', doing: 'doing', unowned: 'unowned' }
 
 export function WorkHome() {
@@ -202,6 +226,9 @@ export function WorkHome() {
   const [scope, setScope] = useState<'mine' | 'all'>('mine')
   const today = todayYmd()
   const q = useMemo(() => buildQueues(work, today, scope === 'mine' ? me : []), [work, today, scope, me])
+  // "내 것"만 보는 중에 다른 사람 담당 일이 얼마나 가려져 있는지(빈 화면의 이유를 알려 주려고)
+  const allQ = useMemo(() => buildQueues(work, today, []), [work, today])
+  const hiddenByScope = scope === 'mine' ? allQ.total + allQ.doing.length + allQ.unowned.length - (q.total + q.doing.length + q.unowned.length) : 0
   const projects = useMemo(() => new Map(work.projects.map((p) => [p.path, p])), [work])
   const empty = work.tasks.length === 0 && work.projects.length === 0
   // 마감일(due)이 일정으로도 잡히므로, 업무 대기열에 이미 있는 항목은 오늘 일정에서 뺀다 (두 번 보이지 않게)
@@ -316,6 +343,13 @@ export function WorkHome() {
             )
           )}
 
+          {!editing && me.length > 0 && scope === 'mine' && hiddenByScope > 0 && (
+            <p className="hint small wrk-scope-hint">
+              {t('담당자가 "{name}"인 일만 보여요. 다른 사람 담당 일 {n}개는 가려져 있어요.', { name: me[0], n: hiddenByScope })}{' '}
+              <button className="btn-link" onClick={() => setScope('all')}>{t('전체 보기')}</button>
+            </p>
+          )}
+
           {editing ? (
             <>
               <div className="arr-title">{t('켜 둔 타일')}</div>
@@ -334,7 +368,7 @@ export function WorkHome() {
             <div className="wrk-tiles">{tiles.filter((x) => !x.hidden).map((tile) => {
               const data = dataFor(tile.id)
               if (!data) return null
-              if (!data.alwaysShow && data.rows.length === 0) return null // 비어 있는 타일은 화면에서 빠진다
+              if (!data.alwaysShow && data.rows.length === 0) return <EmptyTile key={tile.id} title={data.title} text={t(EMPTY_TEXT[tile.id as BuiltinTile] ?? '')} tone={data.tone} /> // 켜 둔 타일은 비어도 한 줄로 남긴다
               return <TileView key={tile.id} id={tile.id} data={data} limit={tile.limit} collapsed={tile.collapsed} />
             })}</div>
           )}

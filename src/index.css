@@ -1567,3 +1567,10 @@ input.inline.wide { width: 100%; box-sizing: border-box; height: 42px; }
 .qr-hint { margin: 0; text-align: center; color: var(--muted); font-size: 14.5px; line-height: 1.5; max-width: 300px; }
 .qr-err { margin: 0; padding: 20px; text-align: center; line-height: 1.6; color: var(--text); }
 .qr-foot { padding: 12px 20px calc(16px + var(--safe-b)); }
+
+/* 켜 둔 타일이 비었을 때: 얇은 한 줄 */
+.wrk-tiles > .wrk-tile.wrk-tile-empty { display: flex; align-items: baseline; gap: 10px; padding: 10px 14px; min-height: 0; }
+.wrk-tile-empty .wrk-tname { font-size: 13.5px; font-weight: 700; flex: none; }
+.wrk-tile-empty.danger .wrk-tname { color: var(--danger); }
+.wrk-tile-empty .hint { margin: 0; font-size: 12.5px; }
+.wrk-scope-hint { margin: 4px 0 8px; }

@@ -11,6 +11,8 @@ C="timeout 30 node scripts/dev/cdp.cjs MAIN"
 click(){ $C "(function(){const i=document.querySelector('input'); if(i&&!i.value){Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(i,'시험'); i.dispatchEvent(new Event('input',{bubbles:true}));} const bs=[...document.querySelectorAll('button')].filter(x=>!x.disabled); const b=bs.find(x=>x.textContent.trim().startsWith('$1')); b&&b.click(); return b?'$1':'MISSING $1'})()" | tr '\n' ' '; sleep ${2:-2}; }
 click 한국어 1.5; click 계속; click 좋아요; click 다음; click "$LABEL"; click 다음; click "예제 노트로 둘러보기" 3; echo
 sleep 2
+echo "[첫 화면(온보딩 직후)]"; $C "(document.querySelector('main')||document.body).innerText.replace(/\\n+/g,' / ').slice(0,260)"
+node scripts/dev/shot.cjs 9333 MAIN "$SP/persona_${OUT}_first.png" 1200 860
 $C "(function(){const b=document.querySelector('nav.rail button[title=\"내 업무\"]'); b&&b.click(); return !!b})()" >/dev/null; sleep 2.5
 $C "JSON.stringify({tiles:[...document.querySelectorAll('.tile h3, .wk-tile h3, section h3, .tile-title')].map(x=>x.textContent.trim()).slice(0,14), text:(document.querySelector('.work, .work-home, main')||document.body).innerText.replace(/\n+/g,' / ').slice(0,500)})"
 node scripts/dev/shot.cjs 9333 MAIN "$SP/persona_$OUT.png" 1200 860

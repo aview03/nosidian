@@ -798,7 +798,9 @@ export const useApp = create<AppState>((set, get) => {
       await db.putFiles(Object.values(files))
       set({ files, assets: {} })
       rebuild(true)
-      get().openNote(demo.home)
+      // 역할로 꾸민 내 업무를 먼저 보여 준다(환영 노트는 "최근"에서 열 수 있다)
+      get().patchSettings({ recent: [demo.home] })
+      get().go(homeTab())
     },
     /** 이 vault 의 동기화 연결을 끊고 로컬 사본도 비운다 (vault 자체는 남는다) */
     async commitHostConnect(files, assets, cfg) {
