@@ -1332,5 +1332,9 @@ const dict: Record<string, string> = {
   '코드가 만료됐어요. 안전을 위해 지금은 아무 기기도 연결할 수 없어요.': "The code has expired. For safety, no device can connect right now.",
   '"{name}" 연결됐어요': "\"{name}\" connected",
   '새로 만들기': "Create new",
+  '모델 새로 고침': "Refresh models",
+  '마지막으로 가져온 목록을 보여 줘요': "Showing the last list we got",
+  '도구 호출 미지원': "No tool-call support",
+  '답변할 AI 와 모델': "AI and model to answer with",
 }
 export default dict

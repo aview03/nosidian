@@ -94,3 +94,9 @@ export function countConnected(claudeReady: boolean, conns: LlmConfig[]): number
 
 /** 목록 행이 "지금 사용 중"인지. Claude 는 엔진이 claude 일 때, 연결은 엔진이 ollama 이고 선택된 연결일 때 */
 export const isInUse = (engine: EngineChoice, selectedId: string | null, rowId: string | 'claude') => (rowId === 'claude' ? engine === 'claude' : engine === 'ollama' && selectedId === rowId)
+
+/** 패널 선택 상자 버튼에 보일 짧은 이름: "Ollama", "OpenAI", "Claude API", "PC Ollama" */
+export function engineShortName(c: LlmConfig): string {
+  const name = c.kind === 'ollama' ? 'Ollama' : c.kind === 'custom' ? t('내 서버') : c.kind === 'anthropic' ? 'Claude API' : c.kind === 'gemini' ? 'Gemini' : 'OpenAI'
+  return (c.viaPc ? 'PC ' : '') + name
+}

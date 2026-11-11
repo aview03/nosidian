@@ -1543,3 +1543,15 @@ input.inline.wide { width: 100%; box-sizing: border-box; height: 42px; }
 .aiw-conn-act .btn-link.danger { margin-left: auto; padding-right: 0; color: var(--danger); }
 .aiw-conn-edit { grid-column: 1 / -1; padding-top: 6px; }
 .aiw-conn-edit .card { margin: 0; padding: 4px 0 0; border: none; }
+
+/* 선택 상자: 묶음 제목·고를 수 없는 항목 */
+.sel-group { padding: 10px 12px 4px; font-size: 12px; font-weight: 600; color: var(--muted); letter-spacing: .2px; }
+.sel-group:first-child { padding-top: 4px; }
+.sel-opt.grouped { padding-left: 22px; }
+.sel-opt.off { opacity: .45; cursor: default; }
+.sel-opt.off.hl { background: none; }
+
+/* 연결 행: 모델 고르기·새로 고침 */
+.aiw-conn-model { grid-column: 1 / -1; }
+.aiw-conn-model .sel-btn { height: 38px; font-size: 14px; }
+.aiw-conn-note { grid-column: 1 / -1; color: var(--muted); font-size: 12.5px; }

@@ -7,7 +7,8 @@ import { readiness } from '../lib/aiAssistant'
 import { currentEngine, useAiThread } from '../lib/aiThread'
 import { loadAllLlmConfigs, loadLlmConfig, providerOf, saveLlmConfig, supportsTools, type LlmConfig, type ProviderKind } from '../lib/llm'
 import { chatTurn, clearStoredKey, keyStoreStatus, listModels, storeKey } from '../lib/llmNet'
-import { newConnectionId, removeConnection, setSelected } from '../lib/aiConnections'
+import { listConnections, newConnectionId, removeConnection, setSelected, updateConnection } from '../lib/aiConnections'
+import { modelList, refreshModels, refreshStaleModels } from '../lib/aiModels'
 import { confirmAsk } from '../lib/dialog'
 import { LlmCard } from './LlmSettings'
 import { startAnalysis } from '../lib/autoRunner'
@@ -39,6 +40,22 @@ export function AiWizard() {
   /** 지금 "고치기"로 펼쳐 둔 연결 */
   const [editing, setEditing] = useState<string | null>(null)
   useEffect(() => { void claude?.detect().then(setCs) }, [claude])
+  // 모델 목록이 없거나 낡은 연결은 열 때 백그라운드로 가져온다(목록이 오면 저장 이벤트로 화면이 다시 그려진다)
+  useEffect(() => { void refreshStaleModels() }, [])
+  const [refreshing, setRefreshing] = useState<string | null>(null)
+  const [note, setNote] = useState<{ id: string; text: string } | null>(null)
+  const refresh = async (id: string) => {
+    setRefreshing(id)
+    setNote(null)
+    try {
+      const list = await refreshModels(id)
+      setNote({ id, text: t('모델 {n}개를 찾았어요', { n: list.length }) })
+    } catch (e) {
+      setNote({ id, text: (e instanceof Error ? e.message : String(e)) + ' — ' + t('마지막으로 가져온 목록을 보여 줘요') })
+    } finally {
+      setRefreshing(null)
+    }
+  }
   // 다른 곳(예: 폰의 PC 연결 해제, 다른 카드)에서 설정이 바뀌어도 목록을 다시 읽는다
   const cfgVersion = useAiConfigVersion()
   useEffect(() => { setConns(loadAllLlmConfigs()); setPc(loadPcLink()) }, [cfgVersion])
@@ -88,15 +105,24 @@ export function AiWizard() {
               )}
               {conns.map((c) => {
                 const inUse = !!c.id && isInUse(engine, selectedId, c.id)
+                const full = listConnections().find((x) => x.id === c.id)
+                const mods = full ? modelList(full) : []
                 return (
                   <li key={c.id} className={`aiw-conn${inUse ? ' on' : ''}`}>
                     <span className="aiw-conn-main"><b>{connectionTitle(c)}</b><small>{connectionSub(c)}</small></span>
                     <span className="aiw-conn-badge">{connectionBadge(c)}</span>
+                    {mods.length > 1 && c.id && (
+                      <span className="aiw-conn-model">
+                        <Select<string> className="aiw-model-sel" value={c.model} title={t('모델')} ariaLabel={t('모델')} onChange={(m) => updateConnection(c.id!, { model: m })} options={mods.map((m) => ({ value: m, label: m }))} />
+                      </span>
+                    )}
                     <span className="aiw-conn-act">
                       {inUse ? <em>{t('사용 중')}</em> : <button className="btn-link" disabled={!supportsTools(c.kind) || !c.model} onClick={() => c.id && use(c.id)}>{t('사용')}</button>}
+                      {c.id && <button className="btn-link" disabled={refreshing === c.id} onClick={() => void refresh(c.id!)}>{refreshing === c.id ? t('불러오는 중…') : t('모델 새로 고침')}</button>}
                       {!mobile && <button className="btn-link" onClick={() => setEditing(editing === c.id ? null : c.id ?? null)}>{editing === c.id ? t('접기') : t('고치기')}</button>}
                       <button className="btn-link danger" onClick={() => void remove(c)}>{t('해제')}</button>
                     </span>
+                    {note && note.id === c.id && <small className="aiw-conn-note">{note.text}</small>}
                     {editing === c.id && !mobile && <div className="aiw-conn-edit"><LlmCard connId={c.id} onClose={() => setEditing(null)} /></div>}
                   </li>
                 )

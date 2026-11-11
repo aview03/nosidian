@@ -2,6 +2,8 @@
 // 대화·실행 상태는 lib/aiThread.ts(스토어)에 있어서 패널을 닫아도 실행이 이어진다. 실제 실행은 PC 의 Claude Code CLI(고정된 안전 옵션)이다.
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAiConfigVersion } from '../lib/useAiConfig'
+import { getSelected, listConnections } from '../lib/aiConnections'
+import { chooseModel, panelOptions, parseOptionValue, refreshStaleModels, selectedValue } from '../lib/aiModels'
 import { useApp } from '../lib/app'
 import { t } from '../lib/i18n'
 import { desktop, type ClaudeStatus } from '../lib/externalIO'
@@ -12,7 +14,7 @@ import { openSettingsGroup } from './Settings'
 import { pcClaude } from '../lib/pcLink'
 import { useFileProposals } from '../lib/fileProposals'
 import { getLang } from '../lib/i18n'
-import { currentEngine, localEngine, useAiThread, type Engine, type Msg, type Step } from '../lib/aiThread'
+import { currentEngine, localEngine, useAiThread, type Msg, type Step } from '../lib/aiThread'
 import { isStale } from '../lib/proposals'
 import { useProposals } from '../lib/proposalStore'
 import { useAutomation } from '../lib/automation'
@@ -201,6 +203,10 @@ export function AiPanel() {
   // 설정에서 모델을 새로 연결·변경·삭제하면(이벤트) 열려 있는 패널도 바로 다시 계산한다
   const cfgVersion = useAiConfigVersion()
   const local = useMemo(() => localEngine(), [cfgVersion, open, claude, vault])
+  // 답변할 AI 와 모델 선택 목록(연결마다 묶음). 연결·모델이 바뀌면(이벤트) 다시 만든다
+  const conns = useMemo(() => listConnections(), [cfgVersion])
+  const claudeAvail = !!claude || pcClaude()
+  const opts = useMemo(() => panelOptions(claudeAvail, conns), [claudeAvail, conns])
   const scroller = useRef<HTMLDivElement>(null)
   const stick = useRef(true) // 사용자가 위로 올려 읽는 중이면 자동 스크롤하지 않는다
   const box = useRef<HTMLTextAreaElement>(null)
@@ -210,6 +216,7 @@ export function AiPanel() {
     useAiThread.getState().ensure()
     useProposals.getState().ensure()
     void claude?.detect().then(setStatus)
+    void refreshStaleModels() // 낡은 모델 목록은 열 때 백그라운드로 새로 가져온다(실패는 조용히)
     setTimeout(() => box.current?.focus(), 50)
   }, [open, claude, vault])
 
@@ -330,14 +337,21 @@ export function AiPanel() {
             <button className={mode === 'edit' ? 'on' : ''} onClick={() => useAiThread.getState().setMode('edit')} title={t('노트 변경을 제안해요(승인해야 반영돼요)')}>{t('변경 제안')}</button>
           </div>
           <span className="grow" />
-          {mobile && !pcClaude() ? <span className="ai-model" title={local.label}>{local.label}</span> : (
-          <Select<Engine>
+          {opts.length <= 1 ? <span className="ai-model" title={local.label}>{opts[0]?.buttonLabel ?? opts[0]?.label ?? local.label}</span> : (
+          <Select<string>
             className="ai-engine-sel"
-            value={engine}
+            value={selectedValue(engine, conns, getSelected())}
             ariaLabel={t('답변 엔진')}
+            title={t('답변할 AI 와 모델')}
             disabled={running}
-            onChange={(v) => useAiThread.getState().setEngine(v)}
-            options={[{ value: 'claude', label: mobile ? 'Claude CLI (PC)' : 'Claude CLI' }, { value: 'ollama', label: local.label || t('다른 모델 연결') }]}
+            onChange={(v) => {
+              const p = parseOptionValue(v)
+              if (!p) return
+              if (p.claude) return useAiThread.getState().setEngine('claude')
+              chooseModel(p.conn, p.model) // 이 연결의 기본 모델로 저장하고 그 연결을 선택한다
+              useAiThread.getState().setEngine('ollama')
+            }}
+            options={opts}
           />
           )}
           {running ? (
