@@ -1477,5 +1477,6 @@ const dict: Record<string, string> = {
   '코드 블록 (언어 이름 적기)': "Code block (add the language name)",
   '콜아웃': "Callout",
   '다이어그램 (mermaid)': "Diagram (mermaid)",
+  '"{name}" 완료했어요': "Completed \"{name}\"",
 }
 export default dict

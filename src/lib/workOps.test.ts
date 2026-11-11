@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useApp } from './app'
 import { setLang } from './i18n'
-import { addTask, deleteTask, deleteView, moveTask, moveToProject, saveView, updateTask } from './workOps'
+import { addTask, deleteTask, deleteView, moveTask, moveToProject, saveView, toggleOrClose, updateTask } from './workOps'
 import { buildQueues, buildWork, tokensForState } from './work'
 import type { NoteFile } from './types'
 
@@ -133,5 +133,33 @@ describe('업무 연산이 노트를 고친다', () => {
     expect(text('_workspace/보기.md')).not.toContain('- 민수 일 ::')
     deleteView('민수 일(지남)')
     expect(text('_workspace/보기.md')).not.toContain('민수 일(지남) ::')
+  })
+})
+
+describe('완료 처리에 되돌리기(디자이너 P3)', () => {
+  const find = (title: string) => buildWork(useApp.getState().files).tasks.find((t) => t.title === title)!
+  beforeEach(() => useApp.setState({ toast: null, toastUndo: null } as never))
+
+  it('완료하면 알림이 뜨고 되돌리면 원래 줄로 돌아온다', () => {
+    const before = text('행사/할 일.md')
+    toggleOrClose(find('케이크 주문'))
+    expect(text('행사/할 일.md')).toContain('- [x] 케이크 주문')
+    expect(useApp.getState().toast).toBe('"케이크 주문" 완료했어요')
+    ;(useApp.getState() as unknown as { toastUndo: () => void }).toastUndo()
+    expect(text('행사/할 일.md')).toBe(before)
+  })
+  it('그새 노트가 바뀌었으면 되돌리지 않는다', () => {
+    toggleOrClose(find('케이크 주문'))
+    useApp.getState().setContent('행사/할 일.md', text('행사/할 일.md') + '- [ ] 새 일\n')
+    ;(useApp.getState() as unknown as { toastUndo: () => void }).toastUndo()
+    expect(text('행사/할 일.md')).toContain('- [x] 케이크 주문')
+    expect(useApp.getState().toast).toBe('그새 노트가 바뀌어서 되돌리지 못했어요')
+  })
+  it('이미 끝낸 일을 다시 여는 것은 알림 없이 그대로', () => {
+    toggleOrClose(find('케이크 주문'))
+    useApp.setState({ toast: null } as never)
+    toggleOrClose(find('케이크 주문'))
+    expect(text('행사/할 일.md')).toContain('- [ ] 케이크 주문')
+    expect(useApp.getState().toast).toBeNull()
   })
 })

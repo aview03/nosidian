@@ -1,9 +1,9 @@
-// usage: node scripts/dev/inject-fixture.cjs <cdpPort> <fixtureDir> <vaultName>
+// usage: node scripts/dev/inject-fixture.cjs <cdpPort> <fixtureDir> <vaultName> [persona=developer]
 // 폴더 안의 .md 파일들을 새 보관함(vault)에 노트로 넣는다. 기존 보관함은 건드리지 않는다. PC(9333)·폰(9444, adb forward) 어느 쪽이든 같은 데이터가 들어간다.
 // 앞서 앱에 localStorage nosidian.dev=1 을 넣고 다시 불러서 개발용 훅(window.__proposals)이 켜져 있어야 한다.
 const fs = require('fs')
 const path = require('path')
-const [, , port, dir, vaultName] = process.argv
+const [, , port, dir, vaultName, persona = 'developer'] = process.argv
 
 function walk(root, rel = '') {
   const out = []
@@ -26,7 +26,7 @@ function walk(root, rel = '') {
     if (!app) return 'dev hook off'
     await app.getState().addVault(name, { silent: true })
     for (const [p, c] of files) app.getState().createNote(p, c, false)
-    app.getState().patchSettings({ myName: '동민', persona: 'developer' })
+    app.getState().patchSettings({ myName: '동민', persona: ${JSON.stringify(persona)} })
     return Object.keys(app.getState().files).length + ' notes in vault ' + app.getState().settings.activeVault
   })(${JSON.stringify(files)}, ${JSON.stringify(vaultName)})`
   ws.onmessage = (m) => {
