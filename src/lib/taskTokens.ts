@@ -13,6 +13,7 @@ export type Side = 'me' | 'other'
 export type Kind = 'decision'
 
 export interface WorkTokens {
+  start?: string // YYYY-MM-DD 시작일(간트 막대의 왼쪽 끝). 없으면 마감일 한 점
   due?: string // YYYY-MM-DD
   owner?: string[] // 담당자(쉼표로 여러 명)
   p?: 1 | 2 | 3 // 우선순위 (1 이 가장 높음)
@@ -27,6 +28,7 @@ export interface WorkTokens {
 const D = String.raw`\d{4}-\d{2}-\d{2}`
 const RE = {
   due: new RegExp(String.raw`(?:^|\s)due:(${D})(?=\s|$)`),
+  start: new RegExp(String.raw`(?:^|\s)start:(${D})(?=\s|$)`),
   owner: /(?:^|\s)owner:(?:"([^"]+)"|(\S+))(?=\s|$)/,
   p: /(?:^|\s)p:([123])(?=\s|$)/,
   status: /(?:^|\s)status:(\S+)(?=\s|$)/,
@@ -61,6 +63,7 @@ export function splitWorkTokens(text: string): { rest: string; tokens: WorkToken
   // 결론이 가장 먼저(줄 끝까지 먹으므로 다른 토큰이 결론 안에 있어도 건드리지 않는다)
   take(RE.conclusion, (m) => (tokens.conclusion = m[1].trim()))
   take(RE.due, (m) => (tokens.due = m[1]))
+  take(RE.start, (m) => (tokens.start = m[1]))
   take(RE.owner, (m) => (tokens.owner = (m[1] ?? m[2]).split(/[,，]/).map((x) => x.trim()).filter(Boolean)))
   take(RE.p, (m) => (tokens.p = Number(m[1]) as 1 | 2 | 3))
   take(RE.status, (m) => {
@@ -89,6 +92,7 @@ export function formatWorkTokens(t: WorkTokens): string {
   if (t.status) parts.push(`status:${t.status}`)
   if (t.kind) parts.push(`kind:${t.kind}`)
   if (t.side) parts.push(`side:${t.side}`)
+  if (t.start) parts.push(`start:${t.start}`)
   if (t.due) parts.push(`due:${t.due}`)
   if (t.owner?.length) parts.push(t.owner.length === 1 && !/\s/.test(t.owner[0]) ? `owner:${t.owner[0]}` : `owner:"${t.owner.join(', ')}"`)
   if (t.p) parts.push(`p:${t.p}`)

@@ -2,11 +2,12 @@
 //  - 보기를 새로 만들면 HUB_VIEWS 에 한 줄 더하고 ProjectHub 가 그리는 곳을 연결한다.
 //  - 기억은 이 기기 브라우저 저장소(편의 기능)라 없어도 기본 보기로 동작한다.
 
-export type HubView = 'board' | 'timeline' | 'table' | 'owners'
+export type HubView = 'board' | 'gantt' | 'timeline' | 'table' | 'owners'
 
 /** 칩 순서 = 자주 쓰는 순. label·hint 는 화면에서 t() 로 번역해 쓴다 */
 export const HUB_VIEWS: { key: HubView; label: string; hint: string }[] = [
   { key: 'board', label: '보드', hint: '상태별 칸으로 나눠 보고, 끌어서 옮겨요' },
+  { key: 'gantt', label: '간트', hint: '일정을 막대로 보고, 끌어서 옮겨요' },
   { key: 'timeline', label: '타임라인', hint: '날짜 순으로 쭉 늘어놓아 봐요' },
   { key: 'table', label: '표', hint: '열 머리를 눌러 정렬하고, 상태·담당·마감을 바로 고쳐요' },
   { key: 'owners', label: '담당자별', hint: '사람마다 모아서 맡은 일과 업무량을 봐요' },

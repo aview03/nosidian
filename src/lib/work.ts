@@ -18,6 +18,7 @@ export interface Task {
   title: string
   done: boolean
   state: TaskState // todo | doing | waiting | dropped
+  start?: string // 시작일(start: 꼬리표). 간트 막대의 왼쪽 끝
   due?: string
   owner: string[]
   p?: 1 | 2 | 3
@@ -173,6 +174,7 @@ export function buildWork(files: Record<string, NoteFile>): WorkIndex {
         title: r.title,
         done: r.done,
         state: r.tokens.status ?? 'todo',
+        start: r.tokens.start,
         due: r.tokens.due,
         owner: r.tokens.owner ?? [],
         p: r.tokens.p,

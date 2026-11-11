@@ -16,6 +16,7 @@ import { Icon } from './Icon'
 import { TaskLine } from './TaskLine'
 import { HubTable } from './HubTable'
 import { HubOwners } from './HubOwners'
+import { HubGantt } from './HubGantt'
 import { filterTasks } from '../lib/projectViews'
 import { HUB_VIEWS, loadHubView, saveHubView, type HubView } from '../lib/hubViews'
 import { healthLabel, signalText, useHealth, useWork } from './WorkHome'
@@ -253,7 +254,7 @@ export function ProjectHub() {
             </>
           )}
 
-          {tab === 'views' && (view === 'table' || view === 'owners') && (
+          {tab === 'views' && (view === 'table' || view === 'owners' || view === 'gantt') && (
             <div className="hub-filter">
               {me.length > 0 && <button aria-pressed={mineOnly} className={mineOnly ? 'on' : ''} onClick={() => setMineOnly(!mineOnly)}>{t('내 것만')}</button>}
               <button aria-pressed={showDone} className={showDone ? 'on' : ''} onClick={() => setShowDone(!showDone)}>{t('완료 포함')}</button>
@@ -261,6 +262,7 @@ export function ProjectHub() {
           )}
           {tab === 'views' && view === 'board' && <Board tasks={tasks} />}
           {tab === 'views' && view === 'table' && <HubTable tasks={filterTasks(tasks, { mineOnly, showDone, me })} owners={[...new Set(tasks.flatMap((x) => x.owner))].sort((a, b) => a.localeCompare(b, 'ko'))} />}
+          {tab === 'views' && view === 'gantt' && <HubGantt tasks={filterTasks(tasks, { mineOnly, showDone, me })} projectDue={project.due} />}
           {tab === 'views' && view === 'owners' && <HubOwners tasks={filterTasks(tasks, { mineOnly, showDone, me })} me={me} />}
 
           {tab === 'docs' && (

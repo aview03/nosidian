@@ -55,9 +55,9 @@ describe('프로젝트 허브: 표·담당자별 보기', () => {
     useWorkUi.setState({ hub: null, editor: null })
   })
 
-  it('칩에 표·담당자별이 있다', () => {
+  it('칩에 간트·표·담당자별이 있다', () => {
     act(() => q<HTMLButtonElement>('.hub-tabs [role="tab"]')[1].click())
-    expect(q('.hub-views [role="tab"]').map((b) => b.textContent)).toEqual([t('보드'), t('타임라인'), t('표'), t('담당자별')])
+    expect(q('.hub-views [role="tab"]').map((b) => b.textContent)).toEqual([t('보드'), t('간트'), t('타임라인'), t('표'), t('담당자별')])
   })
 
   describe('표', () => {

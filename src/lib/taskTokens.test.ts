@@ -68,3 +68,20 @@ describe('splitWorkTokens', () => {
     expect(formatWorkTokens({ kind: 'decision', due: '2026-11-12' })).toBe('kind:decision due:2026-11-12')
   })
 })
+
+describe('start: 시작일 꼬리표(간트)', () => {
+  it('읽고 제목에서 걷어 내며, 마감일과 함께 쓸 수 있다', () => {
+    const r = splitWorkTokens('현수막 제작 start:2026-11-20 due:2026-11-25 owner:민수')
+    expect(r.rest).toBe('현수막 제작')
+    expect(r.tokens).toEqual({ start: '2026-11-20', due: '2026-11-25', owner: ['민수'] })
+  })
+  it('형식이 틀린 날짜는 건드리지 않고 제목에 남긴다', () => {
+    const r = splitWorkTokens('일 start:내일')
+    expect(r.tokens.start).toBeUndefined()
+    expect(r.rest).toContain('start:내일')
+  })
+  it('쓸 때는 마감일 바로 앞에 놓인다', () => {
+    expect(formatWorkTokens({ start: '2026-11-20', due: '2026-11-25', owner: ['민수'] })).toBe('start:2026-11-20 due:2026-11-25 owner:민수')
+    expect(formatWorkTokens(splitWorkTokens('x start:2026-11-20').tokens)).toBe('start:2026-11-20')
+  })
+})

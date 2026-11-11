@@ -132,17 +132,18 @@ export function addTask(edit: TaskEdit, projectPath: string | null): string {
 
 /** 보드에서 업무를 다른 칸으로 옮긴다. 'done' 은 완료 체크, 나머지는 status 꼬리표만 바꾼다(다른 값은 그대로) */
 export function moveTask(task: Task, to: UiState | 'done'): boolean {
-  const base = { kind: task.kind, due: task.due ?? undefined, owner: task.owner.length ? task.owner : undefined, p: task.p ?? undefined, impact: task.impact ?? undefined, conclusion: task.conclusion ?? undefined, proj: task.explicitProj ?? undefined }
+  const base = { kind: task.kind, start: task.start ?? undefined, due: task.due ?? undefined, owner: task.owner.length ? task.owner : undefined, p: task.p ?? undefined, impact: task.impact ?? undefined, conclusion: task.conclusion ?? undefined, proj: task.explicitProj ?? undefined }
   const ui: UiState = to === 'done' ? 'todo' : to
   return updateTask(task, { title: task.title, done: to === 'done', tokens: tokensForState(ui, base) })
 }
 
-/** 업무의 마감·담당·우선순위만 바꾼다(null = 지움, 안 적으면 그대로). 상태·종류·영향·결론·프로젝트 꼬리표는 그대로 둔다 */
-export function patchTask(task: Task, patch: { due?: string | null; owner?: string[] | null; p?: 1 | 2 | 3 | null }): boolean {
+/** 업무의 시작일·마감·담당·우선순위만 바꾼다(null = 지움, 안 적으면 그대로). 상태·종류·영향·결론·프로젝트 꼬리표는 그대로 둔다 */
+export function patchTask(task: Task, patch: { start?: string | null; due?: string | null; owner?: string[] | null; p?: 1 | 2 | 3 | null }): boolean {
   const pick = <T,>(v: T | null | undefined, cur: T | undefined): T | undefined => (v === undefined ? cur : v === null ? undefined : v)
   const owner = pick(patch.owner, task.owner.length ? task.owner : undefined)
   const base = {
     kind: task.kind,
+    start: pick(patch.start, task.start ?? undefined),
     due: pick(patch.due, task.due ?? undefined),
     owner: owner && owner.length ? owner : undefined,
     p: pick(patch.p, task.p ?? undefined),
@@ -175,7 +176,7 @@ export function withUndo(task: Task, message: string, run: () => boolean): boole
 
 /** 프로젝트 밖(받은 업무 등)에 있는 업무를 프로젝트의 '할 일' 노트로 옮긴다: 새 위치에 먼저 쓰고, 성공하면 원래 줄을 지운다 */
 export function moveToProject(task: Task, projectPath: string): boolean {
-  const tokens = { kind: task.kind, due: task.due ?? undefined, owner: task.owner.length ? task.owner : undefined, p: task.p ?? undefined, impact: task.impact ?? undefined, conclusion: task.conclusion ?? undefined, status: task.state === 'todo' ? undefined : task.state, side: task.side === 'other' ? ('other' as const) : undefined }
+  const tokens = { kind: task.kind, start: task.start ?? undefined, due: task.due ?? undefined, owner: task.owner.length ? task.owner : undefined, p: task.p ?? undefined, impact: task.impact ?? undefined, conclusion: task.conclusion ?? undefined, status: task.state === 'todo' ? undefined : task.state, side: task.side === 'other' ? ('other' as const) : undefined }
   const to = addTask({ title: task.title, done: task.done, tokens }, projectPath)
   if (to === task.path) return false
   return deleteTask(task)

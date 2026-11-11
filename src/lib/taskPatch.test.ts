@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { useApp } from './app'
 import { buildIndex } from './links'
 import { buildWork } from './work'
-import { patchTask, withUndo } from './workOps'
+import { moveTask, moveToProject, patchTask, withUndo } from './workOps'
 import { setLang } from './i18n'
 import type { NoteFile } from './types'
 
@@ -59,5 +59,34 @@ describe('withUndo: 되돌리기 알림', () => {
     load('- [ ] 일\n')
     expect(withUndo(first(), '바꿨어요', () => false)).toBe(false)
     expect(useApp.getState().toastUndo).toBeNull()
+  })
+})
+
+describe('start: 시작일이 다른 수정에서 지워지지 않는다', () => {
+  const LINE = '- [ ] 현수막 start:2026-11-20 due:2026-11-25 owner:민수 p:2\n'
+  it('상태를 옮겨도(보드·표) 시작일이 남는다', () => {
+    load(LINE)
+    moveTask(first(), 'doing')
+    expect(first()).toMatchObject({ start: '2026-11-20', due: '2026-11-25', state: 'doing' })
+  })
+  it('마감·담당을 고쳐도(표) 시작일이 남는다', () => {
+    load(LINE)
+    patchTask(first(), { due: '2026-12-01', owner: ['지현'] })
+    expect(first()).toMatchObject({ start: '2026-11-20', due: '2026-12-01', owner: ['지현'] })
+  })
+  it('시작일 자체를 바꾸거나 지울 수 있다(간트)', () => {
+    load(LINE)
+    patchTask(first(), { start: '2026-11-22' })
+    expect(first().start).toBe('2026-11-22')
+    patchTask(first(), { start: null })
+    expect(first().start).toBeUndefined()
+    expect(first().due).toBe('2026-11-25')
+  })
+  it('받은 업무에서 프로젝트로 옮겨도 시작일이 남는다', () => {
+    const files = Object.fromEntries([note('행사/프로젝트 개요.md', '---\ntype: project\n---\n# 행사\n'), note('받은 업무.md', LINE)].map((f) => [f.path, f]))
+    useApp.setState({ files, index: buildIndex(Object.values(files).map((f) => ({ path: f.path, content: f.content }))), ready: true })
+    const tk = buildWork(useApp.getState().files).tasks.find((x) => x.title === '현수막')!
+    expect(moveToProject(tk, '행사/프로젝트 개요.md')).toBe(true)
+    expect(buildWork(useApp.getState().files).tasks.find((x) => x.title === '현수막')).toMatchObject({ start: '2026-11-20', project: '행사/프로젝트 개요.md' })
   })
 })

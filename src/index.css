@@ -1634,3 +1634,64 @@ input.inline.wide { width: 100%; box-sizing: border-box; height: 42px; }
 .own-body { padding: 0 8px 8px; }
 .own-hint { margin: 0 4px 6px; }
 .own-task { cursor: grab; }
+
+/* 프로젝트 허브: 간트 보기 (docs/PROJECT-VIEWS.md §4.1) */
+.gantt { --gl: 112px; --g-weekend: rgba(128, 128, 128, 0.09); --g-line: var(--border); --g-h: 40px; }
+@media (min-width: 700px) { .gantt { --gl: 220px; } }
+.g-tools { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+.g-tools .hub-filter { margin: 0; }
+.g-groupsel { min-height: 32px; font-size: 13px; }
+.gantt-scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--r, 10px); overscroll-behavior-x: contain; }
+.g-grid { position: relative; }
+.g-row { display: flex; align-items: stretch; min-height: var(--g-h); border-bottom: 1px solid var(--border); }
+.g-row:last-child { border-bottom: none; }
+.g-row.fin .g-label span { color: var(--muted); text-decoration: line-through; }
+.g-label { flex: none; width: var(--gl); position: sticky; left: 0; z-index: 3; display: flex; align-items: center; gap: 6px; padding: 0 10px; background: var(--bg); border: none; border-right: 1px solid var(--border); color: var(--text); font: inherit; font-size: 13px; font-weight: 600; text-align: left; box-sizing: border-box; cursor: pointer; min-width: 0; }
+.g-label span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.g-label.g-static { cursor: default; color: var(--muted); font-weight: 600; }
+.g-label small { color: var(--muted); font-weight: 500; }
+.g-track { flex: none; position: relative; height: auto; min-height: var(--g-h); }
+.g-head { min-height: 52px; background: var(--bg); }
+.g-head .g-label { background: var(--bg); }
+.g-headtrack { height: 52px; }
+.g-months, .g-days { position: absolute; left: 0; right: 0; }
+.g-months { top: 0; height: 24px; }
+.g-months span { position: absolute; top: 0; height: 24px; padding-left: 6px; display: flex; align-items: center; font-size: 12px; font-weight: 700; color: var(--text); border-left: 1px solid var(--border); box-sizing: border-box; white-space: nowrap; overflow: hidden; }
+.g-days { top: 26px; height: 24px; }
+.g-days span { position: absolute; top: 0; height: 24px; display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--muted); box-sizing: border-box; }
+.g-days span.wk { background: var(--g-weekend); }
+.g-days span.now { color: var(--bg); background: var(--text); border-radius: 12px; font-weight: 700; }
+.g-today { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--danger, #e5484d); opacity: 0.75; pointer-events: none; z-index: 1; }
+.g-grouphead { min-height: 30px; background: var(--bg2); }
+.g-grouphead .g-label { background: var(--bg2); min-height: 30px; font-size: 12px; }
+.g-proj .g-label { min-height: 32px; }
+.g-flag { position: absolute; top: 50%; transform: translate(-50%, -50%); font-size: 16px; color: var(--danger, #e5484d); z-index: 2; }
+
+.g-bar { position: absolute; top: 9px; height: 22px; padding: 0; border: 2px solid var(--text); border-radius: 6px; background: transparent; color: var(--text); box-sizing: border-box; z-index: 2; cursor: grab; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; touch-action: pan-x pan-y; }
+.g-bar.dragging { cursor: grabbing; opacity: 0.85; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35); }
+.g-bar.s-doing { background: var(--text); color: var(--bg); }
+.g-bar.s-waiting { background: repeating-linear-gradient(45deg, var(--text) 0 3px, transparent 3px 7px); }
+.g-bar.s-done, .g-bar.s-dropped { border-color: var(--muted); background: var(--bg3); opacity: 0.7; }
+.g-bar.late { border-color: var(--danger, #e5484d); color: var(--danger, #e5484d); }
+.g-bar.s-doing.late { background: var(--danger, #e5484d); color: #fff; }
+.g-bar.cl { border-top-left-radius: 0; border-bottom-left-radius: 0; border-left-style: dashed; }
+.g-bar.cr { border-top-right-radius: 0; border-bottom-right-radius: 0; border-right-style: dashed; }
+.g-bar em { font-style: normal; pointer-events: none; }
+.g-h { position: absolute; top: 0; bottom: 0; width: 8px; cursor: ew-resize; }
+.g-h.l { left: -2px; }
+.g-h.r { right: -2px; }
+.g-pt { position: absolute; top: 50%; width: 16px; height: 16px; margin: -8px 0 0 -8px; padding: 0; border: 2px solid var(--text); background: var(--bg); transform: rotate(45deg); z-index: 2; cursor: grab; box-sizing: border-box; }
+.g-pt.s-doing { background: var(--text); }
+.g-pt.s-waiting { background: repeating-linear-gradient(45deg, var(--text) 0 2px, transparent 2px 4px); }
+.g-pt.s-done, .g-pt.s-dropped { border-color: var(--muted); background: var(--bg3); opacity: 0.7; }
+.g-pt.late { border-color: var(--danger, #e5484d); }
+.g-pt.dragging { cursor: grabbing; }
+.g-bar:focus-visible, .g-pt:focus-visible { outline: 3px solid var(--accent, #4c8dff); outline-offset: 2px; }
+.g-help { margin: 8px 2px 0; }
+.g-undated { margin-top: 14px; }
+@media (prefers-reduced-motion: reduce) { .g-bar, .g-pt { transition: none; } }
+/* 전역 버튼의 최소 높이/너비(터치 목표)가 막대·마름모를 키우지 않게 한다. 눌리는 면적은 ::after 로 넓힌다 */
+.g-bar, .g-pt { min-width: 0; min-height: 0; }
+.g-bar::after, .g-pt::after { content: ''; position: absolute; left: -2px; right: -2px; top: -9px; bottom: -9px; }
+.g-pt::after { left: -14px; right: -14px; top: -14px; bottom: -14px; transform: rotate(-45deg); }
+.g-tools .g-groupsel { width: auto; min-width: 150px; }

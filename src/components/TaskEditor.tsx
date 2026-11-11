@@ -34,6 +34,7 @@ function Form({ task, project, closing }: { task?: Task; project: string | null;
   const [done, setDone] = useState(closing || (task?.done ?? false))
   const [decision, setDecision] = useState(task?.kind === 'decision')
   const [due, setDue] = useState(task?.due ?? '')
+  const [start, setStart] = useState(task?.start ?? '')
   const [owner, setOwner] = useState(task?.owner.join(', ') ?? '')
   const [p, setP] = useState<0 | 1 | 2 | 3>(task?.p ?? 0)
   const [proj, setProj] = useState(task ? task.project ?? '' : project ?? '')
@@ -62,13 +63,16 @@ function Form({ task, project, closing }: { task?: Task; project: string | null;
   const noTitle = !title.trim()
   // 결정 안건은 결론 한 줄 없이는 닫을 수 없다 ("일을 마쳤다"와 "결론을 냈다"는 다르다)
   const needConclusion = decision && done && !conclusion.trim()
+  // 시작일이 마감일보다 늦으면 간트 막대를 그릴 수 없으니 저장 전에 고치게 한다
+  const badRange = !!start && !!due && start > due
 
   const save = () => {
-    if (noTitle || needConclusion) return
+    if (noTitle || needConclusion || badRange) return
     const ownerList = owner.split(/[,，]/).map((x) => x.trim()).filter(Boolean)
     const curProj = task?.project ?? ''
     const projName = proj ? projects.find((x) => x.path === proj)?.name : undefined
     const base = {
+      start: start || undefined,
       due: due || undefined,
       owner: ownerList.length ? ownerList : undefined,
       p: p || undefined,
@@ -150,6 +154,17 @@ function Form({ task, project, closing }: { task?: Task; project: string | null;
           </div>
           {due && <p className="hint small te-note">{fmtDay(due)}{due < today && !done ? ` · ${t('기한이 지났어요')}` : ''}</p>}
 
+          {(showAll || !!start) && (
+            <label className="ee-field">
+              <span>{t('시작일')} <small className="hint">({t('간트 막대용, 선택')})</small></span>
+              <span className="ee-clearable">
+                <input type="date" value={start} onChange={(e) => setStart(e.target.value)} />
+                {start && <button className="ee-x" onClick={() => setStart('')} aria-label={t('시작일 지우기')}>×</button>}
+              </span>
+            </label>
+          )}
+          {badRange && <p className="hint small te-note te-bad">{t('시작일이 마감일보다 늦어요. 날짜를 고쳐 주세요.')}</p>}
+
           <label className="ee-field">
             <span>{t('담당자')}</span>
             <input value={owner} onChange={(e) => setOwner(e.target.value)} list="te-owners" placeholder={t('이름 (쉼표로 여러 명)')} />
@@ -187,7 +202,7 @@ function Form({ task, project, closing }: { task?: Task; project: string | null;
           {task && <button className="link-btn" onClick={() => { close(); useApp.getState().openNote(task.path) }}>{t('노트에서 보기')}</button>}
           <span className="grow" />
           <button onClick={close}>{t('취소')}</button>
-          <button className="primary" disabled={noTitle || needConclusion} onClick={save}>{t('저장')}</button>
+          <button className="primary" disabled={noTitle || needConclusion || badRange} onClick={save}>{t('저장')}</button>
         </div>
       </div>
     </div>
