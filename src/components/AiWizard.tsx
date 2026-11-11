@@ -107,9 +107,11 @@ export function AiWizard() {
                 const inUse = !!c.id && isInUse(engine, selectedId, c.id)
                 const full = listConnections().find((x) => x.id === c.id)
                 const mods = full ? modelList(full) : []
+                // 모델 고르기 상자가 있으면 설명 줄에 모델을 또 쓰지 않는다(도구 호출 미지원 이유만 남긴다)
+                const sub = mods.length > 1 ? (supportsTools(c.kind) ? '' : t('도구 호출을 지원하지 않아 AI 패널에서는 쓸 수 없어요')) : connectionSub(c)
                 return (
                   <li key={c.id} className={`aiw-conn${inUse ? ' on' : ''}`}>
-                    <span className="aiw-conn-main"><b>{connectionTitle(c)}</b><small>{connectionSub(c)}</small></span>
+                    <span className="aiw-conn-main"><b>{connectionTitle(c)}</b>{sub && <small>{sub}</small>}</span>
                     <span className="aiw-conn-badge">{connectionBadge(c)}</span>
                     {mods.length > 1 && c.id && (
                       <span className="aiw-conn-model">
