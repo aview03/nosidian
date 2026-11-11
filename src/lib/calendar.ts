@@ -288,6 +288,19 @@ export interface Quick {
   until?: string
 }
 
+/** 그 달의 d 일(그 달에 없으면 말일). m0 은 0 부터이고 12 이상·음수여도 해를 넘겨 계산한다 */
+function monthDay(y: number, m0: number, d: number): string {
+  const first = new Date(y, m0, 1)
+  const last = new Date(y, m0 + 1, 0).getDate()
+  return `${first.getFullYear()}-${p2(first.getMonth() + 1)}-${p2(Math.min(d, last))}`
+}
+/** from 날짜 이후(오늘 포함)에 처음 오는 매월 d 일 */
+function nextDayOfMonth(d: number, from: string): string {
+  const f = parseYmd(from)
+  const here = monthDay(f.getFullYear(), f.getMonth(), d)
+  return here >= from ? here : monthDay(f.getFullYear(), f.getMonth() + 1, d)
+}
+
 export function parseQuick(input: string, base: string): Quick {
   let s = ' ' + input.trim() + ' '
   let date = base
@@ -299,22 +312,60 @@ export function parseQuick(input: string, base: string): Quick {
       s = s.replace(m[0], ' ')
     }
   }
+  let repeat: Repeat | undefined
+  let repeatDays: number[] | undefined
+  // 기간: "11월 20일부터 12월 3일까지", "11/20~12/3", "내일~모레" → 시작일 + 마지막 날(며칠에 걸친 일정)
+  let endDate: string | undefined
+  const DATE = /(\d{4}-\d{1,2}-\d{1,2}|\d{1,2}월\s*\d{1,2}일|\d{1,2}\/\d{1,2}|오늘|내일|모레|글피)/.source
+  take(new RegExp(String.raw`\s${DATE}\s*(?:부터|~|–|-)\s*${DATE}(?:\s*까지)?(?=\s)`), (m) => {
+    const year = parseYmd(base).getFullYear()
+    const ymd = (tok: string, y: number): string | null => {
+      let r: RegExpExecArray | null
+      if ((r = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(tok))) return `${r[1]}-${p2(+r[2])}-${p2(+r[3])}`
+      if ((r = /^(\d{1,2})월\s*(\d{1,2})일$/.exec(tok)) || (r = /^(\d{1,2})\/(\d{1,2})$/.exec(tok))) return `${y}-${p2(+r[1])}-${p2(+r[2])}`
+      const rel: Record<string, number> = { 오늘: 0, 내일: 1, 모레: 2, 글피: 3 }
+      return tok in rel ? addDays(now, rel[tok]) : null
+    }
+    const a = ymd(m[1], year)
+    let b = ymd(m[2], year)
+    if (a && b && b < a && !/^\d{4}-/.test(m[2])) b = ymd(m[2], year + 1) // 12월 28일~1월 3일 처럼 해를 넘기는 경우
+    if (a && b && b >= a) {
+      date = a
+      if (b > a) endDate = b
+    }
+  })
+  // "매월 5일"(매월 반복 + 다음에 오는 5일), "이번 달 5일", "다음 달 5일"
+  take(/\s매월\s*(\d{1,2})일(?=\s|\D)/, (m) => {
+    repeat = 'monthly'
+    date = nextDayOfMonth(+m[1], now)
+  })
+  take(/\s(이번|다음)\s*달\s*(\d{1,2})일(?=\s|\D)/, (m) => {
+    const f = parseYmd(now)
+    date = monthDay(f.getFullYear(), f.getMonth() + (m[1] === '다음' ? 1 : 0), +m[2])
+  })
   // 날짜
-  take(/\s(\d{4})-(\d{1,2})-(\d{1,2})(?=\s)/, (m) => (date = `${m[1]}-${p2(+m[2])}-${p2(+m[3])}`))
-  take(/\s(?:(\d{1,2})월\s*(\d{1,2})일)(?=\s|\D)/, (m) => {
+  take(/\s(\d{4})-(\d{1,2})-(\d{1,2})(?:까지|부터)?(?=\s)/, (m) => (date = `${m[1]}-${p2(+m[2])}-${p2(+m[3])}`))
+  take(/\s(?:(\d{1,2})월\s*(\d{1,2})일)(?:까지|부터)?(?=\s|\D)/, (m) => {
     const y = parseYmd(base).getFullYear()
     date = `${y}-${p2(+m[1])}-${p2(+m[2])}`
   })
-  take(/\s(\d{1,2})\/(\d{1,2})(?=\s)/, (m) => (date = `${parseYmd(base).getFullYear()}-${p2(+m[1])}-${p2(+m[2])}`))
-  take(/\s(오늘|내일|모레|글피)(?=\s|\D)/, (m) => (date = addDays(now, { 오늘: 0, 내일: 1, 모레: 2, 글피: 3 }[m[1]] ?? 0)))
-  take(/\s(다음\s*주|이번\s*주)?\s*([일월화수목금토])요일(?=\s)/, (m) => {
+  take(/\s(\d{1,2})\/(\d{1,2})(?:까지|부터)?(?=\s)/, (m) => (date = `${parseYmd(base).getFullYear()}-${p2(+m[1])}-${p2(+m[2])}`))
+  take(/\s(오늘|내일|모레|글피)(?:까지|부터)?(?=\s|\D)/, (m) => (date = addDays(now, { 오늘: 0, 내일: 1, 모레: 2, 글피: 3 }[m[1]] ?? 0)))
+  take(/\s(다음\s*주|이번\s*주)?\s*([일월화수목금토])요일(?:까지|부터)?(?=\s)/, (m) => {
     const cur = parseYmd(now)
     const idx = WD.indexOf(m[2])
     if (m[1]?.startsWith('다음')) date = addDays(now, 7 - cur.getDay() + idx) // 다음 주 일요일 + 요일
     else if (m[1]) date = addDays(now, idx - cur.getDay()) // 이번 주
     else date = addDays(now, idx - cur.getDay() + (idx < cur.getDay() ? 7 : 0)) // 가장 가까운 그 요일
   })
-  let repeat: Repeat | undefined
+  // 매주 요일 여러 개: "매주 화,목", "매주 월수금" → 주간 반복 + 요일 목록, 시작일은 가장 가까운 그 요일
+  take(/\s매주\s*((?:[일월화수목금토][,·/\s]*){2,})(?:요일)?(?=\s)/, (m) => {
+    const days = [...new Set([...m[1]].filter((c) => WD.includes(c)).map((c) => WD.indexOf(c)))]
+    repeat = 'weekly'
+    repeatDays = days
+    const cur = parseYmd(now).getDay()
+    date = addDays(now, Math.min(...days.map((d) => (d - cur + 7) % 7)))
+  })
   take(/\s(매일|매주|매월|매년|평일)(?=\s|\D)/, (m) => (repeat = REP_ALIAS[m[1]]))
   // 시간
   let start: string | undefined, end: string | undefined
@@ -322,6 +373,19 @@ export function parseQuick(input: string, base: string): Quick {
     start = hhmm(m[1], m[2])
     if (m[3]) end = hhmm(m[3], m[4])
   })
+  if (!start)
+    take(/\s(오전|오후|아침|저녁|밤)?\s*(\d{1,2})시(?:\s*(\d{1,2})분|\s*(반))?\s*(?:부터|~|–|-)\s*(오전|오후|아침|저녁|밤)?\s*(\d{1,2})시(?:\s*(\d{1,2})분|\s*(반))?(?:\s*까지)?(?=\s|\D)/, (m) => {
+      const isPm = (mer?: string) => mer === '오후' || mer === '저녁' || mer === '밤'
+      const hour = (mer: string | undefined, hh: string, guessPm: boolean) => {
+        const h = +hh
+        return (isPm(mer) || (!mer && guessPm)) && h < 12 ? h + 12 : h
+      }
+      const guess = (hh: string) => +hh >= 1 && +hh <= 6 // "3시" 는 보통 오후 3시
+      const sh = hour(m[1], m[2], guess(m[2]))
+      const eh = hour(m[5], m[6], isPm(m[1]) || sh >= 12 || guess(m[6])) // 시작이 오후면 끝도 오후("오후 3시~5시" = 15~17)
+      start = `${p2(sh % 24)}:${m[4] ? '30' : p2(+(m[3] ?? 0))}`
+      end = `${p2(eh % 24)}:${m[8] ? '30' : p2(+(m[7] ?? 0))}`
+    })
   if (!start)
     take(/\s(오전|오후|아침|저녁|밤)?\s*(\d{1,2})시(?:\s*(?:(\d{1,2})분|(반)))?(?=\s|\D)/, (m) => {
       let h = +m[2]
@@ -331,7 +395,7 @@ export function parseQuick(input: string, base: string): Quick {
       start = `${p2(h % 24)}:${m[4] ? '30' : p2(+(m[3] ?? 0))}`
     })
   const title = s.replace(/\s+/g, ' ').trim()
-  return { date, start, end, title: title || input.trim(), repeat }
+  return { date, endDate, start, end, title: title || input.trim(), repeat, ...(repeatDays ? { repeatDays } : {}) }
 }
 
 // ── 쓰기 ──

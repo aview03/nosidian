@@ -20,5 +20,5 @@ node scripts/dev/shot.cjs 9333 MAIN "$SP/persona_$OUT.png" 1200 860
 $C "(function(){const b=[...document.querySelectorAll('button')].find(x=>x.textContent.trim()==='전체'); b&&b.click(); return !!b})()" >/dev/null; sleep 2
 echo "[전체]"; $C "(document.querySelector('.work, .work-home, main')||document.body).innerText.replace(/\n+/g,' / ').slice(0,700)"
 node scripts/dev/shot.cjs 9333 MAIN "$SP/persona_${OUT}_all.png" 1200 860
-taskkill //F //IM electron.exe >/dev/null 2>&1
+[ -z "$KEEP" ] && taskkill //F //IM electron.exe >/dev/null 2>&1
 sleep 2
