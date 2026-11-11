@@ -2,6 +2,8 @@ import { act, createElement } from 'react'
 import { createRoot } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { ProjectHub } from './ProjectHub'
+import { useNewNote } from './NewNote'
+import { DOCRULES_PATH, rulesNoteTemplate } from '../lib/docrules'
 import { useApp } from '../lib/app'
 import { useWorkUi } from '../lib/workOps'
 import { buildIndex } from '../lib/links'
@@ -105,5 +107,45 @@ describe('프로젝트 허브의 보기 탭', () => {
       chips()[0].dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }))
     })
     expect(chips()[1].getAttribute('aria-selected')).toBe('true')
+  })
+})
+
+describe('프로젝트 허브 문서 탭의 문서 추가 (F25)', () => {
+  let host: HTMLDivElement
+  let root: ReturnType<typeof createRoot>
+  const mount = (project: string, notes: NoteFile[]) => {
+    const files = Object.fromEntries(notes.map((f) => [f.path, f]))
+    useApp.setState({ files, index: buildIndex(notes.map((f) => ({ path: f.path, content: f.content }))), ready: true })
+    useWorkUi.setState({ hub: project, editor: null })
+    useNewNote.setState({ mode: null, dir: '' })
+    host = document.createElement('div')
+    document.body.appendChild(host)
+    root = createRoot(host)
+    act(() => root.render(createElement(ProjectHub)))
+    act(() => [...host.querySelectorAll<HTMLButtonElement>('.hub-tabs [role="tab"]')].find((b) => b.textContent === t('문서'))!.click())
+  }
+  afterEach(() => {
+    act(() => root.unmount())
+    host.remove()
+    useWorkUi.setState({ hub: null, editor: null })
+  })
+
+  it('문서 탭에 "+ 문서 추가"가 있고, 누르면 그 프로젝트 폴더가 미리 선택된 새 노트 창이 열린다', () => {
+    mount(PROJECT, [note(PROJECT, '---\ntype: project\n---\n# 시험\n'), note('프로젝트/시험/할 일.md', '- [ ] 일\n')])
+    const btn = host.querySelector<HTMLButtonElement>('.hub-adddoc')!
+    expect(btn.textContent).toContain(t('문서 추가'))
+    act(() => btn.click())
+    expect(useNewNote.getState()).toMatchObject({ mode: 'note', dir: '프로젝트/시험' })
+  })
+
+  it('문서 규칙을 켠 프로젝트의 문서 목록(HumanDocs) 모양에서도 버튼이 보인다', () => {
+    mount(PROJECT, [note(DOCRULES_PATH, rulesNoteTemplate()), note(PROJECT, '---\ntype: project\ndocs: 기본\n---\n# 시험\n'), note('프로젝트/시험/할 일.md', '- [ ] 일\n')])
+    expect(host.querySelector('.hdoc')).not.toBeNull() // 문서 규칙을 켠 모양
+    expect(host.querySelector('.hub-adddoc')).not.toBeNull()
+  })
+
+  it('프로젝트 노트가 폴더 밖에 있으면 버튼을 보이지 않는다(넣을 폴더가 없다)', () => {
+    mount('개요.md', [note('개요.md', '---\ntype: project\n---\n# 폴더 밖\n')])
+    expect(host.querySelector('.hub-adddoc')).toBeNull()
   })
 })

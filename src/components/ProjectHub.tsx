@@ -18,6 +18,7 @@ import { HubTable } from './HubTable'
 import { HubOwners } from './HubOwners'
 import { HubGantt } from './HubGantt'
 import { Board } from './HubBoard'
+import { openNewNote } from './NewNote'
 import { HubInfo, levelText } from './HubInfo'
 import { filterTasks } from '../lib/projectViews'
 import { HUB_VIEWS, loadHubView, saveHubView, type HubView } from '../lib/hubViews'
@@ -212,6 +213,7 @@ export function ProjectHub() {
           {tab === 'info' && <HubInfo project={project} open={open.length} total={tasks.length} health={health} onOpenNote={() => useApp.getState().openNote(project.path)} />}
 
           {tab === 'docs' && (
+            <>
             <HumanDocs project={project} open={open.length} decisions={decisions.length} onCheck={() => setTab('check')}>
             <section className="wrk-sec">
               {project.folder === '' && <p className="hint pad">{t('이 프로젝트 노트는 폴더 밖에 있어요. 노트를 폴더로 옮기면 그 폴더의 문서가 여기 모여요.')}</p>}
@@ -224,6 +226,9 @@ export function ProjectHub() {
               ))}
             </section>
             </HumanDocs>
+            {/* HumanDocs(문서 규칙을 켠 프로젝트의 문서 목록) 안팎 어느 모양이든 보이도록 밖에 둔다 */}
+            {project.folder !== '' && <button className="wrk-newproj hub-adddoc" onClick={() => openNewNote(project.folder)}>+ {t('문서 추가')}</button>}
+            </>
           )}
 
           {tab === 'check' && <DocCheck project={project} />}

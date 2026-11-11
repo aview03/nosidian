@@ -123,4 +123,28 @@ describe('노트 업무 정리 화면 (F24)', () => {
     expect(q('.nt-row')).toHaveLength(0)
     expect(host.textContent).toContain(t('이 노트에는 열린 할 일 줄(- [ ])이 없어요.'))
   })
+
+  it('결정 사항: "## 결정" 아래 글머리가 보이고, 켜면 안건·결론이 나뉘어 채워지며, 적용하면 결정 기록(완료 + 결론)이 된다 (F26)', () => {
+    open(['# 회의록', '', '## 결정', '- 행사 날짜는 12월 9일로 확정', '', '## 후속 업무', '- [ ] 계약서 검토', ''].join('\n'))
+    expect(host.textContent).toContain(t('결정 사항'))
+    const row = q<HTMLElement>('.nt-row.dec')[0]
+    expect(row.textContent).toContain('행사 날짜는 12월 9일로 확정')
+    expect(q<HTMLButtonElement>('.ee-foot .primary')[0].disabled).toBe(true) // 기본은 꺼져 있어 바뀐 게 없다
+    act(() => row.querySelector<HTMLInputElement>('input[type="checkbox"]')!.click())
+    const inputs = q<HTMLInputElement>('.nt-row.dec input:not([type="checkbox"])')
+    expect(inputs.map((i) => i.value)).toEqual(['행사 날짜', '12월 9일로 확정'])
+    expect(q<HTMLButtonElement>('.ee-foot .primary')[0].textContent).toBe(t('{n}개 적용', { n: 1 }))
+    act(() => q<HTMLButtonElement>('.ee-foot .primary')[0].click())
+    expect(text()).toContain('- [x] 행사 날짜 kind:decision => 12월 9일로 확정')
+    const dec = buildWork(useApp.getState().files).tasks.find((x) => x.title === '행사 날짜')!
+    expect(dec).toMatchObject({ done: true, kind: 'decision', conclusion: '12월 9일로 확정' })
+    act(() => q<HTMLButtonElement>('.toast-undo')[0].click())
+    expect(text()).toContain('- 행사 날짜는 12월 9일로 확정')
+  })
+
+  it('열린 할 일이 없어도 결정 사항만 있으면 화면이 열린다', () => {
+    open('## 결정\n- 가는 나로 확정\n')
+    expect(q('.nt-row.dec')).toHaveLength(1)
+    expect(host.textContent).not.toContain(t('이 노트에는 열린 할 일 줄(- [ ])이 없어요.'))
+  })
 })

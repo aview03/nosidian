@@ -1825,3 +1825,20 @@ body.board-dragging, body.board-dragging * { cursor: grabbing !important; user-s
 .nt-dec.on { border-color: var(--text); color: var(--text); font-weight: 700; background: var(--bg2); }
 .nt-hint { margin: 0; font-size: 12px; color: var(--muted); }
 .nt-hint b { color: var(--accent, #4c8dff); font-weight: 600; }
+
+/* 낮음 항목 정리: F15 승인 버튼 줄바꿈, 업무 정리 시트 폰 한 줄, 결정 사항 섹션 */
+.pr-item > footer { flex-wrap: wrap; }
+.pr-item > footer button { flex: none; white-space: nowrap; }
+.pr-stale { flex: 1 1 100%; }
+.nt-owner { flex: 1 1 90px; }
+.nt-due { flex: 0 1 150px; }
+.nt-sec { margin: 14px 0 2px; font-size: 14px; }
+.nt-check { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: var(--text); }
+.nt-check input { width: 18px; height: 18px; }
+.nt-concl { display: flex; flex-direction: column; gap: 6px; }
+.nt-concl .nt-owner, .nt-concl .nt-title { flex: none; width: 100%; }
+.nt-concl .nt-owner { height: 40px; }
+/* 업무 정리 시트: 안드로이드 날짜는 "2026. 11. 18." 처럼 길어서 칸을 고정하고, 담당 칸이 남는 폭을 쓴다 */
+.nt-due { flex: 0 0 172px; min-width: 172px; }
+.nt-owner { flex: 1 1 70px; min-width: 0; }
+.nt-concl .nt-owner { flex: none; }

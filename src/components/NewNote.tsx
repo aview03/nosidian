@@ -13,7 +13,7 @@ interface NewNoteUi {
   /** 처음 선택돼 있을 폴더 ('' = 맨 위) */
   dir: string
 }
-const useNewNote = create<NewNoteUi>(() => ({ mode: null, dir: '' }))
+export const useNewNote = create<NewNoteUi>(() => ({ mode: null, dir: '' }))
 
 /** 어디서든 새 노트를 만들 때 이 함수를 부른다. dir 을 주면 그 폴더가 미리 선택된다 */
 export const openNewNote = (dir?: string) => useNewNote.setState({ mode: 'note', dir: dir ?? defaultDir() })

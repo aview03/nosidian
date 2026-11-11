@@ -1460,5 +1460,11 @@ const dict: Record<string, string> = {
   '원문': "Original",
   '업무 {n}개를 정리했어요': "Tidied {n} tasks",
   '{n}개 적용': "Apply {n}",
+  '문서 추가': "Add document",
+  '결정 사항': "Decisions",
+  '"결정" 아래에 글로 적은 내용이에요. 기록으로 남기면 완료된 결정 안건(결론 포함)이 되어 프로젝트 허브에서 찾을 수 있어요.': "These are written under \"Decisions\". Record one and it becomes a closed decision (with its conclusion) you can find in the project hub.",
+  '결정 기록으로 남기기': "Record as a decision",
+  '안건': "Topic",
+  '결론': "Conclusion",
 }
 export default dict

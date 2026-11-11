@@ -2,7 +2,7 @@
 //  - 줄을 다시 쓰는 일은 기존 rewriteTaskLine 이 한다(들여쓰기·일정 꼬리표·모르는 값 보존). 여기서는 줄 → 행 → 줄 변환과 "자연스러운 표기 읽기"만 한다.
 //  - 읽는 표기(확신이 있을 때만, 화면에서 사람이 확인·수정한다): `(민수, 11/18까지)` `[지현]` `@민수` `11/18까지` `금요일까지`.
 import { parseQuick } from './calendar'
-import { splitWorkTokens, type WorkTokens } from './taskTokens'
+import { formatWorkTokens, splitWorkTokens, type WorkTokens } from './taskTokens'
 import { rewriteTaskLine, titleOfLine } from './work'
 
 /** 담당자 이름처럼 보이지만 사실은 말머리인 글 */
@@ -152,6 +152,60 @@ export function applyRows(content: string, rows: TaskRow[]): string {
     else delete tokens.kind
     const next = rewriteTaskLine(raw, { title: r.title.trim() || r.init.title, done: false, tokens })
     if (next !== null) lines[r.line] = next
+  }
+  return lines.join('\n')
+}
+
+// ── 결정 사항: "## 결정" 아래에 글로 적은 줄을 결정 기록(완료된 결정 안건 + 결론)으로 남긴다(페르소나 F26) ──
+const DECISION_HEAD = /^#{1,6}\s*(?:결정(?:\s*(?:사항|내용|된\s*것|한\s*것))?|decisions?)\s*:?\s*$/i
+const ANY_HEAD = /^#{1,6}\s/
+const PLAIN_BULLET = /^(\s*)([-*+])\s+(?!\[[ xX]\])(\S.*)$/
+
+export interface DecisionRow {
+  /** 노트 안 줄 번호(0 부터) */
+  line: number
+  /** 줄의 원래 글(글머리 뒤) */
+  init: string
+  /** 결정 기록으로 남길까(기본 꺼짐 — 사용자의 회의록을 말없이 바꾸지 않는다) */
+  on: boolean
+  title: string
+  conclusion: string
+}
+
+/** "행사 날짜는 12월 9일로 확정" → 안건 "행사 날짜" · 결론 "12월 9일로 확정". 나눌 수 없으면 둘 다 문장 전체 */
+export function splitDecision(text: string): { title: string; conclusion: string } {
+  const m = /^(.+?)(?:은|는)\s+(.*?(?:확정|결정|합의|승인|채택|변경|연기|취소).*)$/.exec(text.trim())
+  return m && m[1].trim() && m[2].trim() ? { title: m[1].trim(), conclusion: m[2].trim() } : { title: text.trim(), conclusion: text.trim() }
+}
+
+/** 노트의 `## 결정` 머리말 아래(다음 머리말 전까지) 일반 글머리 줄들 */
+export function buildDecisionRows(content: string): DecisionRow[] {
+  const rows: DecisionRow[] = []
+  let inside = false
+  content.split('\n').forEach((raw, line) => {
+    if (ANY_HEAD.test(raw)) {
+      inside = DECISION_HEAD.test(raw.trim())
+      return
+    }
+    if (!inside) return
+    const m = PLAIN_BULLET.exec(raw)
+    if (!m) return
+    const text = m[3].trim()
+    rows.push({ line, init: text, on: false, ...splitDecision(text) })
+  })
+  return rows
+}
+
+/** on 인 행을 `- [x] 안건 kind:decision => 결론` 으로 바꾼다(들여쓰기·글머리 모양 보존). 줄이 그새 바뀌었으면 건너뛴다 */
+export function applyDecisions(content: string, rows: DecisionRow[]): string {
+  const lines = content.split('\n')
+  for (const r of rows) {
+    if (!r.on) continue
+    const m = lines[r.line] === undefined ? null : PLAIN_BULLET.exec(lines[r.line])
+    if (!m || m[3].trim() !== r.init) continue
+    const title = r.title.replace(/\s+/g, ' ').trim() || r.init
+    const conclusion = r.conclusion.replace(/\s+/g, ' ').trim() || r.init
+    lines[r.line] = `${m[1]}${m[2]} [x] ${[title, formatWorkTokens({ kind: 'decision', conclusion })].join(' ')}`
   }
   return lines.join('\n')
 }

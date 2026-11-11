@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useApp } from '../lib/app'
 import { t } from '../lib/i18n'
 import { todayYmd } from '../lib/calendar'
-import { applyRows, buildRows, rowChanged, type TaskRow } from '../lib/noteTasks'
+import { applyDecisions, applyRows, buildDecisionRows, buildRows, rowChanged, type DecisionRow, type TaskRow } from '../lib/noteTasks'
 import { parseMe } from '../lib/work'
 import { useWorkUi, withUndo } from '../lib/workOps'
 import { baseName } from '../lib/links'
@@ -35,7 +35,10 @@ function Sheet({ path }: { path: string }) {
   const [rows, setRows] = useState<TaskRow[]>(() => buildRows(content, known, today))
   // 담당 입력칸은 쉼표·공백을 치는 도중에도 그대로 보여야 하므로 글자를 따로 들고 있는다
   const [ownerText, setOwnerText] = useState<Record<number, string>>(() => Object.fromEntries(rows.map((r) => [r.line, r.owner.join(', ')])))
+  const [drows, setDrows] = useState<DecisionRow[]>(() => buildDecisionRows(content))
   const changed = rows.filter(rowChanged)
+  const decided = drows.filter((d) => d.on)
+  const total = changed.length + decided.length
 
   useEffect(() => {
     const f = (e: KeyboardEvent) => e.key === 'Escape' && close()
@@ -44,15 +47,16 @@ function Sheet({ path }: { path: string }) {
   }, [])
 
   const set = (line: number, patch: Partial<TaskRow>) => setRows((rs) => rs.map((r) => (r.line === line ? { ...r, ...patch } : r)))
+  const setD = (line: number, patch: Partial<DecisionRow>) => setDrows((rs) => rs.map((r) => (r.line === line ? { ...r, ...patch } : r)))
 
   const apply = () => {
-    if (!changed.length) return
-    const n = changed.length
+    if (!total) return
+    const n = total
     withUndo({ path }, t('업무 {n}개를 정리했어요', { n }), () => {
       const app = useApp.getState()
       const f = app.files[path]
       if (!f || f.deleted) return false
-      const next = applyRows(f.content, rows)
+      const next = applyDecisions(applyRows(f.content, rows), drows)
       if (next === f.content) return false
       app.setContent(path, next)
       return true
@@ -70,7 +74,7 @@ function Sheet({ path }: { path: string }) {
           <button className="icon-btn" onClick={close} aria-label={t('닫기')}><Icon name="close" /></button>
         </div>
         <div className="ee-body">
-          {rows.length === 0 ? (
+          {rows.length === 0 && drows.length === 0 ? (
             <p className="hint pad">{t('이 노트에는 열린 할 일 줄(- [ ])이 없어요.')}</p>
           ) : (
             <>
@@ -100,6 +104,28 @@ function Sheet({ path }: { path: string }) {
                   )}
                 </div>
               ))}
+              {drows.length > 0 && (
+                <>
+                  <h4 className="nt-sec">{t('결정 사항')}</h4>
+                  <p className="hint small nt-intro">{t('"결정" 아래에 글로 적은 내용이에요. 기록으로 남기면 완료된 결정 안건(결론 포함)이 되어 프로젝트 허브에서 찾을 수 있어요.')}</p>
+                  {drows.map((d) => (
+                    <div key={d.line} className={`nt-row dec${d.on ? ' changed' : ''}`}>
+                      <label className="nt-check">
+                        <input type="checkbox" checked={d.on} onChange={(e) => setD(d.line, { on: e.target.checked })} />
+                        <span>{t('결정 기록으로 남기기')}</span>
+                      </label>
+                      {d.on ? (
+                        <div className="nt-concl">
+                          <input className="nt-title" value={d.title} aria-label={t('안건')} placeholder={t('안건')} onChange={(e) => setD(d.line, { title: e.target.value })} />
+                          <input className="nt-owner" value={d.conclusion} aria-label={t('결론')} placeholder={t('결론')} onChange={(e) => setD(d.line, { conclusion: e.target.value })} />
+                        </div>
+                      ) : (
+                        <p className="nt-hint">{d.init}</p>
+                      )}
+                    </div>
+                  ))}
+                </>
+              )}
               <datalist id="nt-owners">{owners.map((o) => <option key={o} value={o} />)}</datalist>
             </>
           )}
@@ -107,7 +133,7 @@ function Sheet({ path }: { path: string }) {
         <div className="ee-foot">
           <span className="grow" />
           <button onClick={close}>{t('취소')}</button>
-          <button className="primary" disabled={!changed.length} onClick={apply}>{changed.length ? t('{n}개 적용', { n: changed.length }) : t('적용')}</button>
+          <button className="primary" disabled={!total} onClick={apply}>{total ? t('{n}개 적용', { n: total }) : t('적용')}</button>
         </div>
       </div>
     </div>

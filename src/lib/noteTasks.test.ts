@@ -108,3 +108,55 @@ describe('행 → 노트에 적용', () => {
     expect(applyRows(src, r)).toBe('  - [ ] 14:00 점검 @2026-11-20 owner:지현')
   })
 })
+
+import { applyDecisions, buildDecisionRows, splitDecision } from './noteTasks'
+
+describe('결정 사항 → 결정 기록 (F26)', () => {
+  it('"A는 B로 확정"을 안건과 결론으로 나눈다. 못 나누면 문장 전체를 둘 다에', () => {
+    expect(splitDecision('행사 날짜는 12월 9일로 확정')).toEqual({ title: '행사 날짜', conclusion: '12월 9일로 확정' })
+    expect(splitDecision('예산 상한은 300만원으로 합의')).toEqual({ title: '예산 상한', conclusion: '300만원으로 합의' })
+    expect(splitDecision('장소는 대관 후 결정')).toEqual({ title: '장소', conclusion: '대관 후 결정' })
+    expect(splitDecision('포스터 문구 수정')).toEqual({ title: '포스터 문구 수정', conclusion: '포스터 문구 수정' })
+  })
+
+  const MINUTES = ['# 회의록', '', '## 안건', '- 이건 안건 글머리', '', '## 결정', '- 행사 날짜는 12월 9일로 확정', '  - 하위 글머리 예산은 300만원으로 합의', '- [ ] 이건 체크리스트라 제외', '- [x] 끝난 체크리스트도 제외', '', '## 후속 업무', '- [ ] 계약서 검토', '- 후속 업무 아래 글머리는 제외', ''].join('\n')
+
+  it('"## 결정" 머리말 아래(다음 머리말 전까지)의 일반 글머리만 행이 된다(체크리스트 제외)', () => {
+    const rows = buildDecisionRows(MINUTES)
+    expect(rows.map((r) => r.line)).toEqual([6, 7])
+    expect(rows[0]).toMatchObject({ init: '행사 날짜는 12월 9일로 확정', on: false, title: '행사 날짜', conclusion: '12월 9일로 확정' })
+  })
+  it('"결정 사항"·"Decisions" 같은 머리말도 인식한다', () => {
+    for (const h of ['## 결정 사항', '### 결정내용', '## Decisions', '# 결정:']) expect(buildDecisionRows(`${h}\n- 가는 나로 확정\n`), h).toHaveLength(1)
+    expect(buildDecisionRows('## 결정 보류 목록\n- 가는 나로 확정\n')).toHaveLength(0)
+  })
+  it('꺼져 있으면(기본) 노트를 건드리지 않는다', () => {
+    expect(applyDecisions(MINUTES, buildDecisionRows(MINUTES))).toBe(MINUTES)
+  })
+  it('켠 행은 완료된 결정 안건(+결론)으로 바뀌고 들여쓰기·글머리 모양이 보존된다', () => {
+    const rows = buildDecisionRows(MINUTES).map((r) => ({ ...r, on: true }))
+    const lines = applyDecisions(MINUTES, rows).split('\n')
+    expect(lines[6]).toBe('- [x] 행사 날짜 kind:decision => 12월 9일로 확정')
+    expect(lines[7]).toBe('  - [x] 하위 글머리 예산 kind:decision => 300만원으로 합의')
+    expect(lines[8]).toBe('- [ ] 이건 체크리스트라 제외')
+  })
+  it('사람이 고친 안건·결론이 쓰이고, 그새 줄이 바뀌었으면 건너뛴다', () => {
+    const rows = buildDecisionRows('## 결정\n- 가는 나로 확정\n')
+    rows[0].on = true
+    rows[0].title = '담당 배정'
+    rows[0].conclusion = '민수가 맡기로'
+    expect(applyDecisions('## 결정\n- 가는 나로 확정\n', rows)).toBe('## 결정\n- [x] 담당 배정 kind:decision => 민수가 맡기로\n')
+    expect(applyDecisions('## 결정\n- 전혀 다른 글\n', rows)).toBe('## 결정\n- 전혀 다른 글\n')
+  })
+  it('적용하면 업무로 읽히고 결론이 보인다(완료된 결정 안건)', () => {
+    const src = '## 결정\n- 행사 날짜는 12월 9일로 확정\n'
+    const rows = buildDecisionRows(src).map((r) => ({ ...r, on: true }))
+    const out = applyDecisions(src, rows)
+    const files: NoteFile[] = [
+      { path: '프로젝트/행사/프로젝트 개요.md', content: '---\ntype: project\n---\n# 행사\n', sha: null, dirty: false, mtime: 1 },
+      { path: '프로젝트/행사/회의록.md', content: out, sha: null, dirty: false, mtime: 1 },
+    ]
+    const t = buildWork(Object.fromEntries(files.map((f) => [f.path, f]))).tasks.find((x) => x.title === '행사 날짜')!
+    expect(t).toMatchObject({ done: true, kind: 'decision', conclusion: '12월 9일로 확정' })
+  })
+})
