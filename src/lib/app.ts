@@ -24,6 +24,34 @@ export type Tab = 'note' | 'files' | 'search' | 'graph' | 'settings' | 'calendar
 /** 앱을 켰을 때의 첫 화면(홈): PC·모바일 모두 내 업무. 안드로이드 뒤로가기의 종착지이기도 하다 */
 export const homeTab = (): Tab => 'work'
 
+/**
+ * "돌아갈 화면". 노트를 열거나 설정 하위 화면으로 깊이 들어갈 때 **온 곳**을 적어 두었다가, 뒤로 가면 거기로 돌아간다.
+ *  - tab 하나로는 부족한 화면(설정의 어느 그룹, 프로젝트 허브의 어느 프로젝트)은 탭마다 어댑터(registerScreen)가 상태를 적고 되살린다.
+ *  - 검색어·캘린더 날짜·메모 폴더는 이미 저장소에 있어서 탭만 되돌려도 그대로 보인다.
+ */
+export interface Screen {
+  tab: Tab
+  state?: Record<string, unknown>
+}
+export interface ScreenAdapter {
+  capture(): Record<string, unknown>
+  restore(state: Record<string, unknown>): void
+}
+const screenAdapters = new Map<Tab, ScreenAdapter>()
+/** 탭이 자기 화면의 세부 상태를 적고 되살리는 방법을 등록한다 */
+export function registerScreen(tab: Tab, a: ScreenAdapter) {
+  screenAdapters.set(tab, a)
+}
+export const captureScreen = (tab: Tab): Screen => ({ tab, state: screenAdapters.get(tab)?.capture() })
+function restoreScreen(s: Screen, go: (t: Tab) => void) {
+  screenAdapters.get(s.tab)?.restore(s.state ?? {})
+  go(s.tab)
+}
+/** 적어 둔 화면으로 간다(세부 상태까지 되살린다) */
+export function goScreen(s: Screen) {
+  restoreScreen(s, (t) => useApp.getState().go(t))
+}
+
 const SETTINGS_KEY = 'amsidian.settings'
 function loadSettings(): Settings {
   try {
@@ -72,6 +100,10 @@ interface AppState {
   anchor: string | null
   history: string[]
   hpos: number
+  /** 다른 화면에서 노트로 들어왔을 때 온 곳(뒤로 가면 여기로). 노트끼리 이동할 때는 바뀌지 않는다 */
+  returnTo: Screen | null
+  /** 이번에 들어온 노트 흐름의 첫 노트 위치(history). 이보다 뒤에서만 "이전 노트"로 돌아간다 */
+  noteBase: number
   mode: 'read' | 'edit'
   sheet: null | 'info'
   palette: null | 'switcher' | 'command'
@@ -96,6 +128,12 @@ interface AppState {
   openLink(target: string, anchor?: string | null): void
   back(): boolean
   forward(): void
+  /** 화면 뒤로 가기(안드로이드 뒤로 키·노트 화면의 ← 버튼): 이번에 들어온 노트 흐름의 이전 노트 → 온 곳. 갈 곳이 없으면 false */
+  backScreen(): boolean
+  /** 설정 등 다른 곳이 "지금 화면"을 돌아갈 곳으로 적어 둔다 */
+  setReturn(from: Tab | null): void
+  /** 돌아갈 곳이 적혀 있으면 거기로 가고 true */
+  goReturn(): boolean
   setMode(m: 'read' | 'edit'): void
   setSheet(s: 'info' | null): void
   setPalette(p: 'switcher' | 'command' | null): void
@@ -261,6 +299,8 @@ export const useApp = create<AppState>((set, get) => {
       current: null,
       history: [],
       hpos: -1,
+      returnTo: null,
+      noteBase: 0,
       anchor: null,
       sheet: null,
       palette: null,
@@ -292,6 +332,8 @@ export const useApp = create<AppState>((set, get) => {
     anchor: null,
     history: [],
     hpos: -1,
+    returnTo: null,
+    noteBase: 0,
     mode: 'read',
     sheet: null,
     palette: null,
@@ -375,11 +417,15 @@ export const useApp = create<AppState>((set, get) => {
         hpos = history.length - 1
       }
       const recent = [path, ...s.settings.recent.filter((r) => r !== path)].slice(0, 20)
+      // 다른 화면(검색·캘린더·프로젝트 허브·메모 목록…)에서 노트로 들어오면 그 화면을 돌아갈 곳으로 적고, 여기서부터를 새 노트 흐름으로 본다.
+      // 이미 노트 화면이면(링크로 다른 노트로 이동) 그대로 둔다. 되돌아가는 이동(replace)도 건드리지 않는다
+      const fresh = !opts.replace && s.tab !== 'note'
       set({
         current: path,
         anchor,
         history,
         hpos,
+        ...(fresh ? { returnTo: captureScreen(s.tab), noteBase: hpos } : {}),
         tab: 'note',
         sheet: null,
         palette: null,
@@ -411,6 +457,24 @@ export const useApp = create<AppState>((set, get) => {
       if (hpos >= history.length - 1) return
       set({ hpos: hpos + 1 })
       get().openNote(history[hpos + 1], null, { replace: true })
+    },
+    backScreen() {
+      const s = get()
+      if (s.tab === 'note') {
+        if (s.hpos > s.noteBase) return get().back() // 이번 흐름에서 링크로 따라온 노트들: 한 칸씩 되돌아간다
+        return get().goReturn()
+      }
+      return false
+    },
+    setReturn(from) {
+      set({ returnTo: from ? captureScreen(from) : null })
+    },
+    goReturn() {
+      const r = get().returnTo
+      if (!r || r.tab === get().tab) return false
+      set({ returnTo: null })
+      restoreScreen(r, get().go)
+      return true
     },
     setMode: (mode) => set({ mode }),
     setSheet: (sheet) => set({ sheet }),

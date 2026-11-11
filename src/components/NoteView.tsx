@@ -142,7 +142,7 @@ export function NoteView({ wide }: { wide: boolean }) {
     <div className="note">
       <header className="note-head">
         {!wide && (
-          <button className="icon-btn" onClick={() => (hist.pos > 0 ? app.back() : app.go('files'))} aria-label={t('뒤로')}>
+          <button className="icon-btn" onClick={() => { if (!app.backScreen()) app.go('files') }} aria-label={t('뒤로')}>
             <Icon name="back" />
           </button>
         )}

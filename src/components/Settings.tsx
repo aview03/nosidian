@@ -17,7 +17,7 @@ import { ShareCard } from './ShareCard'
 import { PcFilesCard } from './PcFilesCard'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { create } from 'zustand'
-import { useApp } from '../lib/app'
+import { useApp, captureScreen, goScreen, registerScreen, type Screen } from '../lib/app'
 import { confirmAsk } from '../lib/dialog'
 import { SYNC_LABEL, remoteDetail, type AccountKind } from '../lib/types'
 import { ConnectForm } from './Onboarding'
@@ -45,7 +45,7 @@ const syncOrder = (p: ReturnType<typeof personaOf>): AccountKind[] => (p === 'de
 const useFocusName = create<{ want: boolean }>(() => ({ want: false }))
 export function openMyNameSetting() {
   useFocusName.setState({ want: true })
-  useSettingsUi.setState({ group: 'profile' })
+  useSettingsUi.setState({ group: 'profile', via: comingFrom() ?? useSettingsUi.getState().via })
   useApp.getState().go('settings')
 }
 
@@ -108,11 +108,38 @@ function MyNameField() {
 
 type GroupId = 'profile' | 'notes' | 'ai' | 'view' | 'work' | 'about'
 /** 모바일: null = 그룹 목록, 그 밖 = 그 그룹 화면. PC: null 이면 첫 그룹 */
-const useSettingsUi = create<{ group: GroupId | null; /** 그 그룹을 열 때 스크롤해서 보여 줄 카드 id */ focus: string | null }>(() => ({ group: null, focus: null }))
+const useSettingsUi = create<{ group: GroupId | null; /** 그 그룹을 열 때 스크롤해서 보여 줄 카드 id */ focus: string | null; /** 다른 화면에서 설정으로 바로 들어왔을 때 그 화면(뒤로 가면 설정 목록이 아니라 여기로 돌아간다) */ via: Screen | null }>(() => ({ group: null, focus: null, via: null }))
+
+// 설정의 세부 상태(어느 그룹)를 적고 되살린다 — 노트 등으로 갔다가 뒤로 오면 보던 그룹으로 돌아온다
+registerScreen('settings', {
+  capture: () => ({ group: useSettingsUi.getState().group }),
+  restore: (s) => useSettingsUi.setState({ group: (s.group as GroupId | null) ?? null, via: null }),
+})
+
+/** 설정 안에서 뒤로: 다른 화면에서 바로 들어왔으면 그 화면으로, 그룹 안이면 그룹 목록으로. 더 갈 곳이 없으면 false(앱의 뒤로 가기가 이어받는다) */
+export function settingsBack(): boolean {
+  const { group, via } = useSettingsUi.getState()
+  if (via) {
+    useSettingsUi.setState({ via: null, group: null })
+    goScreen(via)
+    return true
+  }
+  if (group) {
+    useSettingsUi.setState({ group: null })
+    return true
+  }
+  return false
+}
+
+/** 다른 화면에서 설정으로 들어갈 때 온 곳을 적는다(이미 설정이면 적지 않는다) */
+const comingFrom = (): Screen | null => {
+  const tab = useApp.getState().tab
+  return tab === 'settings' ? null : captureScreen(tab)
+}
 
 /** 설정을 열면서 해당 그룹(과 카드)으로 바로 간다. 사이드바가 접혀 있으면 펼친다 */
 export function openSettingsGroup(group: GroupId, focus?: string) {
-  useSettingsUi.setState({ group, focus: focus ?? null })
+  useSettingsUi.setState({ group, focus: focus ?? null, via: comingFrom() ?? useSettingsUi.getState().via })
   const app = useApp.getState()
   if (!app.settings.leftOpen) app.patchSettings({ leftOpen: true })
   app.go('settings')
@@ -441,6 +468,8 @@ export function SettingsNav() {
  */
 export function Settings() {
   const wide = useMedia('(min-width: 900px)')
+  // 설정 화면을 떠나면(탭 이동 등) "바로 들어온 곳"은 잊는다 — 나중에 다시 와서 뒤로 갔을 때 엉뚱한 곳으로 가지 않게
+  useEffect(() => () => useSettingsUi.setState({ via: null }), [])
   const groups = useGroups()
   const picked = useSettingsUi((x) => x.group)
   const group: GroupId | null = wide ? (picked ?? 'profile') : picked
@@ -449,7 +478,7 @@ export function Settings() {
   return (
     <div className="settings">
       <div className="panel-head">
-        {!wide && group && <button className="icon-btn" onClick={() => useSettingsUi.setState({ group: null })} aria-label={t('설정 목록으로')}><Icon name="back" /></button>}
+        {!wide && group && <button className="icon-btn" onClick={() => settingsBack()} aria-label={t('설정 목록으로')}><Icon name="back" /></button>}
         <h2>{cur ? cur.label : t('설정')}</h2>
       </div>
       {group && Page ? (

@@ -6,6 +6,7 @@ import { homeTab, useApp, type Tab } from './lib/app'
 import { useDialog } from './lib/dialog'
 import { FileTree } from './components/FileTree'
 import { MemoTab, memoBack } from './components/MemoTab'
+import { settingsBack } from './components/Settings'
 import { Search } from './components/Search'
 import { Graph } from './components/Graph'
 import { startReminders } from './lib/reminders'
@@ -180,8 +181,9 @@ export default function App() {
       if (app.palette) return app.setPalette(null)
       if (app.sheet) return app.setSheet(null)
       if (useAiThread.getState().open && !desktop()) return useAiThread.getState().setOpen(false) // 폰: AI 시트가 열려 있으면 먼저 닫는다
-      if (app.tab === 'note' && app.back()) return
+      if (app.tab === 'note' && app.backScreen()) return // 이번에 따라온 노트들을 한 칸씩 → 노트를 연 화면(검색·캘린더·허브·메모…)으로
       if (app.tab === 'files' && memoBack()) return // 메모 탭: 선택 해제 → 위 폴더로
+      if (app.tab === 'settings' && settingsBack()) return // 설정: 그룹 안 → 그룹 목록(바로 들어온 경우는 들어온 화면)
       if (app.tab !== homeTab()) return app.go(homeTab()) // 홈(PC: 캘린더 / 모바일: 오늘)으로 한 번 돌아간 뒤 종료
       void CapApp.exitApp()
     })

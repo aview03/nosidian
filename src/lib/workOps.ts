@@ -1,6 +1,6 @@
 // 업무 편집 연산: work.ts 의 순수 함수로 한 줄을 만들고, 노트(저장소)에 쓴다. 화면 상태(편집기·허브)도 여기서 관리한다.
 import { create } from 'zustand'
-import { useApp } from './app'
+import { registerScreen, useApp } from './app'
 import { t } from './i18n'
 import { buildWork, findTaskLine, rewriteTaskLine, tokensForState, type Task, type TaskEdit, type UiState } from './work'
 import { formatWorkTokens } from './taskTokens'
@@ -52,6 +52,12 @@ export const useWorkUi = create<WorkUi>((set) => ({
 }))
 
 const say = (m: string) => useApp.getState().say(m)
+
+// 프로젝트 허브에서 노트 등으로 갔다가 뒤로 오면 보던 프로젝트로 돌아온다
+registerScreen('project', {
+  capture: () => ({ hub: useWorkUi.getState().hub }),
+  restore: (s) => useWorkUi.setState({ hub: (s.hub as string | null) ?? null }),
+})
 
 /** 체크박스를 눌렀을 때: 결정 안건을 닫을 땐 결론을 받아야 하므로 편집기를 열고, 나머지는 그냥 체크한다 */
 export function toggleOrClose(task: Task) {
