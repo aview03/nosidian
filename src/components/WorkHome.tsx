@@ -238,8 +238,10 @@ export function WorkHome() {
   const customs = useMemo(() => views.map((v) => v.name), [views])
   const tiles = resolveTiles(layout, customs)
   // 역할 구성에서 빠졌어도(학생) 프로젝트가 하나라도 있으면 프로젝트 타일을 보인다(layout.auto — 직접 끄거나 켜면 그 뜻을 따른다)
-  const autoProjects = !!layout.auto?.includes('projects') && work.projects.length > 0
-  const projectsShown = tiles.some((x) => x.id === 'projects' && (!x.hidden || autoProjects))
+  // `정리할 업무`도 같다: 받은 업무(프로젝트에 안 넣은 열린 업무)가 있고 옮겨 넣을 프로젝트가 있으면 보인다
+  const hasLoose = work.projects.length > 0 && work.tasks.some((x) => !x.project && !x.done && x.state !== 'dropped')
+  const autoShow = (id: string) => !!layout.auto?.includes(id) && (id === 'projects' ? work.projects.length > 0 : id === 'triage' ? hasLoose : false)
+  const projectsShown = tiles.some((x) => x.id === 'projects' && (!x.hidden || autoShow('projects')))
   const patch = useWorkUi.getState().patchLayout
   const setEditing = (on: boolean) => useWorkUi.setState({ editing: on })
   /** 완료: 설정에서 들어왔으면 설정으로 돌아간다 */
@@ -368,7 +370,7 @@ export function WorkHome() {
               <button className="wrk-newproj" onClick={() => useWorkUi.setState({ viewEditor: {} })}>+ {t('조건으로 새 타일 만들기')}</button>
             </>
           ) : (
-            <div className="wrk-tiles">{tiles.filter((x) => !x.hidden || (x.id === 'projects' && autoProjects)).map((tile) => {
+            <div className="wrk-tiles">{tiles.filter((x) => !x.hidden || autoShow(x.id)).map((tile) => {
               const data = dataFor(tile.id)
               if (!data) return null
               if (!data.alwaysShow && data.rows.length === 0) return <EmptyTile key={tile.id} title={data.title} text={t(EMPTY_TEXT[tile.id as BuiltinTile] ?? '')} tone={data.tone} /> // 켜 둔 타일은 비어도 한 줄로 남긴다

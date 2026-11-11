@@ -64,3 +64,43 @@ describe('학생 구성의 홈: 프로젝트가 생기면 프로젝트 타일이
     expect(titles()).toContain(t('프로젝트'))
   })
 })
+
+describe('기획자 등 구성에 없는 "정리할 업무": 받은 업무가 쌓이면 저절로 나타난다', () => {
+  let host: HTMLDivElement
+  let root: ReturnType<typeof createRoot>
+  beforeEach(() => {
+    host = document.createElement('div')
+    document.body.appendChild(host)
+    root = createRoot(host)
+  })
+  afterEach(() => {
+    act(() => root.unmount())
+    host.remove()
+  })
+  const mount = (notes: NoteFile[], persona: 'planner' | 'developer' | 'student' = 'planner') => {
+    const files = Object.fromEntries(notes.map((f) => [f.path, f]))
+    useApp.setState({ files, index: buildIndex(notes.map((f) => ({ path: f.path, content: f.content }))), ready: true })
+    useWorkUi.setState({ layout: presetLayout(persona, defaultLayout(), []), editing: false })
+    act(() => root.render(createElement(WorkHome)))
+  }
+  const titles = () => [...host.querySelectorAll('.wrk-tname')].map((x) => x.textContent)
+  const inbox = note('받은 업무.md', '- [ ] 로그인 오류 확인\n')
+
+  it('받은 업무가 있고 프로젝트도 있으면 보인다(찾을 곳이 없던 문제)', () => {
+    mount([...withProject, inbox])
+    expect(titles()).toContain(t('정리할 업무'))
+    expect(host.textContent).toContain('로그인 오류 확인')
+  })
+  it('받은 업무가 없으면 보이지 않는다(가볍게)', () => {
+    mount(withProject)
+    expect(titles()).not.toContain(t('정리할 업무'))
+  })
+  it('옮겨 넣을 프로젝트가 없으면 보이지 않는다', () => {
+    mount([inbox])
+    expect(titles()).not.toContain(t('정리할 업무'))
+  })
+  it('개발자 구성(타일이 이미 있음)은 예전 그대로 — 비어 있으면 한 줄', () => {
+    mount(withProject, 'developer')
+    expect(titles()).toContain(t('정리할 업무'))
+  })
+})
