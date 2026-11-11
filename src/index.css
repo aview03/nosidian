@@ -1809,3 +1809,19 @@ body.board-dragging, body.board-dragging * { cursor: grabbing !important; user-s
 .day-toggle { flex: none; display: flex; align-items: center; gap: 6px; width: 100%; min-height: 32px; padding: 0 16px; border: none; border-top: 1px solid var(--border); background: none; color: var(--muted); font: inherit; font-size: 12.5px; font-weight: 600; text-align: left; cursor: pointer; }
 .day-toggle small { margin-left: auto; font-weight: 400; opacity: 0.8; }
 .day-toggle:hover { color: var(--text); }
+
+/* 노트 "업무 정리" 화면 (docs/PERSONAS F24) */
+.ee.nt { max-width: 620px; }
+.nt-name { margin-left: 8px; color: var(--muted); font-size: 13px; font-weight: 500; }
+.nt-intro { margin: 2px 0 4px; }
+.nt-row { display: flex; flex-direction: column; gap: 6px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.nt-row.changed { border-left: 3px solid var(--accent, #4c8dff); padding-left: 10px; }
+.nt-title { width: 100%; height: 44px; padding: 0 12px; border: 1px solid var(--border); border-radius: var(--r); background: var(--bg); color: var(--text); font-size: 15px; font-weight: 600; }
+.nt-title:focus, .nt-owner:focus, .nt-due:focus { outline: none; border-color: var(--accent); }
+.nt-fields { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.nt-owner { flex: 1 1 120px; min-width: 0; height: 40px; padding: 0 10px; border: 1px solid var(--border); border-radius: var(--r); background: var(--bg); color: var(--text); font-size: 14px; }
+.nt-due { flex: 0 1 170px; height: 40px; padding: 0 8px; border: 1px solid var(--border); border-radius: var(--r); background: var(--bg); color: var(--text); font-size: 14px; color-scheme: light dark; }
+.nt-dec { min-width: 0; height: 40px; padding: 0 12px; border: 1px solid var(--border); border-radius: var(--r); background: none; color: var(--muted); font-size: 13px; }
+.nt-dec.on { border-color: var(--text); color: var(--text); font-weight: 700; background: var(--bg2); }
+.nt-hint { margin: 0; font-size: 12px; color: var(--muted); }
+.nt-hint b { color: var(--accent, #4c8dff); font-weight: 600; }

@@ -1453,5 +1453,12 @@ const dict: Record<string, string> = {
   '일정 {n}개': "{n} events",
   '접으면 노트가 넓어져요': "Collapse to give the note more room",
   '눌러서 펼치기': "Tap to expand",
+  '업무 정리': "Tidy tasks",
+  '이 노트에는 열린 할 일 줄(- [ ])이 없어요.': "This note has no open task lines (- [ ]).",
+  '이 노트의 할 일 줄이에요. 담당·마감을 한 번에 정하면 프로젝트 허브와 내 업무에 반영돼요. 제목에서 읽어 채운 값은 맞는지 확인해 주세요.': "These are the task lines in this note. Set owners and due dates at once and they show up in the project hub and My Work. Please check the values filled in from titles.",
+  '제목에서 읽었어요': "Read from the title",
+  '원문': "Original",
+  '업무 {n}개를 정리했어요': "Tidied {n} tasks",
+  '{n}개 적용': "Apply {n}",
 }
 export default dict

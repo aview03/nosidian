@@ -19,6 +19,7 @@ import { EventEditor } from './components/EventEditor'
 import { WorkHome } from './components/WorkHome'
 import { ProjectHub } from './components/ProjectHub'
 import { TaskEditor } from './components/TaskEditor'
+import { NoteTasksSheet } from './components/NoteTasksSheet'
 import { NewProject } from './components/NewProject'
 import { NewNote } from './components/NewNote'
 import { ViewEditor } from './components/ViewEditor'
@@ -263,6 +264,7 @@ export default function App() {
         <Palette />
         <EventEditor />
         <TaskEditor />
+        <NoteTasksSheet />
         <NewProject />
         <NewNote />
         <ViewEditor />
@@ -304,6 +306,7 @@ export default function App() {
       <Palette />
       <EventEditor />
         <TaskEditor />
+        <NoteTasksSheet />
         <NewProject />
         <NewNote />
         <ViewEditor />

@@ -1,0 +1,110 @@
+import { describe, expect, it } from 'vitest'
+import { applyRows, buildRows, extractHints, rowChanged } from './noteTasks'
+import { buildWork } from './work'
+import type { NoteFile } from './types'
+
+const TODAY = '2026-11-11' // 수요일
+const KNOWN = new Set(['민수', '지현'])
+const ex = (t: string, known = KNOWN) => extractHints(t, known, TODAY)
+
+describe('제목에서 담당·마감 읽기', () => {
+  it('괄호 안의 (이름, 날짜까지)를 담당·마감으로 읽고 제목에서 뺀다', () => {
+    expect(ex('행사장 계약서 검토 (민수, 11/18까지)')).toEqual({ title: '행사장 계약서 검토', owner: ['민수'], due: '2026-11-18', found: true })
+  })
+  it('아는 이름만 있는 괄호도 담당으로 읽는다', () => {
+    expect(ex('케이터링 견적 3곳 받기 (지현)')).toMatchObject({ title: '케이터링 견적 3곳 받기', owner: ['지현'], due: undefined, found: true })
+  })
+  it('모르는 이름은 같은 괄호에 날짜가 있을 때만 이름으로 본다', () => {
+    expect(ex('자료 정리 (새사람)', new Set())).toMatchObject({ found: false, title: '자료 정리 (새사람)' })
+    expect(ex('자료 정리 (새사람, 11/20까지)', new Set())).toMatchObject({ owner: ['새사람'], due: '2026-11-20' })
+  })
+  it('말머리(참고·긴급 …)는 이름으로 보지 않는다', () => {
+    expect(ex('보고서 작성 (긴급)', new Set(['긴급']))).toMatchObject({ found: false, title: '보고서 작성 (긴급)' })
+    expect(ex('보고서 작성 (참고, 11/20까지)')).toMatchObject({ found: false }) // 참고 는 이름도 날짜도 아니라 괄호를 건드리지 않는다
+  })
+  it('이름도 날짜도 아닌 글이 섞인 괄호는 그대로 둔다', () => {
+    expect(ex('발표 자료 (지난 회의 참고)')).toMatchObject({ found: false, title: '발표 자료 (지난 회의 참고)' })
+  })
+  it('@이름 을 읽는다(@날짜 꼬리표는 건드리지 않는다)', () => {
+    expect(ex('시안 확인 @지현')).toMatchObject({ title: '시안 확인', owner: ['지현'], found: true })
+    expect(ex('보고서 제출 @2026-11-20')).toMatchObject({ found: false, title: '보고서 제출 @2026-11-20' })
+  })
+  it('괄호 밖 "…까지" 날짜를 읽는다(요일·월/일)', () => {
+    expect(ex('견적 받기 금요일까지')).toMatchObject({ title: '견적 받기', due: '2026-11-13' })
+    expect(ex('포스터 11월 20일까지 완성')).toMatchObject({ title: '포스터 완성', due: '2026-11-20' })
+    expect(ex('정산 내일까지')).toMatchObject({ title: '정산', due: '2026-11-12' })
+  })
+  it('"까지" 없는 날짜 표현은 읽지 않는다(제목의 일부일 수 있다)', () => {
+    expect(ex('11/18 회의 준비')).toMatchObject({ found: false, title: '11/18 회의 준비' })
+    expect(ex('내일 발표 연습')).toMatchObject({ found: false })
+  })
+  it('여러 이름도 읽는다', () => {
+    expect(ex('현수막 제작 (민수·지현, 11/20까지)')).toMatchObject({ owner: ['민수', '지현'], due: '2026-11-20' })
+  })
+  it('읽고 나서 제목이 비면 원문을 그대로 둔다', () => {
+    expect(ex('(민수, 11/18까지)')).toMatchObject({ title: '(민수, 11/18까지)', found: false })
+  })
+})
+
+const MINUTES = ['# 회의록 11-11', '', '## 후속 업무', '- [ ] 행사장 계약서 검토 (민수, 11/18까지)', '- [ ] 케이터링 견적 3곳 받기 (지현)', '- [ ] 포스터 시안 2안 만들기', '  - [ ] 하위: 문구 확정', '- [x] 이미 끝난 일 (민수)', '- 그냥 글머리', ''].join('\n')
+
+describe('노트의 열린 줄 → 행', () => {
+  const rows = buildRows(MINUTES, KNOWN, TODAY)
+  it('열린 체크리스트 줄만 행이 된다(끝난 줄·글머리 제외, 하위 줄 포함)', () => {
+    expect(rows.map((r) => r.line)).toEqual([3, 4, 5, 6])
+  })
+  it('읽은 값이 미리 채워지고 hinted 로 표시된다', () => {
+    expect(rows[0]).toMatchObject({ title: '행사장 계약서 검토', owner: ['민수'], due: '2026-11-18', hinted: true })
+    expect(rows[1]).toMatchObject({ title: '케이터링 견적 3곳 받기', owner: ['지현'], hinted: true })
+    expect(rows[2]).toMatchObject({ title: '포스터 시안 2안 만들기', owner: [], hinted: false })
+  })
+  it('읽을 게 없는 행은 안 바뀐 것으로 본다. 읽은 행은 바뀐 것으로 본다', () => {
+    expect(rowChanged(rows[2])).toBe(false)
+    expect(rowChanged(rows[0])).toBe(true)
+  })
+  it('줄에 이미 담당·마감 꼬리표가 있으면 그 값을 쓰고 제목에서 읽지 않는다', () => {
+    const r = buildRows('- [ ] 검토 (지현) owner:민수 due:2026-11-30', KNOWN, TODAY)[0]
+    expect(r).toMatchObject({ title: '검토 (지현)', owner: ['민수'], due: '2026-11-30', hinted: false })
+    expect(rowChanged(r)).toBe(false)
+  })
+})
+
+describe('행 → 노트에 적용', () => {
+  const rows = buildRows(MINUTES, KNOWN, TODAY)
+  const out = applyRows(MINUTES, rows)
+  it('바뀐 줄만 꼬리표로 다시 쓴다(제목에서 괄호 제거)', () => {
+    const lines = out.split('\n')
+    expect(lines[3]).toBe('- [ ] 행사장 계약서 검토 due:2026-11-18 owner:민수')
+    expect(lines[4]).toBe('- [ ] 케이터링 견적 3곳 받기 owner:지현')
+  })
+  it('안 바뀐 줄·끝난 줄·들여쓴 줄·다른 글은 그대로다', () => {
+    const before = MINUTES.split('\n')
+    const after = out.split('\n')
+    for (const i of [0, 1, 2, 5, 6, 7, 8]) expect(after[i]).toBe(before[i])
+  })
+  it('적용하면 허브의 업무로 담당·마감이 읽힌다', () => {
+    const files: NoteFile[] = [
+      { path: '프로젝트/행사/프로젝트 개요.md', content: '---\ntype: project\n---\n# 행사\n', sha: null, dirty: false, mtime: 1 },
+      { path: '프로젝트/행사/회의록.md', content: out, sha: null, dirty: false, mtime: 1 },
+    ]
+    const tasks = buildWork(Object.fromEntries(files.map((f) => [f.path, f]))).tasks
+    const t = tasks.find((x) => x.title === '행사장 계약서 검토')!
+    expect(t).toMatchObject({ owner: ['민수'], due: '2026-11-18' })
+  })
+  it('사람이 고친 값(담당 바꾸기·마감 지우기·결정으로)이 적용된다', () => {
+    const r = buildRows('- [ ] 정책 정하기 (민수, 11/18까지)', KNOWN, TODAY)
+    r[0].owner = ['지현']
+    r[0].due = undefined
+    r[0].decision = true
+    expect(applyRows('- [ ] 정책 정하기 (민수, 11/18까지)', r)).toBe('- [ ] 정책 정하기 kind:decision owner:지현')
+  })
+  it('그새 줄이 바뀌었으면(제목이 달라짐) 건너뛴다', () => {
+    const r = buildRows('- [ ] 가 (민수)', KNOWN, TODAY)
+    expect(applyRows('- [ ] 전혀 다른 줄', r)).toBe('- [ ] 전혀 다른 줄')
+  })
+  it('들여쓰기와 일정 꼬리표는 보존한다', () => {
+    const src = '  - [ ] 14:00 점검 (지현) @2026-11-20'
+    const r = buildRows(src, KNOWN, TODAY)
+    expect(applyRows(src, r)).toBe('  - [ ] 14:00 점검 @2026-11-20 owner:지현')
+  })
+})

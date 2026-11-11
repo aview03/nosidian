@@ -27,6 +27,10 @@ interface WorkUi {
   returnTo: 'settings' | null
   /** 사용자 타일 편집기: view 가 있으면 수정, 없으면 새 타일 */
   viewEditor: null | { view?: View }
+  /** 노트 "업무 정리" 화면이 열려 있는 노트 경로(회의록의 후속 업무 담당·마감을 한 번에 정한다) */
+  tidy: string | null
+  openTidy(path: string): void
+  closeTidy(): void
   openHub(path: string): void
 }
 
@@ -34,6 +38,9 @@ export const useWorkUi = create<WorkUi>((set) => ({
   editor: null,
   openEditor: (task, project = null, closing = false) => set({ editor: { task, project, closing } }),
   closeEditor: () => set({ editor: null }),
+  tidy: null,
+  openTidy: (path) => set({ tidy: path }),
+  closeTidy: () => set({ tidy: null }),
   hub: null,
   wizard: false,
   layout: loadLayout(),
@@ -159,7 +166,7 @@ export function patchTask(task: Task, patch: { start?: string | null; due?: stri
  * 보기(표·담당자별 등)에서 한 변경을 "되돌리기" 알림과 함께 한다. run 이 성공하면 알림을 띄우고, 누르면 그 노트를 변경 전 내용으로 되돌린다.
  * 그새 노트가 또 바뀌었으면(동기화·다른 편집) 덮어쓰지 않고 이유를 알린다.
  */
-export function withUndo(task: Task, message: string, run: () => boolean): boolean {
+export function withUndo(task: Pick<Task, 'path'>, message: string, run: () => boolean): boolean {
   const before = useApp.getState().files[task.path]?.content
   if (before === undefined || !run()) return false
   const after = useApp.getState().files[task.path]?.content
