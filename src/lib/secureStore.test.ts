@@ -3,6 +3,10 @@ import { hydrateSecrets, onSecretsReady, secureAvailable, setSecureBackend, type
 import { loadPcShare, savePcShare, usePcFilesUi, type PcShare } from './pcFiles'
 import { loadPcLink, savePcLink, type PcLink } from './pcLink'
 import { loadLlmConfig, saveLlmConfig } from './llm'
+import { migrateLegacy } from './aiConnections'
+
+/** 연결 레코드들(nosidian.llm.<id>)의 원문을 이어 붙인 글 */
+const llmRaw = () => Object.keys(localStorage).filter((k) => k.startsWith('nosidian.llm.') && k !== 'nosidian.llm.bak').map((k) => localStorage.getItem(k)).join(' ')
 
 const TOKEN = 'a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718'
 const FP = 'ab'.repeat(32)
@@ -82,10 +86,11 @@ describe('새로 저장: 토큰은 보안 저장소에만', () => {
     saveLlmConfig({ kind: 'openai', baseUrl: 'https://api.openai.com/v1', model: 'gpt-4o-mini', apiKey: 'sk-test-SECRET-1234567890' })
     await tick()
     expect(localStorage.getItem('nosidian.pc')).not.toContain(TOKEN)
-    expect(localStorage.getItem('nosidian.llm')).not.toContain('SECRET')
+    expect(llmRaw()).toContain('openai')
+    expect(llmRaw()).not.toContain('SECRET')
     expect(loadPcLink()?.token).toBe(TOKEN)
     expect(loadLlmConfig()?.apiKey).toBe('sk-test-SECRET-1234567890')
-    expect([...k.store.keys()].sort()).toEqual(['llm.apiKey', 'pc.token'])
+    expect([...k.store.keys()].sort()).toEqual([expect.stringMatching(/^llm\.apiKey\.c_[a-z0-9]+$/), 'pc.token'])
   })
   it('키가 필요 없는 로컬 서버 설정은 비밀 없이도 유효하고, 키를 지우면 보안 저장소에서도 지운다', async () => {
     const k = fakeKeystore()
@@ -96,10 +101,11 @@ describe('새로 저장: 토큰은 보안 저장소에만', () => {
     expect(loadLlmConfig()?.apiKey).toBeUndefined()
     saveLlmConfig({ kind: 'openai', baseUrl: 'https://api.openai.com/v1', model: 'm', apiKey: 'sk-x' })
     await tick()
-    expect(k.store.has('llm.apiKey')).toBe(true)
+    const llmKeys = () => [...k.store.keys()].filter((x) => x.startsWith('llm.apiKey'))
+    expect(llmKeys()).toHaveLength(1)
     saveLlmConfig({ kind: 'openai', baseUrl: 'https://api.openai.com/v1', model: 'm' })
     await tick()
-    expect(k.store.has('llm.apiKey')).toBe(false)
+    expect(llmKeys()).toHaveLength(0)
     saveLlmConfig(null)
     expect(loadLlmConfig()).toBeNull()
   })
@@ -121,10 +127,12 @@ describe('기존 평문 토큰·키의 안전한 이전', () => {
     localStorage.setItem('nosidian.pcshare', JSON.stringify(share()))
     localStorage.setItem('nosidian.pc', JSON.stringify(link()))
     localStorage.setItem('nosidian.llm', JSON.stringify({ kind: 'openai', baseUrl: 'https://api.openai.com/v1', model: 'm', apiKey: 'sk-legacy-KEY' }))
+    migrateLegacy() // 앱을 켤 때 가장 먼저 하는 일: 예전 한 칸 설정을 연결 1개로 옮긴다(키는 그대로 두고 레코드 이름만 바꾼다)
+    expect(localStorage.getItem('nosidian.llm')).toBeNull()
     const k = fakeKeystore()
     setSecureBackend(k.backend)
     await hydrateSecrets()
-    for (const key of ['nosidian.pcshare', 'nosidian.pc', 'nosidian.llm']) expect(localStorage.getItem(key), key).not.toMatch(/a1b2c3d4|sk-legacy/)
+    for (const key of ['nosidian.pcshare', 'nosidian.pc', 'nosidian.llm.c_legacy', 'nosidian.llm.bak']) expect(localStorage.getItem(key), key).not.toMatch(/a1b2c3d4|sk-legacy/)
     expect(k.store.get('pcshare.token')).toBe(TOKEN)
     expect(k.store.get('pc.token')).toBe(TOKEN)
     expect(k.store.get('llm.apiKey')).toBe('sk-legacy-KEY')

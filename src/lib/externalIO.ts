@@ -98,7 +98,7 @@ export interface RelayApi {
   /** 지금 떠 있는 연결 코드를 바로 폐기(모달을 닫을 때) */
   revokeCode(): Promise<RelayStatus>
   revoke(id: string): Promise<RelayStatus>
-  upstream(cfg: { kind: string; baseUrl: string; model: string; keyStored?: boolean } | null): Promise<boolean>
+  upstream(cfg: { kind: string; baseUrl: string; model: string; keyStored?: boolean; keyId?: string } | null): Promise<boolean>
 }
 export interface ShareStatus {
   enabled: boolean

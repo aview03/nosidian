@@ -170,7 +170,7 @@ function createRelay(deps) {
     if (!target) return send(res, 404, { error: 'unsupported path for this upstream' })
     const body = req.method === 'POST' ? await readBody(req) : undefined
     const headers = { 'content-type': 'application/json' }
-    if (key) headers.authorization = 'Bearer {{KEY}}' // 자리표시자 — llm.cjs 가 PC 보안 저장소의 키로 바꾼다
+    if (key) headers.authorization = up.keyId ? `Bearer {{KEY:${up.keyId}}}` : 'Bearer {{KEY}}' // 자리표시자 — llm.cjs 가 PC 보안 저장소의 키로 바꾼다
     const r = await llmRequest({ url: target, method: req.method, headers, body, timeoutMs: 300_000 })
     if (r.error) return send(res, 502, { error: r.error })
     res.writeHead(r.status || 502, { 'content-type': 'application/json; charset=utf-8' })
@@ -414,7 +414,7 @@ function register({ ipcMain, app, claudeRunner, llm }) {
   })
   // 화면(렌더러)이 PC 에 저장된 AI 연결 설정을 알려 준다(키는 보내지 않는다 — 키는 보안 저장소에 있다)
   ipcMain.handle('relay:upstream', (_e, cfg) => {
-    upstream = cfg && typeof cfg.kind === 'string' && typeof cfg.baseUrl === 'string' ? { kind: String(cfg.kind), baseUrl: String(cfg.baseUrl), model: String(cfg.model || ''), keyStored: cfg.keyStored === true } : null
+    upstream = cfg && typeof cfg.kind === 'string' && typeof cfg.baseUrl === 'string' ? { kind: String(cfg.kind), baseUrl: String(cfg.baseUrl), model: String(cfg.model || ''), keyStored: cfg.keyStored === true, keyId: typeof cfg.keyId === 'string' && /^c_[a-z0-9]{1,16}$/.test(cfg.keyId) ? cfg.keyId : null } : null
     return true
   })
   if (relay.state().enabled) void start()

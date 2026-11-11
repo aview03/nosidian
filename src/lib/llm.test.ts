@@ -95,8 +95,8 @@ describe('기기 저장', () => {
   it('저장·불러오기·지우기, 깨진 값은 null', () => {
     expect(loadLlmConfig()).toBeNull()
     saveLlmConfig(cfg({ apiKey: 'k' }))
-    expect(loadLlmConfig()).toEqual(cfg({ apiKey: 'k' }))
-    localStorage.setItem('nosidian.llm', '{깨짐')
+    expect(loadLlmConfig()).toMatchObject(cfg({ apiKey: 'k' }))
+    localStorage.setItem('nosidian.aiConnections', '{깨짐') // 연결 목록이 깨지면 "연결 없음"
     expect(loadLlmConfig()).toBeNull()
     saveLlmConfig(cfg())
     saveLlmConfig(null)
@@ -120,8 +120,11 @@ describe('보안 저장소의 키(keyStored)', () => {
   })
   it('저장·불러오기에서 keyStored 는 유지되고 평문 키는 없다', () => {
     saveLlmConfig({ kind: 'openai', baseUrl: 'https://api.openai.com/v1', model: 'g', keyStored: true })
-    expect(loadLlmConfig()).toEqual({ kind: 'openai', baseUrl: 'https://api.openai.com/v1', model: 'g', keyStored: true })
-    expect(localStorage.getItem('nosidian.llm')).not.toContain('apiKey')
+    expect(loadLlmConfig()).toMatchObject({ kind: 'openai', baseUrl: 'https://api.openai.com/v1', model: 'g', keyStored: true })
+    const id = loadLlmConfig()!.id!
+    expect(localStorage.getItem(`nosidian.llm.${id}`)).not.toContain('apiKey')
+    // 연결 id 가 있으면 키 자리표시자에 id 가 들어가 메인 프로세스가 그 연결의 키를 찾는다
+    expect(forRequest(loadLlmConfig()!).apiKey).toBe(`{{KEY:${id}}}`)
     saveLlmConfig(null)
   })
 })

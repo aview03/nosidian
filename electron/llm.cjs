@@ -5,7 +5,13 @@
 //  - 주소: https 이거나, http 면 사설망·내 기기 주소만. (src/lib/llm.ts 의 isPrivateHost 와 같은 규칙 — 여기서 다시 검사한다)
 //  - 헤더: 허용 목록만. 리다이렉트는 따라가지 않고, 시간(2분)·응답 크기(8MB)에 상한이 있다.
 const fs = require('fs')
+const path = require('path')
 const KEY_MARK = '{{KEY}}'
+// 요청 헤더의 키 자리표시자: `{{KEY}}`(예전 한 칸 연결) 또는 `{{KEY:c_abc12345}}`(연결 id 별)
+const KEY_RE = /\{\{KEY(?::(c_[a-z0-9]{1,16}))?\}\}/g
+// 예전 한 칸 설정이 옮겨 간 연결의 id — 키 파일이 옛 것(llm-key.bin)과 같다
+const LEGACY_ID = 'c_legacy'
+const ID_RE = /^c_[a-z0-9]{1,16}$/
 const ALLOWED_HEADERS = new Set(['content-type', 'authorization', 'x-api-key', 'anthropic-version', 'x-goog-api-key'])
 const MAX_BYTES = 8 * 1024 * 1024
 const TIMEOUT_MS = 120_000
@@ -33,7 +39,7 @@ function createKeyStore({ file, safeStorage }) {
       return false
     }
   }
-  return {
+  const store = {
     available,
     has: () => fs.existsSync(file),
     set(key) {
@@ -55,17 +61,33 @@ function createKeyStore({ file, safeStorage }) {
         /* 없으면 그만 */
       }
     },
+    /** 연결 id 별 보관소. 예전 한 칸(c_legacy·id 없음)은 기존 파일 그대로, 나머지는 `llm-key.<id>.bin` */
+    forId(id) {
+      if (!id || id === LEGACY_ID || !ID_RE.test(id)) return store
+      return createKeyStore({ file: path.join(path.dirname(file), `${path.basename(file, '.bin')}.${id}.bin`), safeStorage })
+    },
   }
+  return store
 }
 
-/** 요청 헤더의 {{KEY}} 자리를 실제 키로 바꾼다(허용 헤더만). 자리표시자가 있는데 키가 없으면 null */
+/**
+ * 요청 헤더의 {{KEY}} / {{KEY:연결id}} 자리를 실제 키로 바꾼다(허용 헤더만). 자리표시자가 있는데 키가 없으면 null.
+ * key 는 글자(모든 자리표시자에 같은 키), null, 또는 (연결id|null) => 키 를 돌려주는 함수.
+ */
 function injectKey(headers, key) {
+  const resolve = typeof key === 'function' ? key : () => key
   const out = {}
   for (const [k, v] of Object.entries(headers || {})) {
     if (typeof v !== 'string' || !ALLOWED_HEADERS.has(k.toLowerCase())) continue
-    if (v.includes(KEY_MARK)) {
-      if (!key) return null
-      out[k] = v.split(KEY_MARK).join(key)
+    if (v.includes('{{KEY')) {
+      let missing = false
+      const replaced = v.replace(KEY_RE, (_m, id) => {
+        const got = resolve(id || null)
+        if (!got) missing = true
+        return got || ''
+      })
+      if (missing) return null
+      out[k] = replaced
     } else out[k] = v
   }
   return out
@@ -90,7 +112,7 @@ function check(req) {
 async function request(req, keys, ac) {
   const bad = check(req)
   if (bad) return { status: 0, text: '', error: bad }
-  const headers = injectKey(req.headers, keys ? keys.get() : null)
+  const headers = injectKey(req.headers, (id) => (keys ? keys.forId(id).get() : null))
   if (!headers) return { status: 0, text: '', error: '저장된 API 키를 읽을 수 없어요. 설정에서 다시 저장해 주세요' }
   ac = ac || new AbortController()
   // 요청이 정한 시간 제한(느린 로컬 모델용). 1초~10분 안으로만 받아들인다
@@ -142,14 +164,19 @@ function registerLlm(ipcMain, opts) {
     ac.abort()
     return true
   })
-  ipcMain.handle('llm:key:status', () => ({ available: !!keys && keys.available(), has: !!keys && keys.has() }))
-  ipcMain.handle('llm:key:set', (_e, key) => {
-    if (!keys) throw new Error('보안 저장소를 쓸 수 없습니다')
-    keys.set(key)
+  // 키는 연결 id 별로 보관한다(id 없음 = 예전 한 칸)
+  const idOf = (id) => (typeof id === 'string' && ID_RE.test(id) ? id : null)
+  ipcMain.handle('llm:key:status', (_e, id) => {
+    const k = keys && keys.forId(idOf(id))
+    return { available: !!keys && keys.available(), has: !!k && k.has() }
   })
-  ipcMain.handle('llm:key:clear', () => keys && keys.clear())
+  ipcMain.handle('llm:key:set', (_e, key, id) => {
+    if (!keys) throw new Error('보안 저장소를 쓸 수 없습니다')
+    keys.forId(idOf(id)).set(key)
+  })
+  ipcMain.handle('llm:key:clear', (_e, id) => keys && keys.forId(idOf(id)).clear())
   // 다른 메인 프로세스 코드(휴대폰 중계)가 같은 규칙·같은 키 보관소로 요청을 보낼 때 쓴다
   return { request: (req, ac) => request(req, keys, ac) }
 }
 
-module.exports = { registerLlm, check, request, isPrivateHost, createKeyStore, injectKey, KEY_MARK }
+module.exports = { registerLlm, check, request, isPrivateHost, createKeyStore, injectKey, KEY_MARK, KEY_RE, LEGACY_ID }

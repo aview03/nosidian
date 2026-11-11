@@ -8,9 +8,9 @@ contextBridge.exposeInMainWorld('amsidianDesktop', {
   llmCancel: (id) => ipcRenderer.invoke('llm:cancel', id),
   /** AI 서버 API 키 보관(운영체제 보안 저장소). 키는 메인 프로세스에서만 읽힌다 — 렌더러는 저장·삭제·있는지만 안다 */
   llmKey: {
-    status: () => ipcRenderer.invoke('llm:key:status'),
-    set: (key) => ipcRenderer.invoke('llm:key:set', key),
-    clear: () => ipcRenderer.invoke('llm:key:clear'),
+    status: (id) => ipcRenderer.invoke('llm:key:status', id),
+    set: (key, id) => ipcRenderer.invoke('llm:key:set', key, id),
+    clear: (id) => ipcRenderer.invoke('llm:key:clear', id),
   },
   /** 앱 안 AI(PC 의 Claude Code CLI): 찾기·로그인 확인, 한 번 실행(진행·결과는 이벤트), 취소 */
   claude: {

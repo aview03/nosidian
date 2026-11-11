@@ -158,3 +158,42 @@ describe('요청별 시간 제한', () => {
     }
   })
 })
+
+describe('연결별 API 키 보관 (PC 메인 프로세스)', () => {
+  type Ks = { forId(id?: string | null): { set(k: string): void; get(): string | null; has(): boolean; clear(): void } }
+  async function env() {
+    const os: any = await import('node:os')
+    const fs: any = await import('node:fs')
+    const path: any = await import('node:path')
+    const dir: string = fs.mkdtempSync(path.join(os.tmpdir(), 'nsd-keys-'))
+    const file: string = path.join(dir, 'llm-key.bin')
+    return { fs, path, dir, file, ks: main.createKeyStore({ file, safeStorage: fakeSafe() }) as unknown as Ks }
+  }
+  it('연결마다 다른 파일에 보관하고, 예전 한 칸(c_legacy·id 없음)은 기존 파일 그대로', async () => {
+    const { fs, path, dir, file, ks } = await env()
+    ks.forId('c_legacy').set('K-LEGACY')
+    ks.forId('c_aaaa1111').set('K-A')
+    ks.forId('c_bbbb2222').set('K-B')
+    expect(ks.forId(null).get()).toBe('K-LEGACY')
+    expect(ks.forId('c_aaaa1111').get()).toBe('K-A')
+    expect(ks.forId('c_bbbb2222').get()).toBe('K-B')
+    expect(fs.existsSync(file)).toBe(true)
+    expect(fs.existsSync(path.join(dir, 'llm-key.c_aaaa1111.bin'))).toBe(true)
+    ks.forId('c_aaaa1111').clear()
+    expect(ks.forId('c_aaaa1111').has()).toBe(false)
+    expect(ks.forId('c_bbbb2222').get()).toBe('K-B')
+  })
+  it('이상한 id 는 파일 경로로 새지 않는다(예전 한 칸으로 취급)', async () => {
+    const { fs, dir, ks } = await env()
+    ks.forId('c_legacy').set('K-LEGACY')
+    expect(ks.forId('../../evil').get()).toBe('K-LEGACY')
+    expect((fs.readdirSync(dir) as string[]).every((f) => f.startsWith('llm-key'))).toBe(true)
+  })
+  it('자리표시자 {{KEY:id}} 는 그 연결의 키로, {{KEY}} 는 예전 한 칸 키로 바뀐다', () => {
+    const keys: Record<string, string> = { c_aaaa1111: 'K-A', '': 'K-L' }
+    const resolve = (id: string | null) => keys[id ?? ''] ?? null
+    expect(main.injectKey({ Authorization: 'Bearer {{KEY:c_aaaa1111}}' }, resolve as never)).toEqual({ Authorization: 'Bearer K-A' })
+    expect(main.injectKey({ Authorization: 'Bearer {{KEY}}' }, resolve as never)).toEqual({ Authorization: 'Bearer K-L' })
+    expect(main.injectKey({ Authorization: 'Bearer {{KEY:c_zzzz9999}}' }, resolve as never)).toBeNull() // 그 연결의 키가 없으면 보내지 않는다
+  })
+})

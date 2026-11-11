@@ -6,7 +6,7 @@
 //  - OpenAI·Anthropic·Gemini 의 요청 형식은 공식 문서 기준으로 만들었지만 실제 서버로는 시험하지 못했다(키가 없음). Ollama·OpenAI 호환은 가짜 서버로 시험했다.
 //  - API 키는 이 기기에만 둔다(vault·동기화에 넣지 않는다).
 
-import { clearSecretRecord, readSecretRecord, registerSecret, writeSecretRecord, type SecretSpec } from './secureStore'
+import { addConnection, removeConnection, selectedConnection, updateConnection } from './aiConnections'
 
 export type ProviderKind = 'ollama' | 'openai' | 'custom' | 'anthropic' | 'gemini'
 
@@ -21,13 +21,17 @@ export interface LlmConfig {
   keyStored?: boolean
   /** 이 PC 앱의 중계를 통해 쓰는 AI 서버(apiKey 는 PC 가 준 토큰). 폰 전용 */
   viaPc?: boolean
+  /** 이 설정이 속한 연결의 id(aiConnections). 보안 저장소의 키를 연결별로 찾는 데 쓴다. 저장할 때 없으면 "지금 선택된 연결"을 고친다 */
+  id?: string
+  /** 연결의 화면 이름 */
+  label?: string
 }
 
 /** 요청 헤더에 넣는 키 자리표시자. 메인 프로세스가 보안 저장소의 실제 키로 바꿔 보낸다 */
 export const KEY_PLACEHOLDER = '{{KEY}}'
 
-/** 요청을 만들 때 쓸 설정: 키가 보안 저장소에 있으면 자리표시자를 쓴다 */
-export const forRequest = (cfg: LlmConfig): LlmConfig => (cfg.keyStored ? { ...cfg, apiKey: KEY_PLACEHOLDER } : cfg)
+/** 요청을 만들 때 쓸 설정: 키가 보안 저장소에 있으면 자리표시자를 쓴다. 연결 id 가 있으면 `{{KEY:id}}` — 메인 프로세스가 그 연결의 키를 찾는다 */
+export const forRequest = (cfg: LlmConfig): LlmConfig => (cfg.keyStored ? { ...cfg, apiKey: cfg.id ? `{{KEY:${cfg.id}}}` : KEY_PLACEHOLDER } : cfg)
 
 /** 모델이 부르려는 도구 한 번 */
 export interface ToolCall {
@@ -302,26 +306,34 @@ export function describeFailure(status: number, body: unknown): string {
   return `서버가 오류를 돌려줬어요 (${status})${detail ? ` — ${detail}` : ''}`
 }
 
-const KEY = 'nosidian.llm'
-/** 안드로이드 앱에서는 API 키(와 PC 중계 토큰)를 보안 저장소(Keystore)에 둔다. 키가 없는 서버는 그대로 유효 */
-const SECRET: SecretSpec = { storageKey: KEY, field: 'apiKey', secretName: 'llm.apiKey', required: false }
-registerSecret(SECRET)
+/**
+ * 호환 창구: 예전 코드(한 칸 설정)가 그대로 쓰도록 "지금 선택된 연결"을 옛 모양으로 돌려주고 쓴다.
+ * 여러 연결을 다루는 코드는 aiConnections.ts 를 직접 쓴다. 비밀 보관은 거기서(연결별 이름) 한다.
+ */
 
-/** 기기에 저장된 연결 설정(없으면 null). vault 와 동기화에 넣지 않는다 */
+/** 기기에 저장된 연결 설정(지금 선택된 연결, 없으면 null). vault 와 동기화에 넣지 않는다 */
 export function loadLlmConfig(): LlmConfig | null {
   try {
-    const v = readSecretRecord<Partial<LlmConfig>>(SECRET)
+    const v = selectedConnection()
     if (!v || !PROVIDERS.some((p) => p.kind === v.kind)) return null
-    return { kind: v.kind!, baseUrl: String(v.baseUrl ?? ''), model: String(v.model ?? ''), apiKey: v.apiKey ? String(v.apiKey) : undefined, ...(v.keyStored ? { keyStored: true } : {}), ...(v.viaPc ? { viaPc: true } : {}) }
+    return { id: v.id, ...(v.label ? { label: v.label } : {}), kind: v.kind as ProviderKind, baseUrl: v.baseUrl, model: v.model, apiKey: v.apiKey, ...(v.keyStored ? { keyStored: true } : {}), ...(v.viaPc ? { viaPc: true } : {}) }
   } catch {
     return null
   }
 }
+/** 지금 선택된 연결의 내용을 cfg 로 바꾼다(cfg.id 가 있으면 그 연결을, 연결이 하나도 없으면 새로 추가). null 이면 선택된 연결을 지운다 */
 export function saveLlmConfig(cfg: LlmConfig | null) {
   try {
-    if (cfg) writeSecretRecord(SECRET, { ...cfg })
-    else clearSecretRecord(SECRET)
-    if (typeof window !== 'undefined') window.dispatchEvent(new Event('nosidian-llm-changed'))
+    const cur = selectedConnection()
+    if (!cfg) {
+      if (cur) removeConnection(cur.id)
+      return
+    }
+    const { id, label, ...rest } = cfg
+    const target = id ?? cur?.id
+    const body = { kind: rest.kind, baseUrl: rest.baseUrl, model: rest.model, apiKey: rest.apiKey, keyStored: rest.keyStored ? true : undefined, viaPc: rest.viaPc ? true : undefined }
+    if (target && updateConnection(target, { ...body, ...(label ? { label } : {}) })) return
+    addConnection({ ...body, ...(label ? { label } : {}), ...(target ? { id: target } : {}) })
   } catch {
     /* 저장소를 못 쓰면 이번 실행에서만 유지 */
   }

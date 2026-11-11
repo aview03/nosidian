@@ -7,7 +7,7 @@ export function startRelayBridge(): (() => void) | undefined {
   if (!relay) return undefined
   const push = () => {
     const c = loadLlmConfig()
-    void relay.upstream(c && !c.viaPc ? { kind: c.kind, baseUrl: c.baseUrl, model: c.model, keyStored: c.keyStored === true } : null)
+    void relay.upstream(c && !c.viaPc ? { kind: c.kind, baseUrl: c.baseUrl, model: c.model, keyStored: c.keyStored === true, keyId: c.id } : null)
   }
   push()
   window.addEventListener('nosidian-llm-changed', push)

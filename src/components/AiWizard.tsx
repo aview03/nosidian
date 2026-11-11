@@ -7,6 +7,7 @@ import { readiness } from '../lib/aiAssistant'
 import { currentEngine, useAiThread } from '../lib/aiThread'
 import { loadLlmConfig, providerOf, saveLlmConfig, type LlmConfig, type ProviderKind } from '../lib/llm'
 import { chatTurn, keyStoreStatus, listModels, storeKey } from '../lib/llmNet'
+import { newConnectionId } from '../lib/aiConnections'
 import { startAnalysis } from '../lib/autoRunner'
 import { adoptUpstream, forgetPc, loadPcLink, pairWithPc, parsePairing, runClaudeViaPc, type Pairing } from '../lib/pcLink'
 import { useAiConfigVersion } from '../lib/useAiConfig'
@@ -217,10 +218,11 @@ function KeyStep({ onBack, onDone }: { onBack(): void; onDone(): void }) {
     try {
       const reply = await ping({ ...base, model })
       // 키는 운영체제 보안 저장소에 넣고, 화면·localStorage 에는 남기지 않는다(보안 저장소가 없으면 이 기기에만 저장)
-      const secure = await keyStoreStatus()
+      const id = loadLlmConfig()?.id ?? newConnectionId() // 지금 선택된 연결을 고치거나, 없으면 새 연결 — 키도 그 연결 이름으로 보관한다
+      const secure = await keyStoreStatus(id)
       if (secure.available) {
-        await storeKey(key.trim())
-        saveLlmConfig({ kind, baseUrl: base.baseUrl, model, keyStored: true })
+        await storeKey(key.trim(), id)
+        saveLlmConfig({ id, kind, baseUrl: base.baseUrl, model, keyStored: true })
       } else saveLlmConfig({ ...base, model })
       setC({ kind: 'ok', text: t('응답을 받았어요: {r}', { r: reply.trim().slice(0, 40) }) })
       onDone()

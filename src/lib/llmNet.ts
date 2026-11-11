@@ -3,11 +3,12 @@
 //  - Android: Capacitor 네이티브 HTTP(웹뷰의 https 출처에서 http 사설망 서버로 보낼 때 막히는 혼합 콘텐츠·CORS 를 피한다).
 //  - 그 밖(브라우저): fetch — 서버가 CORS 를 허용해야 한다.
 import { Capacitor, CapacitorHttp } from '@capacitor/core'
-import { buildChat, buildListModels, describeFailure, forRequest, LlmError, loadLlmConfig, parseChat, parseModels, parseTurn, saveLlmConfig, validateConfig, type ChatMessage, type ChatOpts, type HttpRequest, type LlmConfig, type ModelTurn } from './llm'
+import { listConnections, updateConnection } from './aiConnections'
+import { buildChat, buildListModels, describeFailure, forRequest, LlmError, parseChat, parseModels, parseTurn, validateConfig, type ChatMessage, type ChatOpts, type HttpRequest, type LlmConfig, type ModelTurn } from './llm'
 
 interface DesktopLlm {
   llmCancel?: (id: string) => Promise<boolean>
-  llmKey?: { status(): Promise<{ available: boolean; has: boolean }>; set(key: string): Promise<void>; clear(): Promise<void> }
+  llmKey?: { status(id?: string): Promise<{ available: boolean; has: boolean }>; set(key: string, id?: string): Promise<void>; clear(id?: string): Promise<void> }
   llmRequest?: (req: HttpRequest, id?: string) => Promise<{ status: number; text: string; error?: string; cancelled?: boolean }>
 }
 
@@ -92,27 +93,31 @@ export async function chat(cfg: LlmConfig, messages: ChatMessage[], opts?: ChatO
 const keyApi = () => (window as unknown as { amsidianDesktop?: DesktopLlm }).amsidianDesktop?.llmKey
 
 /** 운영체제 보안 저장소를 쓸 수 있나(PC 앱에서만 true). 키가 이미 들어 있는지도 알려 준다 */
-export async function keyStoreStatus(): Promise<{ available: boolean; has: boolean }> {
+export async function keyStoreStatus(id?: string): Promise<{ available: boolean; has: boolean }> {
   try {
-    return (await keyApi()?.status()) ?? { available: false, has: false }
+    return (await keyApi()?.status(id)) ?? { available: false, has: false }
   } catch {
     return { available: false, has: false }
   }
 }
-export const storeKey = async (key: string) => keyApi()?.set(key)
-export const clearStoredKey = async () => keyApi()?.clear()
+/** 키는 연결 id 별로 보관한다(id 없음 = 예전 한 칸) */
+export const storeKey = async (key: string, id?: string) => keyApi()?.set(key, id)
+export const clearStoredKey = async (id?: string) => keyApi()?.clear(id)
 
-/** 예전에 평문(localStorage)으로 저장한 키가 있으면 보안 저장소로 옮기고 평문은 지운다. 앱 시작 때 한 번 */
+/** 예전에 평문(localStorage)으로 저장한 키가 있는 연결이 있으면 보안 저장소로 옮기고 평문은 지운다. 앱 시작 때 한 번 */
 export async function migrateLlmKey(): Promise<boolean> {
-  const cfg = loadLlmConfig()
-  if (!cfg?.apiKey || cfg.keyStored) return false
-  const st = await keyStoreStatus()
-  if (!st.available) return false
-  try {
-    await storeKey(cfg.apiKey)
-    saveLlmConfig({ kind: cfg.kind, baseUrl: cfg.baseUrl, model: cfg.model, keyStored: true })
-    return true
-  } catch {
-    return false // 옮기지 못하면 기존 저장을 그대로 둔다(키를 잃지 않게)
+  let moved = false
+  for (const c of listConnections()) {
+    if (!c.apiKey || c.keyStored || c.viaPc) continue
+    const st = await keyStoreStatus(c.id)
+    if (!st.available) return moved
+    try {
+      await storeKey(c.apiKey, c.id)
+      updateConnection(c.id, { apiKey: undefined, keyStored: true })
+      moved = true
+    } catch {
+      /* 옮기지 못하면 기존 저장을 그대로 둔다(키를 잃지 않게) */
+    }
   }
+  return moved
 }

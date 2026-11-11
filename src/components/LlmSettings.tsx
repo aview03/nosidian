@@ -51,12 +51,12 @@ export function LlmCard() {
     if (typed && secure.available) {
       // 키는 운영체제 보안 저장소(메인 프로세스)로 보내고, 화면과 localStorage 에는 남기지 않는다
       try {
-        await storeKey(typed)
+        await storeKey(typed, cfg.id)
       } catch (e) {
         setStatus({ kind: 'err', text: e instanceof Error ? e.message : String(e) })
         return
       }
-      const next: LlmConfig = { kind: cfg.kind, baseUrl: cfg.baseUrl, model: cfg.model, keyStored: true }
+      const next: LlmConfig = { id: cfg.id, kind: cfg.kind, baseUrl: cfg.baseUrl, model: cfg.model, keyStored: true }
       saveLlmConfig(next)
       setCfg(next)
       setSecure({ available: true, has: true })
@@ -67,7 +67,7 @@ export function LlmCard() {
     setStatus({ kind: 'ok', text: t('이 기기에 저장했어요') })
   }
   const clear = () => {
-    void clearStoredKey()
+    void clearStoredKey(cfg.id)
     setSecure((x) => ({ ...x, has: false }))
     saveLlmConfig(null)
     setCfg({ kind: 'ollama', baseUrl: providerOf('ollama').url, model: '' })
