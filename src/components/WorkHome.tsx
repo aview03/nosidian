@@ -18,6 +18,8 @@ import { applyView, readViews, type View } from '../lib/views'
 import { customName, disableTile, enableTile, isCustom, reorderVisible, resolveTiles, setCollapsed, setLimit, type BuiltinTile } from '../lib/tiles'
 import { moveToProject, toggleOrClose, useWorkUi } from '../lib/workOps'
 import { projectHealth, readThresholds, type Health, type Signal } from '../lib/health'
+import { buildDayItems, type DayItem } from '../lib/dayItems'
+import { useCal } from '../lib/calendar'
 
 export function signalText(s: Signal): string {
   switch (s.key) {
@@ -103,6 +105,25 @@ function TaskRow({ q, projects }: { q: QueueItem; projects: Map<string, Project>
         <em className={`wrk-why ${q.reason}`}>{reasonText(q)}</em>
       </button>
       <button className="icon-btn wrk-note" title={t('노트에서 보기')} onClick={() => app.openNote(tk.path)}><Icon name="note" size={16} /></button>
+    </div>
+  )
+}
+
+/** 업무는 아니지만 날짜가 있는 종일 체크리스트(과제·제출) 한 줄. "이번 주"·"기한이 지난 일"에 업무와 함께 보인다(F21) */
+function DayItemRow({ it }: { it: DayItem }) {
+  const app = useApp.getState()
+  const ev = it.ev
+  const late = it.reason === 'overdue'
+  return (
+    <div className={`wrk-row${late ? ' late' : ''}`}>
+      <input type="checkbox" className="task" checked={ev.done} onChange={() => app.toggleTask(ev.path, ev.line)} aria-label={ev.title} />
+      <button className="wrk-main" onClick={() => useCal.getState().openEditor(ev.origDate ?? ev.date, ev)}>
+        <span className="wrk-body">
+          <span className="wrk-title">{ev.title}</span>
+          <span className="wrk-meta"><span className="wrk-due">{ev.date.slice(5)}</span></span>
+        </span>
+        <em className={`wrk-why ${it.reason}`}>{late ? t('기한 {n}일 지남', { n: it.days }) : it.days === 1 ? t('내일 마감') : t('D-{n}', { n: it.days })}</em>
+      </button>
     </div>
   )
 }
@@ -235,6 +256,8 @@ export function WorkHome() {
   const cal = useCalMap()
   const taskIds = useMemo(() => new Set(work.tasks.map((x) => x.id)), [work])
   const todayEvents = (cal.get(today) ?? []).filter((e) => !taskIds.has(e.id))
+  // 학생처럼 업무 꼬리표 없이 날짜만 적은 과제(종일 체크리스트)도 이번 주·기한이 지난 일에 함께 보인다(페르소나 F21)
+  const dayItems = useMemo(() => buildDayItems(cal, taskIds, today), [cal, taskIds, today])
   const customs = useMemo(() => views.map((v) => v.name), [views])
   const tiles = resolveTiles(layout, customs)
   // 역할 구성에서 빠졌어도(학생) 프로젝트가 하나라도 있으면 프로젝트 타일을 보인다(layout.auto — 직접 끄거나 켜면 그 뜻을 따른다)
@@ -263,7 +286,13 @@ export function WorkHome() {
     const qk = QUEUE_OF[b]
     if (qk) {
       const tone = b === 'overdue' ? 'danger' : b === 'waiting' ? 'warn' : undefined
-      return { title: t(BUILTIN_TITLE[b]), tone, rows: q[qk].map((it) => <TaskRow key={it.task.id + qk} q={it} projects={projects} />), limitable: true }
+      const extra = b === 'week' ? dayItems.week : b === 'overdue' ? dayItems.overdue : []
+      // 업무와 과제를 날짜순으로 섞는다(같은 날짜면 업무가 먼저)
+      const merged = [
+        ...q[qk].map((it) => ({ date: it.task.due ?? '', node: <TaskRow key={it.task.id + qk} q={it} projects={projects} /> })),
+        ...extra.map((it) => ({ date: it.ev.date, node: <DayItemRow key={it.ev.id + it.ev.date} it={it} /> })),
+      ].sort((a, c) => a.date.localeCompare(c.date))
+      return { title: t(BUILTIN_TITLE[b]), tone, rows: merged.map((x) => x.node), limitable: true }
     }
     if (b === 'today') {
       return {
