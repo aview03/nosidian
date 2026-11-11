@@ -1,6 +1,7 @@
 // AI 패널(PC): 화면 오른쪽에 붙는 대화 패널. 노트를 보면서 묻고, 답변 속 노트 경로를 눌러 본문에서 열고, 변경 제안을 그 자리에서 검토·승인한다.
 // 대화·실행 상태는 lib/aiThread.ts(스토어)에 있어서 패널을 닫아도 실행이 이어진다. 실제 실행은 PC 의 Claude Code CLI(고정된 안전 옵션)이다.
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useAiConfigVersion } from '../lib/useAiConfig'
 import { useApp } from '../lib/app'
 import { t } from '../lib/i18n'
 import { desktop, type ClaudeStatus } from '../lib/externalIO'
@@ -197,7 +198,9 @@ export function AiPanel() {
   const filePending = useFileProposals((s) => s.items.filter((p) => p.status === 'pending').length)
   const pending = useProposals((s) => s.items.filter((p) => p.status === 'pending').length) + filePending
   const [status, setStatus] = useState<ClaudeStatus | null>(null)
-  const [local, setLocal] = useState(() => localEngine())
+  // 설정에서 모델을 새로 연결·변경·삭제하면(이벤트) 열려 있는 패널도 바로 다시 계산한다
+  const cfgVersion = useAiConfigVersion()
+  const local = useMemo(() => localEngine(), [cfgVersion, open, claude, vault])
   const scroller = useRef<HTMLDivElement>(null)
   const stick = useRef(true) // 사용자가 위로 올려 읽는 중이면 자동 스크롤하지 않는다
   const box = useRef<HTMLTextAreaElement>(null)
@@ -207,7 +210,6 @@ export function AiPanel() {
     useAiThread.getState().ensure()
     useProposals.getState().ensure()
     void claude?.detect().then(setStatus)
-    setLocal(localEngine()) // 설정에서 모델을 바꿨을 수 있다
     setTimeout(() => box.current?.focus(), 50)
   }, [open, claude, vault])
 

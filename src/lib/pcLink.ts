@@ -39,6 +39,7 @@ export function loadPcLink(): PcLink | null {
 export function savePcLink(l: PcLink | null) {
   if (l) writeSecretRecord(SECRET, { ...l })
   else clearSecretRecord(SECRET)
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event('nosidian-pclink-changed')) // AI 패널·마법사가 다시 계산한다
 }
 export const pcClaude = () => loadPcLink()?.claude === true
 

@@ -1337,7 +1337,7 @@ details.adv-card[open] > summary { margin-bottom: 8px; }
 .memo-row.drop-on { background: var(--accent-soft); box-shadow: inset 0 0 0 2px var(--accent); }
 .memo-up { flex: none; min-height: 34px; padding: 0 12px; border: 1px dashed var(--border); border-radius: var(--r); background: none; font-size: 13px; color: var(--muted); }
 .memo-up.drop-on { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
-.memo-ghost { position: fixed; z-index: 60; transform: translate(-50%, -140%); pointer-events: none; padding: 8px 14px; border-radius: 999px; background: var(--accent); color: var(--on-accent); font-size: 13.5px; font-weight: 700; box-shadow: 0 10px 24px -8px #0008; }
+.memo-ghost { position: fixed; z-index: 2000; width: max-content; max-width: none; flex: none; white-space: nowrap; transform: translate(-50%, -140%); pointer-events: none; padding: 8px 14px; border-radius: 999px; background: var(--accent); color: var(--on-accent); font-size: 13.5px; font-weight: 700; box-shadow: 0 10px 24px -8px #0008; }
 .memo-row.sel { touch-action: pan-y; }
 
 /* ── AI 연결 마법사 ───────────────────────────── */

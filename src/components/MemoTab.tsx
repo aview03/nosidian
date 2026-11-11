@@ -1,6 +1,7 @@
 // 모바일 메모 탭: 폴더·노트 목록(한 번에 한 폴더) + 오른쪽 아래 [쓰기] + 꾹 눌러 여러 개 선택(이동·꺼내기·이름 바꾸기·삭제).
 // 폴더는 노트 경로에서 생긴다. 계획 계산은 lib/folderOps.ts(순수), 쓰기는 app.moveNotes/deleteNotes.
 import { useEffect, useRef, useState, type PointerEvent as RPointerEvent, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { create } from 'zustand'
 import { useApp } from '../lib/app'
 import { t } from '../lib/i18n'
@@ -521,7 +522,8 @@ export function MemoTab({ sync }: { sync?: ReactNode }) {
         <div className="memo-bottom-space" />
       </div>
 
-      {dragging && <div className="memo-ghost" style={{ left: dragging.x, top: dragging.y }}>{t('{n}개 옮기기', { n: sel?.size ?? 0 })}</div>}
+      {/* body 로 빼서 어떤 패널·시트 안의 쌓임 맥락에도 가려지지 않게 한다. 가장자리에서도 모양이 줄지 않게 x 를 화면 안으로 제한 */}
+      {dragging && createPortal(<div className="memo-ghost" style={{ left: `clamp(70px, ${dragging.x}px, calc(100vw - 70px))`, top: dragging.y }}>{t('{n}개 옮기기', { n: sel?.size ?? 0 })}</div>, document.body)}
 
       {!sel && (
         <button className="memo-fab" onClick={write} aria-label={t('새 메모 쓰기')}><Icon name="edit" size={24} /></button>

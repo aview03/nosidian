@@ -9,6 +9,7 @@ import { loadLlmConfig, providerOf, saveLlmConfig, type LlmConfig, type Provider
 import { chatTurn, keyStoreStatus, listModels, storeKey } from '../lib/llmNet'
 import { startAnalysis } from '../lib/autoRunner'
 import { adoptUpstream, forgetPc, loadPcLink, pairWithPc, parsePairing, runClaudeViaPc, type Pairing } from '../lib/pcLink'
+import { useAiConfigVersion } from '../lib/useAiConfig'
 import { QrScan } from './QrScan'
 import { KEY_PROVIDERS, LOCAL_PROVIDERS, aiSummary, pickModel, type WizardWay } from '../lib/aiWizard'
 import { Orb } from './Orb'
@@ -31,6 +32,9 @@ export function AiWizard() {
   const [cfg, setCfg] = useState<LlmConfig | null>(loadLlmConfig())
   const [pc, setPc] = useState(loadPcLink())
   useEffect(() => { void claude?.detect().then(setCs) }, [claude])
+  // 다른 곳(예: 폰의 PC 연결 해제, 다른 카드)에서 설정이 바뀌어도 요약을 다시 읽는다
+  const cfgVersion = useAiConfigVersion()
+  useEffect(() => { setCfg(loadLlmConfig()); setPc(loadPcLink()) }, [cfgVersion])
   const sum = aiSummary(engine, cs, cfg, pc)
 
   const finish = (e: 'claude' | 'ollama') => {
