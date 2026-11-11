@@ -200,7 +200,7 @@ export function ProjectHub() {
         {project.due && <span className="hub-chip"><small>{t('마감')}</small><b>{project.due}</b></span>}
         <span className="hub-chip"><small>{t('열린 일')}</small><b>{open.length}/{tasks.length}</b></span>
         {project.health && <span className="hub-chip"><small>{t('판단')}</small><b>{project.health}</b></span>}
-        {healthMap.get(project.path) && <span className={`hub-chip wrk-health ${healthMap.get(project.path)!.level}`} title={healthMap.get(project.path)!.signals.map(signalText).join(' · ')}><small>{t('점검')}</small><b>{healthLabel(healthMap.get(project.path)!)}</b></span>}
+        {healthMap.get(project.path) && <span className={`hub-chip wrk-health ${healthMap.get(project.path)!.level}`} title={healthMap.get(project.path)!.signals.map(signalText).join(' · ') || t('기한이 지난 일·오래 기다리는 일·담당자 없는 일을 보고 정한 프로젝트 상태예요')}><small>{t('건강도')}</small><b>{healthLabel(healthMap.get(project.path)!)}</b></span>}
       </div></div>
       {/* 탭 순서: 일을 보는 화면(할 일·보드·타임라인) → 문서를 보는 화면(문서·문서 점검) */}
       <div className="seg wide hub-tabs" role="tablist">
@@ -224,7 +224,9 @@ export function ProjectHub() {
                   </section>
                 ) : null,
               )}
-              {open.length === 0 && <p className="hint pad">{tasks.length ? t('열린 일이 없어요. 👍') : t('아직 업무가 없어요. 위의 + 로 추가해 보세요.')}</p>}
+              {open.length === 0 && <p className="hint pad">{tasks.length ? t('열린 일이 없어요. 👍') : t('아직 업무가 없어요.')}</p>}
+              {/* 목록 안에서도 바로 추가할 수 있게(위 헤더의 + 아이콘은 글자가 없어 찾기 어렵다) */}
+              <button className="wrk-newproj hub-addtask" onClick={() => useWorkUi.getState().openEditor(undefined, project.path)}>+ {t('업무 추가')}</button>
               {finished.length > 0 && (
                 <details className="wrk-sec hub-done">
                   <summary>{t('완료·취소됨')} <span className="wrk-count">{finished.length}</span></summary>

@@ -1366,5 +1366,8 @@ const dict: Record<string, string> = {
   '상태·우선순위 더 보기': "More: status & priority",
   '제안을 거절했어요. 문서는 바뀌지 않았어요': "Proposal rejected. The note was not changed",
   '제안을 거절했어요. 파일은 올라가지 않았어요': "Proposal rejected. The file was not uploaded",
+  '건강도': "Health",
+  '기한이 지난 일·오래 기다리는 일·담당자 없는 일을 보고 정한 프로젝트 상태예요': "Project status based on overdue work, long waits and work with no owner",
+  '아직 업무가 없어요.': "No work yet.",
 }
 export default dict
