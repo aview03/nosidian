@@ -3,6 +3,7 @@ import { store as db, onDbChange } from './db'
 import { buildIndex, baseName, dirName, type LinkIndex } from './links'
 import { DEFAULT_SETTINGS, DEFAULT_VAULT_ID, SYNC_LABEL, defaultVaultName, type CloudCfg, type NoteFile, type RemoteCfg, type Settings, type VaultMeta } from './types'
 import { createProvider, isNote, bytesToB64, type Provider, type RemoteEntry } from './sync'
+import { assetsDirOf, imageFileName, imageMarkdown, imageProblem, isGenericName, pastedName, prepareImage } from './images'
 import { MAX_MOVE_BYTES, MAX_UPLOAD_BYTES, formatSize, uploadPath, uploadProblem } from './attachments'
 import { resumeWebAuth } from './sync/oauth'
 import { demoNotes } from './demo'
@@ -92,7 +93,7 @@ interface AppState {
   ready: boolean
   settings: Settings
   files: Record<string, NoteFile>
-  assets: Record<string, { sha: string | null; id?: string; size?: number }>
+  assets: Record<string, { sha: string | null; id?: string; size?: number; /** 아직 저장소에 올리지 못한 이미지(다음 동기화 때 올린다, docs/IMAGES.md) */ pending?: boolean }>
   index: LinkIndex
 
   tab: Tab
@@ -783,10 +784,14 @@ export const useApp = create<AppState>((set, get) => {
       if (!get().settings.activeVault) await get().addVault(defaultVaultName(cfg), { silent: true })
       // 연결 전에 만들거나 가져온 로컬 노트(원격에 없는 새 파일)는 지우지 않고 첫 동기화 때 올린다
       const keep = Object.values(get().files).filter((f) => f.dirty && !f.sha && !f.deleted)
+      // 아직 올리지 못한 이미지(이 기기에서 넣은 것)도 같은 이유로 지우지 않고 첫 동기화 때 올린다
+      const keepAssets = Object.entries(get().assets).filter(([, a]) => a.pending)
+      const keepRecs = keepAssets.length ? (await db.allAssets()).filter((r) => keepAssets.some(([p]) => p === r.path)) : []
       await db.clearAll()
       await db.putFiles(keep)
+      for (const r of keepRecs) await db.putAsset(r)
       assetUrls.clear()
-      set({ files: Object.fromEntries(keep.map((f) => [f.path, f])), assets: {}, current: null, history: [], hpos: -1 })
+      set({ files: Object.fromEntries(keep.map((f) => [f.path, f])), assets: Object.fromEntries(keepAssets), current: null, history: [], hpos: -1 })
       get().patchSettings({ remote: cfg, lastSync: null, bookmarks: [], recent: [] })
       await get().sync()
     },
@@ -836,6 +841,8 @@ export const useApp = create<AppState>((set, get) => {
           if (isNote(e.path)) remote.set(e.path, e)
           else assets[e.path] = { sha: e.rev, id: e.id, ...(e.size != null ? { size: e.size } : {}) }
         }
+        // 아직 못 올린 이미지는 원격 목록에 없어도 남긴다(안 그러면 "원격에서 사라진 이미지"로 보고 지운다). 원격에 같은 경로가 이미 있으면 원격 것이 우선
+        for (const [p, a] of Object.entries(get().assets)) if (a.pending && !assets[p]) assets[p] = a
         const files = { ...get().files }
         const toFetch: RemoteEntry[] = []
         const changed: NoteFile[] = []
@@ -882,11 +889,44 @@ export const useApp = create<AppState>((set, get) => {
         await Promise.all(Array.from({ length: 6 }, worker))
         await db.putFiles(changed)
         for (const p of Object.keys(get().assets)) if (!assets[p]) void db.delAsset(p) // 원격에서 사라진 파일·이미지
-        for (const [p, a] of Object.entries(assets)) void db.putAsset({ path: p, sha: a.sha, id: a.id, ...(a.size != null ? { size: a.size } : {}) })
+        for (const [p, a] of Object.entries(assets)) if (!a.pending) void db.putAsset({ path: p, sha: a.sha, id: a.id, ...(a.size != null ? { size: a.size } : {}) }) // 대기 이미지는 바이트가 든 기존 레코드를 그대로 둔다
         set({ files, assets })
         rebuild(true)
 
         // ── push ──
+        // 아직 못 올린 이미지부터 올린다. 실패해도 노트 동기화는 계속하고, 이미지는 대기로 남아 다음에 다시 시도한다
+        const waiting = Object.entries(get().assets).filter(([, a]) => a.pending)
+        if (waiting.length) {
+          const recs = new Map((await db.allAssets()).map((r) => [r.path, r]))
+          const upload = async (paths: string[]) => {
+            const revs = await prov.push(paths.map((p) => ({ path: p, content: '', b64: recs.get(p)!.b64! })), t('이미지 추가: {n}장', { n: paths.length }))
+            const next = { ...get().assets }
+            for (const p of paths) {
+              const { pending: _p, ...rec } = recs.get(p)!
+              void _p
+              const rev = revs.get(p) ?? null
+              next[p] = { sha: rev, ...(rec.size != null ? { size: rec.size } : {}) }
+              void db.putAsset({ ...rec, sha: rev })
+            }
+            set({ assets: next })
+          }
+          const ready = waiting.map(([p]) => p).filter((p) => recs.get(p)?.b64)
+          let failedImgs = 0
+          if (ready.length) {
+            try {
+              await upload(ready)
+            } catch {
+              for (const p of ready) {
+                try {
+                  await upload([p]) // 한 장 때문에 나머지가 막히지 않게 하나씩 다시
+                } catch {
+                  failedImgs++
+                }
+              }
+            }
+          }
+          if (failedImgs) get().say(t('이미지 {n}장을 올리지 못했어요. 다음 동기화 때 다시 시도해요', { n: failedImgs }))
+        }
         const pending = Object.values(get().files).filter((f) => f.dirty && !f.conflict && !(f.deleted && !f.sha))
         let pushed = 0
         if (pending.length) {
@@ -985,6 +1025,41 @@ export async function uploadOthers(list: File[], dir: string): Promise<{ done: s
     }
   }
   return { done, failed }
+}
+
+/**
+ * 이미지를 이 노트 옆 `_assets/` 에 저장한다(붙여넣기·끌어놓기·이미지 버튼). 바이트는 이 기기(IndexedDB)에 두고 **대기(pending)** 로 표시한다 —
+ * 저장소가 연결돼 있으면 다음 동기화 때 올라가고, 없으면 이 기기에만 남는다. 큰 사진은 줄여서 저장한다. 설계: docs/IMAGES.md
+ * 반환: 넣은 이미지(경로·본문에 넣을 마크다운)와 건너뛴 파일(이름·이유)
+ */
+export async function attachImages(
+  list: File[],
+  notePath: string,
+  now = new Date(),
+): Promise<{ added: { path: string; md: string; shrunk: boolean }[]; failed: { name: string; why: string }[] }> {
+  const dir = assetsDirOf(notePath)
+  const added: { path: string; md: string; shrunk: boolean }[] = []
+  const failed: { name: string; why: string }[] = []
+  for (const f of list) {
+    const why = imageProblem(f.name, f.size, f.type)
+    if (why) {
+      failed.push({ name: f.name || t('이미지'), why })
+      continue
+    }
+    try {
+      const prep = await prepareImage(f)
+      const st = useApp.getState()
+      const fileName = isGenericName(f.name) ? pastedName(now, prep.ext) : imageFileName(f.name, prep.ext)
+      const path = uploadPath(dir, fileName, new Set([...Object.keys(st.assets), ...Object.keys(st.files)]))
+      await db.putAsset({ path, sha: null, size: prep.bytes.byteLength, b64: bytesToB64(prep.bytes), mime: IMG_MIME[prep.ext] ?? 'image/png', pending: true })
+      assetUrls.delete(path)
+      useApp.setState((s) => ({ assets: { ...s.assets, [path]: { sha: null, size: prep.bytes.byteLength, pending: true } } }))
+      added.push({ path, md: imageMarkdown(path, notePath), shrunk: prep.shrunk })
+    } catch (e) {
+      failed.push({ name: f.name || t('이미지'), why: e instanceof Error ? e.message : String(e) })
+    }
+  }
+  return { added, failed }
 }
 
 /** 승인된 AI 파일(텍스트)을 저장소에 올린다. 같은 경로에 이미 있으면 덮어쓰지 않고 실패한다 */

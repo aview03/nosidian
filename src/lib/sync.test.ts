@@ -157,6 +157,52 @@ describe('파일 올리기(uploadOthers)', () => {
   })
 })
 
+describe('이미지 넣기(attachImages)', () => {
+  const png = () => new File([new Uint8Array([137, 80, 78, 71, 1, 2, 3])], 'image.png', { type: 'image/png' })
+  it('노트 옆 _assets 에 대기로 저장하고, 동기화가 올린 뒤에도 남으며, 형식이 아닌 파일은 건너뛴다', async () => {
+    const { attachImages } = await import('./app')
+    ;(await import('./i18n')).setLang('ko')
+    const r = await attachImages([png(), new File([new Uint8Array([1])], 'a.svg'), new File([new Uint8Array([1])], 'doc.pdf')], 'proj/회의.md', new Date(2026, 10, 11, 9, 5, 3))
+    expect(r.added).toHaveLength(1)
+    expect(r.added[0].path).toBe('proj/_assets/이미지-20261111-090503.png')
+    expect(r.added[0].md).toBe('![이미지-20261111-090503](_assets/이미지-20261111-090503.png)')
+    expect(r.failed.map((x) => x.name)).toEqual(['a.svg', 'doc.pdf'])
+    expect(useApp.getState().assets[r.added[0].path]).toMatchObject({ pending: true, sha: null })
+    // 같은 이름은 번호
+    const r2 = await attachImages([png()], 'proj/회의.md', new Date(2026, 10, 11, 9, 5, 3))
+    expect(r2.added[0].path).toBe('proj/_assets/이미지-20261111-090503 (2).png')
+  })
+
+  it('동기화: 대기 이미지를 지우지 않고 원격에 올린 뒤 pending 을 푼다', async () => {
+    const { attachImages } = await import('./app')
+    const r = await attachImages([png()], 'a.md', new Date(2026, 10, 11, 9, 5, 3))
+    const path = r.added[0].path
+    expect(remote.files.has(path)).toBe(false)
+    await useApp.getState().sync()
+    expect(remote.files.has(path)).toBe(true)
+    expect(useApp.getState().assets[path]?.pending).toBeUndefined()
+    expect(useApp.getState().assets[path]?.sha).toBeTruthy()
+  })
+
+  it('동기화가 실패하면(오프라인) 이미지는 대기로 남아 다음에 다시 올린다', async () => {
+    const { attachImages } = await import('./app')
+    const r = await attachImages([png()], 'a.md', new Date(2026, 10, 11, 9, 5, 4))
+    const path = r.added[0].path
+    const orig = fake.push
+    fake.push = async () => {
+      throw new SyncError('offline', 0)
+    }
+    try {
+      await useApp.getState().sync().catch(() => {})
+    } finally {
+      fake.push = orig
+    }
+    expect(useApp.getState().assets[path]?.pending).toBe(true)
+    await useApp.getState().sync()
+    expect(remote.files.has(path)).toBe(true)
+  })
+})
+
 describe('파일 삭제(deleteOther)', () => {
   it('저장소에서 지우고 목록에서도 뺀다(원격에 없는 경로는 건드리지 않는다)', async () => {
     const { uploadOthers, deleteOther } = await import('./app')

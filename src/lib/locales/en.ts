@@ -1375,5 +1375,15 @@ const dict: Record<string, string> = {
   '문서 규칙은 프로젝트 문서의 역할과 구조를 점검해 주는 기능이에요. 지금은 꺼져 있고, 만들면 설명이 들어 있는 노트가 열려요.': "Document rules check the roles and structure of project documents. They are off for now; creating them opens a note with an explanation.",
   '이 프로젝트의 문서 점검을 껐어요 ({file} 의 docs 속성을 바꿨어요)': "Document check is off for this project (changed the docs property in {file})",
   '이 프로젝트에 문서 규칙을 적용했어요 ({file} 에 docs: {v} 속성을 적었어요)': "Document rules applied to this project (wrote docs: {v} in {file})",
+  '{name}은(는) 넣을 수 없는 형식이에요(png·jpg·gif·webp·bmp·avif만)': "{name} is not a supported format (png, jpg, gif, webp, bmp, avif only)",
+  '빈 파일({name})은 넣을 수 없어요': "{name} is empty and cannot be added",
+  '{name}은(는) 너무 커요(최대 25MB)': "{name} is too large (max 25MB)",
+  '이미지': "Image",
+  '이미지 추가: {n}장': "Add images: {n}",
+  '이미지 {n}장을 올리지 못했어요. 다음 동기화 때 다시 시도해요': "Couldn't upload {n} image(s). Will retry on the next sync",
+  '이미지를 넣는 중…': "Adding image…",
+  '이미지 {n}장을 넣었어요(저장소에는 다음 동기화 때 올라가요)': "Added {n} image(s) (uploaded to the repository on the next sync)",
+  '이미지 {n}장을 넣었어요(이 기기에만 저장돼요)': "Added {n} image(s) (stored on this device only)",
+  '큰 사진은 줄여서 저장했어요': "Large photos were downscaled",
 }
 export default dict

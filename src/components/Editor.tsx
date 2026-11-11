@@ -9,7 +9,8 @@ import { autocompletion, closeBrackets, closeBracketsKeymap, type CompletionCont
 import { search } from '@codemirror/search'
 import { livePreview } from '../lib/livepreview'
 import { findHighlight } from '../lib/findEngine'
-import { useApp } from '../lib/app'
+import { useApp, attachImages } from '../lib/app'
+import { isImageFile } from '../lib/images'
 import { baseName } from '../lib/links'
 
 interface Props {
@@ -63,6 +64,8 @@ function tagCompletion(ctx: CompletionContext) {
     validFor: /^[\p{L}\p{N}_\-/]*$/u,
   }
 }
+
+const NL = String.fromCharCode(10)
 
 export function Editor({ path, initial, onChange, externalContent }: Props) {
   const host = useRef<HTMLDivElement>(null)
@@ -120,6 +123,55 @@ export function Editor({ path, initial, onChange, externalContent }: Props) {
     }
   }, [externalContent])
 
+  // 이미지 넣기: 붙여넣기·끌어놓기·이미지 버튼. 이 노트 옆 _assets 에 저장하고 커서 자리에 ![](…) 를 넣는다(docs/IMAGES.md)
+  const pathRef = useRef(path)
+  pathRef.current = path
+  const fileIn = useRef<HTMLInputElement>(null)
+  const addImages = async (files: File[]) => {
+    const v = view.current
+    if (!v || !files.length) return
+    const app = useApp.getState()
+    app.say(t('이미지를 넣는 중…'))
+    const { added, failed } = await attachImages(files, pathRef.current)
+    if (added.length) {
+      const { from, to } = v.state.selection.main
+      const atLineStart = from === 0 || v.state.sliceDoc(from - 1, from) === NL
+      const text = (atLineStart ? '' : NL) + added.map((a) => a.md).join(NL) + NL
+      v.dispatch({ changes: { from, to, insert: text }, selection: { anchor: from + text.length } })
+    }
+    const parts: string[] = []
+    if (added.length) {
+      parts.push(app.settings.remote ? t('이미지 {n}장을 넣었어요(저장소에는 다음 동기화 때 올라가요)', { n: added.length }) : t('이미지 {n}장을 넣었어요(이 기기에만 저장돼요)', { n: added.length }))
+      if (added.some((a) => a.shrunk)) parts.push(t('큰 사진은 줄여서 저장했어요'))
+    }
+    if (failed.length) parts.push(failed.map((f) => f.why).join(' '))
+    useApp.getState().say(parts.join(' · '))
+  }
+  useEffect(() => {
+    const el = host.current
+    if (!el) return
+    const imgs = (list: DataTransfer | null) => [...(list?.files ?? [])].filter((f) => isImageFile(f))
+    const onPaste = (e: ClipboardEvent) => {
+      const files = imgs(e.clipboardData)
+      if (!files.length) return // 글 붙여넣기는 그대로
+      e.preventDefault()
+      void addImages(files)
+    }
+    const onDrop = (e: DragEvent) => {
+      const files = imgs(e.dataTransfer)
+      if (!files.length) return
+      e.preventDefault()
+      void addImages(files)
+    }
+    el.addEventListener('paste', onPaste, true)
+    el.addEventListener('drop', onDrop, true)
+    return () => {
+      el.removeEventListener('paste', onPaste, true)
+      el.removeEventListener('drop', onDrop, true)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [path])
+
   const run = (fn: (v: EditorView) => void) => () => {
     const v = view.current
     if (!v) return
@@ -151,6 +203,18 @@ export function Editor({ path, initial, onChange, externalContent }: Props) {
   return (
     <div className="editor-wrap">
       <div className="cm-host" ref={host} />
+      <input
+        ref={fileIn}
+        type="file"
+        accept="image/*"
+        multiple
+        hidden
+        onChange={(e) => {
+          const files = [...(e.target.files ?? [])]
+          e.target.value = ''
+          void addImages(files)
+        }}
+      />
       <div className="edit-toolbar" onMouseDown={(e) => e.preventDefault()}>
         <button onClick={insert('[[]]', 2)} title={t('링크')}>[[ ]]</button>
         <button onClick={insert('#')} title={t('태그')}>#</button>
@@ -162,6 +226,7 @@ export function Editor({ path, initial, onChange, externalContent }: Props) {
         <button onClick={wrapSel('==')} title={t('하이라이트')}>▮</button>
         <button onClick={wrapSel('`')} title={t('코드')}>{'</>'}</button>
         <button onClick={linePrefix('> ')} title={t('인용')}>❝</button>
+        <button onClick={() => fileIn.current?.click()} title={t('이미지')} aria-label={t('이미지')}>🖼</button>
         <button onClick={run((v) => import('@codemirror/commands').then((m) => m.undo(v)))} title={t('실행 취소')}>↶</button>
         <button onClick={run((v) => import('@codemirror/commands').then((m) => m.redo(v)))} title={t('다시 실행')}>↷</button>
       </div>
