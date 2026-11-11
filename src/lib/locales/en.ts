@@ -1345,5 +1345,7 @@ const dict: Record<string, string> = {
   '연결한 휴대폰이 이 AI 로 노트에 대해 물을 수 있게 돼요. 요청은 이 PC 를 거쳐 가고, API 키는 휴대폰에 전달되지 않아요. 언제든 끌 수 있어요.': "A connected phone can ask about its notes with this AI. Requests go through this PC and the API key is never sent to the phone. You can turn it off any time.",
   '연결한 AI 는 기본으로 휴대폰에 빌려주지 않아요. 빌려줄 AI 를 켜 주세요.': "Connected AIs are not lent to phones by default. Turn on the ones to lend.",
   'PC에서 빌려주는 AI가 없어요. PC 앱 설정 > AI 에서 AI 를 연결하고 "휴대폰에 빌려주기"를 켜 주세요': "This PC is not lending any AI. In the PC app, open Settings > AI, connect an AI and turn on lending to your phone",
+  '연결 이름': "Connection name",
+  '이 휴대폰은 바로 연결이 끊겨요. 다시 쓰려면 새 연결 코드로 다시 연결해야 해요.': "This phone is disconnected right away. To use it again, connect it with a new connection code.",
 }
 export default dict

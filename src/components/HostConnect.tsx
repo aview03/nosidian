@@ -11,6 +11,7 @@ import { Icon } from './Icon'
 import { HostPlanView } from './HostPlan'
 import { PairModal } from './PairModal'
 import { hostState } from '../lib/pairModal'
+import { DeviceList } from './DeviceList'
 
 const PICK_ERR: Record<string, string> = {
   'drive root': '드라이브 전체는 쓸 수 없어요. 폴더를 하나 골라 주세요',
@@ -168,15 +169,6 @@ export function HostPanel() {
   )
 }
 
-const ago = (ts: number) => {
-  if (!ts) return t('아직 없어요')
-  const m = Math.round((Date.now() - ts) / 60000)
-  if (m < 1) return t('방금')
-  if (m < 60) return t('{n}분 전', { n: m })
-  if (m < 1440) return t('{n}시간 전', { n: Math.round(m / 60) })
-  return new Date(ts).toLocaleDateString()
-}
-
 /**
  * 휴대폰과 맞추기(이 PC가 호스트): 켜면 같은 와이파이의 내 휴대폰이 QR(또는 연결 문자열)로 짝을 맺고 이 폴더를 읽는다.
  * **쓰기는 기기별로 여기서 직접 허용해야** 한다(기본은 읽기만). 삭제 권한은 별도이고 이번 버전에서는 켤 수 없다. 언제든 끄거나 해제한다.
@@ -235,23 +227,18 @@ function HostServerSection() {
               onClose={() => { setAdding(false); void refresh() }}
             />
           )}
-          <div className="relay-devs">
-            <div className="auto-sub">{t('연결된 휴대폰')}</div>
-            {st.devices.length === 0 ? <p className="hint small">{t('아직 없어요')}</p> : (
-              <ul>
-                {st.devices.map((d) => (
-                  <li key={d.id} className="hc-dev">
-                    <span><b>{d.name}</b><small>{t('마지막 사용 {when}', { when: ago(d.lastSeen) })}{d.writes ? ' · ' + t('쓴 횟수 {n}', { n: d.writes }) : ''}</small></span>
-                    <span className="hc-perms">
-                      <button className={`hc-perm${d.perms.write ? ' on' : ''}`} onClick={() => void toggleWrite(d)} aria-pressed={d.perms.write}>{d.perms.write ? t('쓰기 허용됨') : t('읽기만')}</button>
-                      <button className="hc-perm" disabled title={t('삭제 권한은 아직 쓸 수 없어요')}>{t('삭제 불가')}</button>
-                      <button className="btn-link" onClick={async () => apply(await api.revoke(d.id))}>{t('해제')}</button>
-                    </span>
-                  </li>
-                ))}
-              </ul>
+          <DeviceList
+            devices={st.devices}
+            className="hc-dev"
+            onRevoke={async (id) => apply(await api.revoke(id))}
+            detail={(d) => (d.writes ? t('쓴 횟수 {n}', { n: d.writes }) : '')}
+            actions={(d) => (
+              <>
+                <button className={`hc-perm${d.perms.write ? ' on' : ''}`} onClick={() => void toggleWrite(d)} aria-pressed={d.perms.write}>{d.perms.write ? t('쓰기 허용됨') : t('읽기만')}</button>
+                <button className="hc-perm" disabled title={t('삭제 권한은 아직 쓸 수 없어요')}>{t('삭제 불가')}</button>
+              </>
             )}
-          </div>
+          />
           <p className="hint small">{t('읽기만 허용된 기기는 파일을 볼 수만 있어요. 쓰기를 허용해도 실행 파일(.exe 등)은 폰에서 올릴 수 없고, 이 PC가 파일을 열거나 실행하지 않아요. 같은 와이파이 안에서만 연결돼요.')}</p>
         </>
       )}

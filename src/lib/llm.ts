@@ -294,8 +294,17 @@ export function parseModels(cfg: LlmConfig, body: unknown): string[] {
     case 'anthropic': names = arr(b.data).map((m) => String(obj(m).id ?? '')); break
     case 'gemini': names = arr(b.models).filter((m) => arr(obj(m).supportedGenerationMethods).includes('generateContent')).map((m) => String(obj(m).name ?? '').replace(/^models\//, '')); break
   }
-  return [...new Set(names.filter(Boolean))].sort((a, b) => a.localeCompare(b))
+  names = names.filter(Boolean)
+  // OpenAI 는 임베딩·음성·이미지 모델도 같은 목록에 섞어 준다 — 대화에 쓸 수 있는 것만 보인다(걸러서 비면 그대로 둔다)
+  if (cfg.kind === 'openai') {
+    const chat = names.filter(isOpenAiChatModel)
+    if (chat.length) names = chat
+  }
+  return [...new Set(names)].sort((a, b) => a.localeCompare(b))
 }
+
+/** OpenAI 모델 이름이 대화용인가(gpt-·o1/o3…·chatgpt-, 임베딩·음성·이미지·검색 미리보기 등은 아님) */
+export const isOpenAiChatModel = (id: string) => /^(gpt-|chatgpt-|o\d)/i.test(id) && !/(embedding|whisper|tts|dall-e|moderation|transcribe|audio|realtime|image|search-preview|instruct|davinci|babbage)/i.test(id)
 
 /** 오류 응답을 사람이 읽을 문장으로 */
 export function describeFailure(status: number, body: unknown): string {

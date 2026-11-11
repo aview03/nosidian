@@ -10,14 +10,7 @@ import { connectionTitle } from '../lib/aiWizard'
 import { toLlmConfig } from '../lib/llm'
 import { useAiConfigVersion } from '../lib/useAiConfig'
 import { confirmAsk } from '../lib/dialog'
-
-const ago = (ts: number) => {
-  const m = Math.round((Date.now() - ts) / 60000)
-  if (m < 1) return t('방금')
-  if (m < 60) return t('{n}분 전', { n: m })
-  if (m < 1440) return t('{n}시간 전', { n: Math.round(m / 60) })
-  return new Date(ts).toLocaleDateString()
-}
+import { DeviceList } from './DeviceList'
 
 export function RelayCard() {
   const api = desktop()?.relay
@@ -87,19 +80,7 @@ export function RelayCard() {
               onClose={() => { setAdding(false); void refresh() }}
             />
           )}
-          <div className="relay-devs">
-            <div className="auto-sub">{t('연결된 휴대폰')}</div>
-            {st.devices.length === 0 ? <p className="hint small">{t('아직 없어요')}</p> : (
-              <ul>
-                {st.devices.map((d) => (
-                  <li key={d.id}>
-                    <span><b>{d.name}</b><small>{t('마지막 사용 {when}', { when: ago(d.lastSeen) })}</small></span>
-                    <button className="btn-link" onClick={async () => setSt(await api.revoke(d.id))}>{t('해제')}</button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+          <DeviceList devices={st.devices} onRevoke={async (id) => setSt(await api.revoke(id))} />
           <p className="hint small">{t('같은 와이파이 안에서만 연결돼요. 공용 와이파이에서는 꺼 두세요. 이 PC 앱이 켜져 있어야 해요.')}</p>
         </>
       )}

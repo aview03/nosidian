@@ -9,7 +9,7 @@ import { loadAllLlmConfigs, loadLlmConfig, providerOf, saveLlmConfig, supportsTo
 import { chatTurn, clearStoredKey, keyStoreStatus, listModels, storeKey } from '../lib/llmNet'
 import { listConnections, newConnectionId, removeConnection, setSelected, updateConnection } from '../lib/aiConnections'
 import { modelList, refreshModels, refreshStaleModels } from '../lib/aiModels'
-import { confirmAsk } from '../lib/dialog'
+import { ask, confirmAsk } from '../lib/dialog'
 import { LlmCard } from './LlmSettings'
 import { startAnalysis } from '../lib/autoRunner'
 import { adoptUpstream, forgetPc, loadPcLink, pairWithPc, parsePairing, runClaudeViaPc, syncPcUpstreams, type Pairing } from '../lib/pcLink'
@@ -78,6 +78,13 @@ export function AiWizard() {
     setSelected(id)
     useAiThread.getState().setEngine('ollama')
   }
+  /** 연결 이름을 직접 짓는다(비우면 종류와 주소로 만든 이름으로 돌아간다) */
+  const rename = async (c: LlmConfig) => {
+    if (!c.id) return
+    const name = await ask(t('연결 이름'), connectionTitle(c), undefined, t('바꾸기'))
+    if (name === null) return
+    updateConnection(c.id, { label: name.trim().slice(0, 40) || undefined })
+  }
   const remove = async (c: LlmConfig) => {
     if (!c.id) return
     const ok = await confirmAsk(t('"{name}" 연결을 해제할까요?', { name: connectionTitle(c) }), t('이 기기에 저장된 연결 정보와 키가 지워져요. 다른 연결에는 영향이 없어요.'), t('해제'), true)
@@ -124,6 +131,7 @@ export function AiWizard() {
                       {inUse ? <em>{t('사용 중')}</em> : <button className="btn-link" disabled={!supportsTools(c.kind) || !c.model} onClick={() => c.id && use(c.id)}>{t('사용')}</button>}
                       {c.id && <button className="btn-link" disabled={refreshing === c.id} onClick={() => void refresh(c.id!)}>{refreshing === c.id ? t('불러오는 중…') : t('모델 새로 고침')}</button>}
                       {!mobile && <button className="btn-link" onClick={() => setEditing(editing === c.id ? null : c.id ?? null)}>{editing === c.id ? t('접기') : t('고치기')}</button>}
+                      {c.id && <button className="btn-link" onClick={() => void rename(c)}>{t('이름 바꾸기')}</button>}
                       <button className="btn-link danger" onClick={() => void remove(c)}>{t('해제')}</button>
                     </span>
                     {note && note.id === c.id && <small className="aiw-conn-note">{note.text}</small>}

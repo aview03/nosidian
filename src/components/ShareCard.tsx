@@ -7,14 +7,7 @@ import { desktop, type ShareStatus } from '../lib/externalIO'
 import { useApp } from '../lib/app'
 import { PairModal } from './PairModal'
 import { shareState } from '../lib/pairModal'
-
-const ago = (ts: number) => {
-  const m = Math.round((Date.now() - ts) / 60000)
-  if (m < 1) return t('방금')
-  if (m < 60) return t('{n}분 전', { n: m })
-  if (m < 1440) return t('{n}시간 전', { n: Math.round(m / 60) })
-  return new Date(ts).toLocaleDateString()
-}
+import { DeviceList } from './DeviceList'
 
 const PICK_ERR: Record<string, string> = {
   'drive root': '드라이브 전체는 공유할 수 없어요. 폴더를 하나 골라 주세요',
@@ -75,19 +68,7 @@ export function ShareCard() {
               onClose={() => { setAdding(false); void refresh() }}
             />
           )}
-          <div className="relay-devs">
-            <div className="auto-sub">{t('연결된 휴대폰')}</div>
-            {st.devices.length === 0 ? <p className="hint small">{t('아직 없어요')}</p> : (
-              <ul>
-                {st.devices.map((d) => (
-                  <li key={d.id}>
-                    <span><b>{d.name}</b><small>{t('마지막 사용 {when}', { when: ago(d.lastSeen) })}</small></span>
-                    <button className="btn-link" onClick={async () => setSt(await api.revoke(d.id))}>{t('해제')}</button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+          <DeviceList devices={st.devices} onRevoke={async (id) => setSt(await api.revoke(id))} />
           <p className="hint small">{t('이 PC가 켜져 있고 같은 와이파이일 때만 연결돼요. 폴더 밖 파일·숨김 파일은 보이지 않고, 쓰기·삭제는 되지 않아요.')}</p>
           <p className="hint small share-fp">{t('인증서 지문')}: {st.fingerprint.slice(0, 16).toUpperCase().replace(/(.{4})/g, '$1 ').trim()}…</p>
         </>

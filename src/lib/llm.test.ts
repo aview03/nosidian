@@ -191,3 +191,16 @@ describe('도구 호출(function calling)', () => {
     expect(parseTurn(cfg({ kind: 'anthropic' }), { content: [{ type: 'text', text: '가' }] })).toEqual({ text: '가', toolCalls: [] })
   })
 })
+
+describe('OpenAI 모델 목록은 대화용만', () => {
+  const openai = (ids: string[]) => parseModels(cfg({ kind: 'openai', baseUrl: 'https://api.openai.com/v1' }), { data: ids.map((id) => ({ id })) })
+  it('임베딩·음성·이미지·검색 미리보기 모델을 뺀다', () => {
+    expect(openai(['gpt-4o', 'gpt-4o-mini', 'text-embedding-3-small', 'whisper-1', 'tts-1', 'dall-e-3', 'omni-moderation-latest', 'gpt-4o-audio-preview', 'gpt-4o-realtime-preview', 'gpt-image-1', 'gpt-4o-search-preview', 'gpt-3.5-turbo-instruct', 'o3-mini', 'chatgpt-4o-latest'])).toEqual(['chatgpt-4o-latest', 'gpt-4o', 'gpt-4o-mini', 'o3-mini'])
+  })
+  it('걸러서 아무것도 안 남으면(이름 규칙이 바뀐 경우) 서버가 준 그대로 보여 준다', () => {
+    expect(openai(['model-a', 'model-b'])).toEqual(['model-a', 'model-b'])
+  })
+  it('다른 종류(사용자 지정 서버 등)는 거르지 않는다', () => {
+    expect(parseModels(cfg({ kind: 'custom' }), { data: [{ id: 'text-embedding-x' }, { id: 'local-chat' }] })).toEqual(['local-chat', 'text-embedding-x'])
+  })
+})
