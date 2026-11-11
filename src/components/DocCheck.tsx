@@ -16,7 +16,12 @@ import { useAutomation } from '../lib/automation'
 function setProjectDocs(project: Project, value: string | null) {
   const app = useApp.getState()
   const f = app.files[project.path]
-  if (f && !f.deleted) app.setContent(project.path, setFmKey(f.content, 'docs', value))
+  if (f && !f.deleted) {
+    app.setContent(project.path, setFmKey(f.content, 'docs', value))
+    // 이 버튼이 프로젝트 노트의 속성을 고친다는 것을 알려 준다(보이지 않는 곳을 바꾸므로)
+    const name = project.path.split('/').pop() ?? project.path
+    app.say(value === 'off' ? t('이 프로젝트의 문서 점검을 껐어요 ({file} 의 docs 속성을 바꿨어요)', { file: name }) : t('이 프로젝트에 문서 규칙을 적용했어요 ({file} 에 docs: {v} 속성을 적었어요)', { file: name, v: value ?? '' }))
+  }
 }
 
 /** 규칙 노트를 켠다: 없으면 설명과 함께 만들고, 꺼져 있으면 rules: on 으로 */

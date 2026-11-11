@@ -1369,5 +1369,11 @@ const dict: Record<string, string> = {
   '건강도': "Health",
   '기한이 지난 일·오래 기다리는 일·담당자 없는 일을 보고 정한 프로젝트 상태예요': "Project status based on overdue work, long waits and work with no owner",
   '아직 업무가 없어요.': "No work yet.",
+  '문서 규칙 노트를 만들었어요. 프로젝트에 적용하려면 그 프로젝트의 "문서 점검" 탭에서 켜 주세요': "Created the document rules note. To apply it to a project, turn it on in that project's \"Document check\" tab",
+  '규칙 노트 만들기': "Create rules note",
+  '프로젝트 문서의 역할과 구조를 점검하는 규칙이에요. 프로젝트 허브의 "문서 점검" 탭에서 확인해요.': "Rules that check the roles and structure of project documents. See results in the project hub's \"Document check\" tab.",
+  '문서 규칙은 프로젝트 문서의 역할과 구조를 점검해 주는 기능이에요. 지금은 꺼져 있고, 만들면 설명이 들어 있는 노트가 열려요.': "Document rules check the roles and structure of project documents. They are off for now; creating them opens a note with an explanation.",
+  '이 프로젝트의 문서 점검을 껐어요 ({file} 의 docs 속성을 바꿨어요)': "Document check is off for this project (changed the docs property in {file})",
+  '이 프로젝트에 문서 규칙을 적용했어요 ({file} 에 docs: {v} 속성을 적었어요)': "Document rules applied to this project (wrote docs: {v} in {file})",
 }
 export default dict

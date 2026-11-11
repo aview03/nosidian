@@ -25,7 +25,7 @@ import { HostConnectDialog, HostPanel } from './HostConnect'
 import { PcHostConnectDialog, PcHostPanel } from './PcHostConnect'
 import { Capacitor } from '@capacitor/core'
 import { Icon } from './Icon'
-import { DOCRULES_PATH } from '../lib/docrules'
+import { DOCRULES_PATH, rulesNoteTemplate } from '../lib/docrules'
 import { createVaultFlow, deleteVaultFlow, renameVaultFlow, useActiveVault, vaultSub } from './VaultSheet'
 
 function ago(ts: number | null) {
@@ -384,6 +384,16 @@ function ViewGroup() {
 /** 업무와 문서: 내 업무 화면 구성과 문서 규칙으로 바로 가기 */
 function WorkGroup() {
   const app = useApp.getState()
+  // 규칙 노트가 아직 없으면(기본) 누르는 즉시 설명이 들어 있는 노트를 만들어 연다 — 예전에는 파일이 없어서 아무 일도 일어나지 않았다
+  const hasRules = useApp((x) => !!x.files[DOCRULES_PATH] && !x.files[DOCRULES_PATH].deleted)
+  const openRules = () => {
+    if (!hasRules) {
+      app.createNote(DOCRULES_PATH, rulesNoteTemplate(), true)
+      app.say(t('문서 규칙 노트를 만들었어요. 프로젝트에 적용하려면 그 프로젝트의 "문서 점검" 탭에서 켜 주세요'))
+      return
+    }
+    app.openNote(DOCRULES_PATH)
+  }
   return (
     <section className="card">
       <h3>{t('업무와 문서')}</h3>
@@ -391,8 +401,9 @@ function WorkGroup() {
         <button onClick={() => { app.go('work'); useWorkUi.setState({ editing: true, returnTo: 'settings' }) }}>{t('편집하기')}</button>
       </div>
       <div className="kv"><span>{t('문서 규칙')}</span>
-        <button onClick={() => app.openNote(DOCRULES_PATH)}>{t('규칙 파일 열기')}</button>
+        <button onClick={openRules}>{hasRules ? t('규칙 파일 열기') : t('규칙 노트 만들기')}</button>
       </div>
+      <p className="hint small">{hasRules ? t('프로젝트 문서의 역할과 구조를 점검하는 규칙이에요. 프로젝트 허브의 "문서 점검" 탭에서 확인해요.') : t('문서 규칙은 프로젝트 문서의 역할과 구조를 점검해 주는 기능이에요. 지금은 꺼져 있고, 만들면 설명이 들어 있는 노트가 열려요.')}</p>
     </section>
   )
 }
