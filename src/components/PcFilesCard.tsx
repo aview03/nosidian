@@ -42,12 +42,12 @@ export function PcFilesCard() {
           <button className="btn-link" onClick={() => { forgetPcShare(); setMsg({ kind: 'idle', text: '' }) }}>{t('연결 해제')}</button>
         </>
       ) : (
-        <>
+        <div className="stack">
           <p className="hint small">{t('PC 앱 설정 > 노트와 동기화에서 "내 휴대폰에서 이 PC의 폴더 보기"를 켜고 폴더를 고른 뒤, 나온 QR을 스캔해 주세요.')}</p>
           <button className="primary big" disabled={msg.kind === 'busy'} onClick={() => setScan(true)}>{t('QR 스캔')}</button>
           <input className="inline wide" value={text} placeholder="nsf1:…" autoCapitalize="off" autoCorrect="off" onChange={(e) => { setText(e.target.value); setMsg({ kind: 'idle', text: '' }) }} aria-label={t('연결 문자열')} />
           <button className="big" disabled={!text.trim() || msg.kind === 'busy'} onClick={() => void connect()}>{t('붙여 넣은 글로 연결')}</button>
-        </>
+        </div>
       )}
       {msg.text && <p className={`hint small${msg.kind === 'err' ? ' ai-warn' : ''}`}>{msg.text}</p>}
       {scan && <QrScan parse={parseSharePairing} onClose={() => setScan(false)} onResult={(p) => { setScan(false); void connect(p) }} />}

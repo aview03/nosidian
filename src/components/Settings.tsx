@@ -210,7 +210,7 @@ function SyncCard() {
           ) : (
             <>
               {!picked ? (
-                <>
+                <div className="stack">
                   <p className="aiw-q">{t('어디에 보관할까요?')}</p>
                   {syncOrder(persona).map((k) => (
                     <button key={k} className="aiw-way" onClick={() => { setPick(k); setPicked(true) }}>
@@ -231,13 +231,13 @@ function SyncCard() {
                     </button>
                   )}
                   <button className="link-btn" onClick={() => setConnecting(false)}>{t('취소')}</button>
-                </>
+                </div>
               ) : (
-                <>
+                <div className="stack">
                   <p className="aiw-q">{t('{name} 연결', { name: SYNC_LABEL[pick] })}</p>
                   <ConnectForm key={pick} kind={pick} />
                   <button className="link-btn" onClick={() => setPicked(false)}>{t('← 다른 곳 고르기')}</button>
-                </>
+                </div>
               )}
             </>
           )}

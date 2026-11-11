@@ -1494,3 +1494,27 @@ input.inline.wide { width: 100%; box-sizing: border-box; height: 42px; }
 .hc-perm { min-height: 30px; padding: 0 12px; font-size: 12.5px; border: 1px solid var(--border); border-radius: var(--r); background: transparent; color: var(--muted); }
 .hc-perm.on { border-color: var(--accent); color: var(--accent); font-weight: 600; }
 .hc-perm:disabled { opacity: .5; }
+
+/* ── 카드 안 세로 묶음: 요소 사이를 gap 으로만 띄운다 (연결 화면·보관 위치 고르기) ─── */
+.stack { display: flex; flex-direction: column; gap: 12px; }
+.stack > * { margin-top: 0; margin-bottom: 0; }
+.stack > input.inline.wide { width: 100%; }
+.stack > .aiw-q { margin-top: 2px; }
+.stack > .link-btn { align-self: flex-start; }
+
+/* 내 프로필: 모바일에서는 라벨을 위에 두고 입력·선택 박스를 가로로 꽉 채운다 */
+@media (max-width: 899px) {
+  .profile .kv { flex-direction: column; align-items: stretch; gap: 6px; }
+  .profile .kv > span { flex: none; }
+  .profile .kv .sel-btn { width: 100%; max-width: none; min-width: 0; flex: none; }
+  .profile .name-apply { width: 100%; justify-content: stretch; }
+  .profile .name-apply input.inline { max-width: none; }
+}
+
+/* 안드로이드: 날짜 입력의 기본 화살표는 테두리에 바짝 붙는다 → 숨기고 선택 박스(.sel-btn)와 같은 위치(오른쪽 12px)에 같은 화살표를 그린다.
+   입력을 누르면 달력이 뜨는 동작은 그대로(기본 선택 영역은 입력 전체를 덮는다) */
+.android input[type='date'], .android input[type='datetime-local'], .android input[type='month'] {
+  -webkit-appearance: none; appearance: none; padding-right: 40px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 12px center; background-size: 16px;
+}

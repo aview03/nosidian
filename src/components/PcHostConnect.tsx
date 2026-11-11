@@ -105,12 +105,12 @@ export function PcHostConnectDialog({ onClose }: { onClose: () => void }) {
             <>
               <p className="hint">{t('클라우드 없이 같은 와이파이의 내 PC와 노트를 맞춰요. 연결하기 전에 차이를 먼저 보여 드리고, 확인하시기 전에는 아무것도 덮어쓰거나 지우지 않아요.')}</p>
               {!link ? (
-                <>
+                <div className="stack">
                   <p className="hint small">{t('PC 앱에서 설정 > 노트와 동기화 > "휴대폰과 맞추기"를 켜면 QR이 나와요(PC에서 호스트 폴더를 먼저 연결해야 해요).')}</p>
                   <button className="primary big" disabled={busy} onClick={() => setScan(true)}>{t('QR 스캔')}</button>
                   <input className="inline wide" value={text} placeholder="nsh1:…" autoCapitalize="off" autoCorrect="off" onChange={(e) => { setText(e.target.value); setErr('') }} aria-label={t('연결 문자열')} />
                   <button className="big" disabled={!text.trim() || busy} onClick={() => void connect()}>{busy ? t('PC에 연결하는 중…') : t('붙여 넣은 글로 연결')}</button>
-                </>
+                </div>
               ) : (
                 <>
                   <div className="kv"><span>{t('PC')}</span><b>{link.name}{link.folder ? ` · ${link.folder}` : ''}</b></div>
