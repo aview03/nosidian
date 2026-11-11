@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { useApp } from './app'
 import { setLang } from './i18n'
-import { addTask, deleteTask, deleteView, moveTask, moveToProject, saveView, toggleOrClose, updateTask } from './workOps'
+import { addTask, completeWithUndo, deleteTask, deleteView, moveTask, moveToProject, saveView, toggleOrClose, updateTask } from './workOps'
 import { buildQueues, buildWork, tokensForState } from './work'
 import type { NoteFile } from './types'
 
@@ -161,5 +161,17 @@ describe('완료 처리에 되돌리기(디자이너 P3)', () => {
     toggleOrClose(find('케이크 주문'))
     expect(text('행사/할 일.md')).toContain('- [ ] 케이크 주문')
     expect(useApp.getState().toast).toBeNull()
+  })
+})
+
+describe('날짜 있는 체크리스트 줄 완료에도 되돌리기', () => {
+  it('Daily 노트의 줄을 완료하면 알림, 되돌리면 원래 줄', () => {
+    useApp.setState({ toast: null, toastUndo: null } as never)
+    load(note('Daily/2026-11-10.md', '# d\n\n- [ ] 카드번호 마스킹 로그 샘플 확인\n'))
+    completeWithUndo('Daily/2026-11-10.md', 2, '카드번호 마스킹 로그 샘플 확인')
+    expect(text('Daily/2026-11-10.md')).toContain('- [x] 카드번호')
+    expect(useApp.getState().toast).toBe('"카드번호 마스킹 로그 샘플 확인" 완료했어요')
+    ;(useApp.getState() as unknown as { toastUndo: () => void }).toastUndo()
+    expect(text('Daily/2026-11-10.md')).toContain('- [ ] 카드번호')
   })
 })

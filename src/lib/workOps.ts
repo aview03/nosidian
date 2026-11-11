@@ -70,21 +70,27 @@ registerScreen('project', {
 /** 체크박스를 눌렀을 때: 결정 안건을 닫을 땐 결론을 받아야 하므로 편집기를 열고, 나머지는 그냥 체크한다 */
 export function toggleOrClose(task: Task) {
   if (task.kind === 'decision' && !task.done) useWorkUi.getState().openEditor(task, null, true)
-  else if (!task.done) {
-    // 완료하면 목록에서 사라지므로 알려 주고 5초 안에 되돌릴 수 있게 한다(디자이너 P3). 결정 안건 거부 등으로 안 바뀌면 알림 없음
-    const before = useApp.getState().files[task.path]?.content
-    useApp.getState().toggleTask(task.path, task.line)
-    const after = useApp.getState().files[task.path]?.content
-    if (before === undefined || after === before) return
-    useApp.getState().sayUndo(t('"{name}" 완료했어요', { name: task.title }), () => {
-      if (useApp.getState().files[task.path]?.content !== after) {
-        say(t('그새 노트가 바뀌어서 되돌리지 못했어요'))
-        return
-      }
-      useApp.getState().setContent(task.path, before)
-      say(t('되돌렸어요'))
-    })
-  } else useApp.getState().toggleTask(task.path, task.line)
+  else if (!task.done) completeWithUndo(task.path, task.line, task.title)
+  else useApp.getState().toggleTask(task.path, task.line)
+}
+
+/**
+ * 체크리스트 줄을 완료로 바꾸고 '완료했어요 · 되돌리기'(5초)를 띄운다. 완료하면 목록에서 사라지므로(디자이너 P3).
+ * 결정 안건 거부 등으로 줄이 안 바뀌면 알림 없음. 되돌릴 때 그새 노트가 바뀌었으면 덮어쓰지 않는다.
+ */
+export function completeWithUndo(path: string, line: number, title: string) {
+  const before = useApp.getState().files[path]?.content
+  useApp.getState().toggleTask(path, line)
+  const after = useApp.getState().files[path]?.content
+  if (before === undefined || after === before) return
+  useApp.getState().sayUndo(t('"{name}" 완료했어요', { name: title }), () => {
+    if (useApp.getState().files[path]?.content !== after) {
+      say(t('그새 노트가 바뀌어서 되돌리지 못했어요'))
+      return
+    }
+    useApp.getState().setContent(path, before)
+    say(t('되돌렸어요'))
+  })
 }
 
 /** 업무 한 줄을 수정한다. 노트가 그새 바뀌어 줄을 못 찾으면 false */

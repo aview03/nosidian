@@ -17,7 +17,7 @@ import { ProposalBanner } from './ProposalReview'
 import { openMyNameSetting } from './Settings'
 import { applyView, readViews, type View } from '../lib/views'
 import { customName, disableTile, enableTile, isCustom, reorderVisible, resolveTiles, setCollapsed, setLimit, type BuiltinTile } from '../lib/tiles'
-import { moveToProject, toggleOrClose, useWorkUi } from '../lib/workOps'
+import { completeWithUndo, moveToProject, toggleOrClose, useWorkUi } from '../lib/workOps'
 import { projectHealth, readThresholds, type Health, type Signal } from '../lib/health'
 import { buildDayItems, type DayItem } from '../lib/dayItems'
 import { useCal } from '../lib/calendar'
@@ -117,7 +117,7 @@ function DayItemRow({ it }: { it: DayItem }) {
   const late = it.reason === 'overdue'
   return (
     <div className={`wrk-row${late ? ' late' : ''}`}>
-      <input type="checkbox" className="task" checked={ev.done} onChange={() => app.toggleTask(ev.path, ev.line)} aria-label={ev.title} />
+      <input type="checkbox" className="task" checked={ev.done} onChange={() => (ev.done ? app.toggleTask(ev.path, ev.line) : completeWithUndo(ev.path, ev.line, ev.title))} aria-label={ev.title} />
       <button className="wrk-main" onClick={() => useCal.getState().openEditor(ev.origDate ?? ev.date, ev)}>
         <span className="wrk-body">
           <span className="wrk-title">{ev.title}</span>
