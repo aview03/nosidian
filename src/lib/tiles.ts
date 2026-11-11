@@ -26,6 +26,8 @@ export interface Layout {
   collapsed: string[]
   /** 타일별 처음 보일 줄 수(없으면 기본값) */
   limit: Record<string, number>
+  /** 숨겨 두었지만 **내용이 생기면 저절로 보이는** 타일(역할 구성에 없는 프로젝트 타일 — 프로젝트를 만든 사람이 길을 잃지 않게). 사용자가 직접 켜거나 끄면 여기서 빠진다 */
+  auto?: string[]
 }
 
 export const defaultLayout = (): Layout => ({ order: [...BUILTIN_TILES], hidden: [...DEFAULT_HIDDEN], collapsed: [], limit: {} })
@@ -77,10 +79,19 @@ export function moveBefore(layout: Layout, customs: string[], id: string, target
   return { ...layout, order: full }
 }
 
-export const setHidden = (layout: Layout, id: string, hidden: boolean): Layout => ({
-  ...layout,
-  hidden: hidden ? [...new Set([...layout.hidden, id])] : layout.hidden.filter((x) => x !== id),
-})
+/** 사용자가 직접 켜고 끈 타일은 더 이상 "내용이 생기면 저절로" 대상이 아니다 */
+const noAuto = (layout: Layout, id: string): string[] | undefined => {
+  const a = (layout.auto ?? []).filter((x) => x !== id)
+  return a.length ? a : undefined
+}
+const withAuto = (l: Layout, auto: string[] | undefined): Layout => {
+  const { auto: _drop, ...rest } = l
+  void _drop
+  return auto ? { ...rest, auto } : rest
+}
+
+export const setHidden = (layout: Layout, id: string, hidden: boolean): Layout =>
+  withAuto({ ...layout, hidden: hidden ? [...new Set([...layout.hidden, id])] : layout.hidden.filter((x) => x !== id) }, noAuto(layout, id))
 
 export const setCollapsed = (layout: Layout, id: string, collapsed: boolean): Layout => ({
   ...layout,
@@ -100,7 +111,7 @@ export function renameTile(layout: Layout, oldName: string, newName: string): La
     limit[to] = limit[from]
     delete limit[from]
   }
-  return { order: map(layout.order), hidden: map(layout.hidden), collapsed: map(layout.collapsed), limit }
+  return withAuto({ order: map(layout.order), hidden: map(layout.hidden), collapsed: map(layout.collapsed), limit }, layout.auto)
 }
 
 /** 지운 사용자 타일을 배치에서 치운다 */
@@ -108,7 +119,7 @@ export function forgetTile(layout: Layout, name: string): Layout {
   const id = customId(name)
   const limit = { ...layout.limit }
   delete limit[id]
-  return { order: layout.order.filter((x) => x !== id), hidden: layout.hidden.filter((x) => x !== id), collapsed: layout.collapsed.filter((x) => x !== id), limit }
+  return withAuto({ order: layout.order.filter((x) => x !== id), hidden: layout.hidden.filter((x) => x !== id), collapsed: layout.collapsed.filter((x) => x !== id), limit }, layout.auto)
 }
 
 const KEY = 'nosidian.worklayout'
@@ -122,7 +133,7 @@ export function loadLayout(): Layout {
     const arr = (x: unknown) => (Array.isArray(x) ? x.filter((y): y is string => typeof y === 'string') : [])
     const limit: Record<string, number> = {}
     if (v.limit && typeof v.limit === 'object') for (const [k, n] of Object.entries(v.limit)) if (typeof n === 'number' && n >= 0) limit[k] = n
-    return { order: arr(v.order), hidden: arr(v.hidden), collapsed: arr(v.collapsed), limit }
+    return withAuto({ order: arr(v.order), hidden: arr(v.hidden), collapsed: arr(v.collapsed), limit }, arr(v.auto).length ? arr(v.auto) : undefined)
   } catch {
     return defaultLayout()
   }
@@ -148,7 +159,7 @@ export function enableTile(layout: Layout, customs: string[], id: string): Layou
   const tiles = resolveTiles(layout, customs)
   const visible = tiles.filter((x) => !x.hidden && x.id !== id).map((x) => x.id)
   const hidden = tiles.filter((x) => x.hidden && x.id !== id).map((x) => x.id)
-  return { ...layout, order: [...visible, id, ...hidden], hidden: layout.hidden.filter((x) => x !== id) }
+  return withAuto({ ...layout, order: [...visible, id, ...hidden], hidden: layout.hidden.filter((x) => x !== id) }, noAuto(layout, id))
 }
 
 /** 타일을 끈다: 꺼 둔 타일들의 맨 앞으로 간다(방금 끈 것이 아래 목록에서 먼저 보이게) */
@@ -156,5 +167,5 @@ export function disableTile(layout: Layout, customs: string[], id: string): Layo
   const tiles = resolveTiles(layout, customs)
   const visible = tiles.filter((x) => !x.hidden && x.id !== id).map((x) => x.id)
   const hidden = tiles.filter((x) => x.hidden && x.id !== id).map((x) => x.id)
-  return { ...layout, order: [...visible, id, ...hidden], hidden: [...new Set([...layout.hidden, id])] }
+  return withAuto({ ...layout, order: [...visible, id, ...hidden], hidden: [...new Set([...layout.hidden, id])] }, noAuto(layout, id))
 }

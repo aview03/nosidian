@@ -57,7 +57,9 @@ export function presetLayout(persona: PersonaId, current: Layout, customs: strin
   const keptCustoms = customs.map(customId)
   const visibleCustoms = keptCustoms.filter((id) => !current.hidden.includes(id))
   const hiddenCustoms = keptCustoms.filter((id) => current.hidden.includes(id))
-  return { order: [...on, ...visibleCustoms, ...off, ...hiddenCustoms], hidden: [...off, ...hiddenCustoms], collapsed: [], limit: {} }
+  // 역할 구성에 프로젝트 타일이 없어도(학생), 프로젝트를 만들면 홈에 저절로 나타난다 — 만든 프로젝트를 홈에서 찾을 수 있게
+  const auto = off.includes('projects') ? ['projects'] : undefined
+  return { order: [...on, ...visibleCustoms, ...off, ...hiddenCustoms], hidden: [...off, ...hiddenCustoms], collapsed: [], limit: {}, ...(auto ? { auto } : {}) }
 }
 
 /** 지금 구성이 역할 프리셋과 같은가(내가 따로 바꿨는지 알려 주는 데 쓴다). 내가 만든 타일은 보지 않는다 */

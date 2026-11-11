@@ -237,6 +237,9 @@ export function WorkHome() {
   const todayEvents = (cal.get(today) ?? []).filter((e) => !taskIds.has(e.id))
   const customs = useMemo(() => views.map((v) => v.name), [views])
   const tiles = resolveTiles(layout, customs)
+  // 역할 구성에서 빠졌어도(학생) 프로젝트가 하나라도 있으면 프로젝트 타일을 보인다(layout.auto — 직접 끄거나 켜면 그 뜻을 따른다)
+  const autoProjects = !!layout.auto?.includes('projects') && work.projects.length > 0
+  const projectsShown = tiles.some((x) => x.id === 'projects' && (!x.hidden || autoProjects))
   const patch = useWorkUi.getState().patchLayout
   const setEditing = (on: boolean) => useWorkUi.setState({ editing: on })
   /** 완료: 설정에서 들어왔으면 설정으로 돌아간다 */
@@ -365,7 +368,7 @@ export function WorkHome() {
               <button className="wrk-newproj" onClick={() => useWorkUi.setState({ viewEditor: {} })}>+ {t('조건으로 새 타일 만들기')}</button>
             </>
           ) : (
-            <div className="wrk-tiles">{tiles.filter((x) => !x.hidden).map((tile) => {
+            <div className="wrk-tiles">{tiles.filter((x) => !x.hidden || (x.id === 'projects' && autoProjects)).map((tile) => {
               const data = dataFor(tile.id)
               if (!data) return null
               if (!data.alwaysShow && data.rows.length === 0) return <EmptyTile key={tile.id} title={data.title} text={t(EMPTY_TEXT[tile.id as BuiltinTile] ?? '')} tone={data.tone} /> // 켜 둔 타일은 비어도 한 줄로 남긴다
@@ -375,6 +378,11 @@ export function WorkHome() {
 
           {!editing && work.tasks.length > 0 && q.total === 0 && q.doing.length === 0 && q.unowned.length === 0 && (
             <p className="hint pad wrk-clear">{t('밀린 일이 없습니다. 👍')}</p>
+          )}
+
+          {/* 프로젝트 타일이 없는 구성(학생)에서도 첫 프로젝트를 만들 길이 있게 한다 */}
+          {!editing && !empty && !projectsShown && (
+            <button className="wrk-newproj" onClick={() => useWorkUi.setState({ wizard: true })}>+ {t('새 프로젝트')}</button>
           )}
 
           {empty && (
