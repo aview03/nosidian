@@ -60,3 +60,42 @@ describe('제외 규칙', () => {
     expect(buildDayItems(cal, taskIds, TODAY)).toEqual({ week: [], overdue: [] })
   })
 })
+
+import { routineTitles } from './dayItems'
+
+describe('습관성 줄(루틴)은 기한이 지난 일에서 뺀다', () => {
+  const run = (files: NoteFile[]) => {
+    const { cal, taskIds } = calOf(files)
+    return { cal, r: buildDayItems(cal, taskIds, TODAY) }
+  }
+  const habit = [
+    daily('2026-11-09', ['- [ ] 물 한 잔 마시기', '- [ ] 국어 숙제 제출']),
+    daily('2026-11-10', ['- [ ] 물 한 잔 마시기']),
+    daily('2026-11-11', ['- [x] 물 한 잔 마시기']), // 끝낸 날도 루틴 판정에 센다
+  ]
+
+  it('여러 날 반복되는 제목은 기한 지난 일에서 빠지고, 한 번뿐인 숙제는 남는다', () => {
+    const { r } = run(habit)
+    expect(titles(r.overdue)).toEqual(['국어 숙제 제출'])
+  })
+  it('이틀만 적었어도(예제 노트처럼) 간격이 7의 배수가 아니면 루틴이다', () => {
+    const { r } = run([daily('2026-11-09', ['- [ ] 장보기 목록 확인']), daily('2026-11-11', ['- [ ] 장보기 목록 확인'])])
+    expect(titles(r.overdue)).toEqual([])
+  })
+  it('매주 같은 과제(7일 간격)는 루틴이 아니라서 놓치면 보인다', () => {
+    const { r } = run([daily('2026-11-02', ['- [ ] 수학 과제 제출']), daily('2026-11-09', ['- [ ] 수학 과제 제출'])])
+    expect(titles(r.overdue)).toEqual(['수학 과제 제출'])
+  })
+  it('제목 비교는 대소문자·앞뒤 공백을 무시한다', () => {
+    const { r } = run([daily('2026-11-09', ['- [ ] Read Book']), daily('2026-11-10', ['- [ ]   read book  '])])
+    expect(titles(r.overdue)).toEqual([])
+  })
+  it('앞으로의 마감(이번 주)에는 적용하지 않는다(미래 마감을 잃지 않게)', () => {
+    const { r } = run([daily('2026-11-12', ['- [ ] 영어 에세이 제출']), daily('2026-11-14', ['- [ ] 영어 에세이 제출'])])
+    expect(titles(r.week)).toEqual(['영어 에세이 제출', '영어 에세이 제출'])
+  })
+  it('routineTitles 는 루틴으로 본 제목(소문자·공백 정리)의 집합을 돌려준다', () => {
+    const { cal } = run(habit)
+    expect([...routineTitles(cal)]).toEqual(['물 한 잔 마시기'])
+  })
+})
