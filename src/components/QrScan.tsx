@@ -66,7 +66,16 @@ export function QrScan<T>({ parse, onResult, onClose }: { /** QR 글자를 해�
         <b>{t('PC 화면의 QR을 비춰 주세요')}</b>
         <button className="icon-btn" onClick={onClose} aria-label={t('닫기')}><Icon name="close" /></button>
       </div>
-      {err ? <p className="qr-err">{err}</p> : <div className="qr-frame"><video ref={video} muted playsInline /><i /></div>}
+      <div className="qr-body">
+        {err ? <p className="qr-err">{err}</p> : (
+          <>
+            <div className="qr-frame"><video ref={video} muted playsInline /><i /></div>
+            <p className="qr-hint">{t('QR이 네모 안에 들어오면 자동으로 연결돼요')}</p>
+          </>
+        )}
+        <button className="btn-link" onClick={onClose}>{t('코드를 직접 입력할게요')}</button>
+      </div>
+      <div className="qr-foot"><button className="big" onClick={onClose}>{t('취소')}</button></div>
       <canvas ref={canvas} hidden />
     </div>
   )

@@ -1347,5 +1347,7 @@ const dict: Record<string, string> = {
   'PC에서 빌려주는 AI가 없어요. PC 앱 설정 > AI 에서 AI 를 연결하고 "휴대폰에 빌려주기"를 켜 주세요': "This PC is not lending any AI. In the PC app, open Settings > AI, connect an AI and turn on lending to your phone",
   '연결 이름': "Connection name",
   '이 휴대폰은 바로 연결이 끊겨요. 다시 쓰려면 새 연결 코드로 다시 연결해야 해요.': "This phone is disconnected right away. To use it again, connect it with a new connection code.",
+  'QR이 네모 안에 들어오면 자동으로 연결돼요': "It connects automatically when the QR code is inside the square",
+  '코드를 직접 입력할게요': "Enter the code by hand",
 }
 export default dict
