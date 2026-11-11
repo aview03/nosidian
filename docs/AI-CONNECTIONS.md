@@ -1,6 +1,6 @@
 # AI 연결 여러 개 — 설계 (5-a·5-b)
 
-> 상태: **설계 초안, 구현 전.** 아래 §9 의 결정 사항을 사용자가 확인하면 단계별로 구현한다.
+> 상태: **§9 결정 확정(2026-11-11, 전부 추천안) · 1단계 구현·로컬 커밋.** 2~4단계 미착수. 구현 현황은 §12.
 > 배경: `docs/NEXT-SESSION.md` §5.5 의 5번(2026-11-11 사용자 요청).
 
 ## 1. 목표
@@ -81,12 +81,12 @@ interface AiConnections { v: 2; items: AiConnection[]; selected: { conn: string;
 - `relay:upstream` 을 `relay:upstreams([{id, kind, baseUrl, model, keyStored}])` 로. 폰 쪽 `PcLink.upstream` 도 목록(`upstreams`)이 되고, 폰은 짝 맺을 때 **빌려준 연결 각각을 `viaPc` 연결로 추가**한다(덮어쓰지 않음). 중계 경로는 `/relay/<id>/...` 로 연결을 구분(키 주입은 PC 메인이 id 로).
 - 폰에서 PC 연결을 해제하면 `viaPc` 연결들을 함께 제거(지금 `forgetPc` 가 하는 일의 확장).
 
-## 9. 결정이 필요한 것 (사용자 확인)
+## 9. 결정 (확정: 2026-11-11, 전부 추천안)
 
-1. **Claude 구독의 모델 고르기**: 지금처럼 Claude Code 기본값만(추천) / `--model` 목록 지원까지.
-2. **폰에 빌려주기 기본값**: 연결별 토글, 기본 꺼짐(추천) / PC 의 첫 연결을 자동 공유(지금 동작과 가장 비슷, 덜 안전).
-3. **자동 분석에 쓸 AI**: "지금 선택된 AI" 따라가기(추천) / 설정에서 따로 고르기.
-4. **연결 수 상한**: 8개(추천).
+1. **Claude 구독의 모델 고르기**: Claude Code 기본값만. 목록 없이 `Claude (구독)` 한 항목.
+2. **폰에 빌려주기**: 연결별 토글, 기본 꺼짐(켤 때 확인 창).
+3. **자동 분석에 쓸 AI**: "지금 선택된 AI" 를 따라간다.
+4. **연결 수 상한**: 8개.
 
 ## 10. 단계 (각 단계마다 시험·로컬 커밋, 푸시는 "푸쉬" 할 때)
 
@@ -106,3 +106,16 @@ interface AiConnections { v: 2; items: AiConnection[]; selected: { conn: string;
 - 키: 연결 A·B 에 다른 키 → 요청이 각자 키를 쓰는지, 해제 시 그 키만 삭제, 키 없는 서버(Ollama) 연결.
 - 선택: 연결 해제 시 선택이 남은 연결로 넘어가거나 null, 패널 목록 구성(도구 호출 미지원 비활성).
 - 화면: 실제 PC 앱(Electron) + 폰에서 연결 2개 이상 추가→패널에서 전환→한쪽 해제→재시작 후 유지.
+
+## 12. 구현 현황
+
+### 1단계 — 저장 모델 + 이전 (구현·로컬 커밋 `86d9257`)
+- `src/lib/aiConnections.ts`: 연결마다 레코드 `nosidian.llm.<id>` + 인덱스 `nosidian.aiConnections`(ids·selected). `addConnection/updateConnection/removeConnection/setSelected/selectedConnection/listConnections`, 상한 8, 이상한 id 무시.
+- **설계에서 바뀐 점**: §3·§6 은 "연결별 비밀을 `secureStore` 에 동적으로"였는데, 연결마다 레코드를 따로 두니 **`secureStore` 를 고치지 않고** 기존 규칙(레코드별 `SecretSpec`)으로 그대로 된다. §7 의 이전도 "키 복사→확인→삭제"가 아니라 **레코드 이름만 바꾸는** 방식으로 단순화했다(예전 비밀 이름 `llm.apiKey`·PC 키 파일 `llm-key.bin` 을 `c_legacy` 가 그대로 쓰므로 키가 움직이지 않는다). 옛 레코드는 비밀 없는 사본으로 `nosidian.llm.bak` 에 남긴다.
+- 호환: `loadLlmConfig()` = 선택된 연결(옛 모양 + `id`·`label`), `saveLlmConfig(cfg)` = 선택된 연결을 고침(`cfg.id` 있으면 그 연결, 없으면 새로 추가), `null` = 선택된 연결 해제. → `aiThread`·`autoRunner`·`relayBridge`·`pcLink` 는 **수정 없이** 동작. 화면 동작 변화 없음.
+- 키: PC 메인 `electron/llm.cjs` 는 `llm-key.<id>.bin`(예전 `c_legacy`·id 없음은 `llm-key.bin`), 요청 자리표시자 `{{KEY:id}}`(`{{KEY}}` = 예전 한 칸), IPC `llm:key:status/set/clear(…, id)`. 폰 Keystore 이름은 `llm.apiKey.<id>`. 폰 중계(`aiRelay`)도 `keyId` 로 해당 연결의 키를 쓴다.
+- 시험: 신규 `aiConnections.test.ts`(15) + `electronLlm.test.ts`(연결별 키 3) + 기존 시험 갱신(저장 위치가 바뀐 곳). 전체 776개 통과. 변이 시험: 비밀 이름을 하나로 합치면·PC 키 파일을 나누지 않으면 시험이 실패함을 확인.
+- **실제 PC 앱(Electron) 확인**: 옛 `nosidian.llm`(keyStored) → 재시작 시 `c_legacy` 연결로 이전·옛 키(`llm-key.bin`) 유지, 가짜 서버에서 `{{KEY}}`→예전 키·`{{KEY:c_bbbb2222}}`→그 연결 키 확인, 키 없는 연결은 요청을 보내지 않음, 한 연결 키를 지워도 다른 키는 남음.
+- **미확인**: 폰(Android Keystore)에서의 이전·연결별 비밀 이름(시험은 가짜 Keystore 로만), 사용자의 실제 설치 앱 데이터로의 이전(설치본은 건드리지 않음 — 다음 설치 파일로 업그레이드할 때 첫 실행에서 일어난다), 폰 중계의 `keyId` 경로(단위 시험 없음, 코드 경로만).
+
+### 2단계 이후: 미착수
