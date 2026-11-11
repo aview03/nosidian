@@ -38,14 +38,14 @@ describe('남은 시간', () => {
 describe('서버 상태 → 모달 상태', () => {
   const dev = [{ id: 'd1', name: 'S23', createdAt: 1, lastSeen: 2 }]
   it('AI 중계: nsd1 문자열·입력용 주소', () => {
-    const s = relayState({ enabled: true, running: true, port: 47410, ips: ['192.168.0.2'], code: '111222', codeExpiresAt: 99, pairs: ['nsd1:192.168.0.2:47410:111222'], devices: dev, upstream: null, claude: true, error: null })
+    const s = relayState({ enabled: true, running: true, port: 47410, ips: ['192.168.0.2'], code: '111222', codeExpiresAt: 99, pairs: ['nsd1:192.168.0.2:47410:111222'], devices: dev, upstream: null, upstreams: [], claude: true, error: null })
     expect(s.pair).toBe('nsd1:192.168.0.2:47410:111222')
     expect(s.typed).toBe('192.168.0.2:47410/111222')
     expect(s.expiresAt).toBe(99)
     expect(s.noNetwork).toBe(false)
   })
   it('코드가 없으면 입력용 주소도 비운다', () => {
-    const s = relayState({ enabled: true, running: true, port: 1, ips: ['10.0.0.1'], code: null, codeExpiresAt: null, pairs: [], devices: [], upstream: null, claude: false, error: null })
+    const s = relayState({ enabled: true, running: true, port: 1, ips: ['10.0.0.1'], code: null, codeExpiresAt: null, pairs: [], devices: [], upstream: null, upstreams: [], claude: false, error: null })
     expect(s.typed).toBe('')
     expect(s.code).toBeNull()
   })

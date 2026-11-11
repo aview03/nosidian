@@ -4,8 +4,8 @@
 // 네트워크는 llmNet.send(안드로이드는 네이티브 HTTP)를 쓴다 — 웹뷰의 https 출처에서 http 사설망으로 보내도 막히지 않는다.
 import { send } from './llmNet'
 import { clearSecretRecord, readSecretRecord, registerSecret, writeSecretRecord, type SecretSpec } from './secureStore'
-import { loadAllLlmConfigs, saveLlmConfig, type LlmConfig } from './llm'
-import { newConnectionId, removeConnection, setSelected } from './aiConnections'
+import { loadAllLlmConfigs, type LlmConfig } from './llm'
+import { addConnection, connectionById, listConnections, removeConnection, setSelected, updateConnection } from './aiConnections'
 import { buildEnv } from './mcpBridge'
 import { callTool } from './mcpTools'
 import type { ClaudeEvent } from './externalIO'
@@ -26,14 +26,36 @@ export interface PcLink {
   name: string
   /** PC 의 Claude Code 를 쓸 수 있는가(짝을 맺을 때 확인한 값) */
   claude: boolean
+  /** 예전 PC(AI 하나만 빌려줌)가 알려 주는 첫 번째 AI */
   upstream: { kind: string; model: string } | null
+  /** PC 가 빌려주는 AI 들(id 는 PC 쪽 연결 id, 예전 PC 는 'default') */
+  upstreams?: Upstream[]
+}
+export interface Upstream {
+  id: string
+  kind: string
+  model: string
+}
+
+const cleanUpstreams = (v: unknown): Upstream[] =>
+  Array.isArray(v)
+    ? v
+        .filter((u): u is Upstream => !!u && typeof u.id === 'string' && /^[A-Za-z0-9_-]{1,40}$/.test(u.id) && typeof u.kind === 'string')
+        .slice(0, 8)
+        .map((u) => ({ id: u.id, kind: u.kind, model: String(u.model ?? '') }))
+    : []
+
+/** PC 가 빌려주는 AI 들: 새 PC 는 목록, 예전 PC 는 하나(id 'default') */
+export function upstreamsOf(l: { upstream: PcLink['upstream']; upstreams?: Upstream[] }): Upstream[] {
+  if (l.upstreams && l.upstreams.length) return l.upstreams
+  return l.upstream ? [{ id: 'default', kind: l.upstream.kind, model: l.upstream.model }] : []
 }
 
 export function loadPcLink(): PcLink | null {
   try {
     const v = readSecretRecord<Partial<PcLink>>(SECRET)
     if (!v || typeof v.host !== 'string' || typeof v.token !== 'string' || !Number.isInteger(v.port)) return null
-    return { host: v.host, port: v.port as number, token: v.token, name: String(v.name ?? 'PC'), claude: v.claude === true, upstream: v.upstream && typeof v.upstream.kind === 'string' ? { kind: v.upstream.kind, model: String(v.upstream.model ?? '') } : null }
+    return { host: v.host, port: v.port as number, token: v.token, name: String(v.name ?? 'PC'), claude: v.claude === true, upstream: v.upstream && typeof v.upstream.kind === 'string' ? { kind: v.upstream.kind, model: String(v.upstream.model ?? '') } : null, upstreams: cleanUpstreams(v.upstreams) }
   } catch {
     return null
   }
@@ -98,8 +120,8 @@ export async function pairWithPc(p: Pairing, deviceName: string): Promise<PcLink
   for (const host of p.hosts) {
     try {
       // 안 닿는 주소(가상 어댑터 등)에서 오래 기다리지 않게 4초씩만 기다리고 다음 후보로 간다. 서버가 답한 오류(HTTP 상태)는 주소가 맞다는 뜻이라 바로 알린다
-      const j = (await Promise.race([call({ host, port: p.port }, '/pair', { code: p.code, name: deviceName, clientId: clientId() }), new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 4000))])) as { token: string; name: string; upstream: PcLink['upstream']; claude: boolean }
-      const link: PcLink = { host, port: p.port, token: j.token, name: j.name || 'PC', claude: j.claude === true, upstream: j.upstream ?? null }
+      const j = (await Promise.race([call({ host, port: p.port }, '/pair', { code: p.code, name: deviceName, clientId: clientId() }), new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 4000))])) as { token: string; name: string; upstream: PcLink['upstream']; upstreams?: unknown; claude: boolean }
+      const link: PcLink = { host, port: p.port, token: j.token, name: j.name || 'PC', claude: j.claude === true, upstream: j.upstream ?? null, upstreams: cleanUpstreams(j.upstreams) }
       savePcLink(link)
       return link
     } catch (e) {
@@ -111,10 +133,10 @@ export async function pairWithPc(p: Pairing, deviceName: string): Promise<PcLink
 }
 
 /** PC 가 지금 응답하는지, Claude·AI 서버 상태는 어떤지 */
-export async function pingPc(l: PcLink): Promise<{ name: string; claude: boolean; busy: boolean; upstream: PcLink['upstream'] }> {
+export async function pingPc(l: PcLink): Promise<{ name: string; claude: boolean; busy: boolean; upstream: PcLink['upstream']; upstreams: Upstream[] }> {
   try {
-    const j = (await call(l, '/ping', undefined, 'GET')) as { name: string; claude: boolean; busy: boolean; upstream: PcLink['upstream'] }
-    return j
+    const j = (await call(l, '/ping', undefined, 'GET')) as { name: string; claude: boolean; busy: boolean; upstream: PcLink['upstream']; upstreams?: unknown }
+    return { ...j, upstreams: cleanUpstreams(j.upstreams) }
   } catch (e) {
     throw new Error(pcErrorText(e))
   }
@@ -127,27 +149,66 @@ export function pcErrorText(e: unknown): string {
   if (status === 429) return t('코드를 여러 번 틀려서 잠시 막혔어요. 1분 뒤에 다시 해 주세요')
   if (status === 409) return t('이 PC에 연결할 수 있는 기기 수(5대)를 넘었어요. PC에서 안 쓰는 기기를 해제해 주세요')
   if (status === 401) return t('이 PC에서 연결이 해제됐어요. 새 코드로 다시 연결해 주세요')
-  if (status === 503) return t('PC에서 쓸 수 있는 AI가 없어요. PC 앱에서 AI를 먼저 연결해 주세요')
+  if (status === 503) return t('PC에서 빌려주는 AI가 없어요. PC 앱 설정 > AI 에서 AI 를 연결하고 "휴대폰에 빌려주기"를 켜 주세요')
   return t('PC에 연결하지 못했어요. PC 앱이 켜져 있고 같은 와이파이인지 확인해 주세요') + (msg && !/Failed|fetch|network|연결하지/i.test(msg) ? ` (${msg})` : '')
 }
 
-/** PC 의 AI 서버를 쓰는 폰의 LlmConfig(모델 중계). PC 에 AI 서버가 연결돼 있지 않으면 null */
-export function llmConfigVia(l: PcLink): LlmConfig | null {
-  const up = l.upstream
+/** PC 가 빌려준 AI 하나를 쓰는 폰의 LlmConfig(모델 중계). 모델을 모르면 null */
+export function llmConfigVia(l: PcLink, up: Upstream | undefined = upstreamsOf(l)[0]): LlmConfig | null {
   if (!up || !up.model) return null
-  const root = base(l)
+  // 새 PC 는 AI 마다 `/u/<연결id>` 아래로 중계하고, 예전 PC(id 'default')는 루트에서 하나만 중계한다
+  const root = up.id === 'default' ? base(l) : `${base(l)}/u/${up.id}`
   // Ollama 는 네이티브 경로(/api), 그 밖(OpenAI·LM Studio 등 OpenAI 호환)은 /v1 로 중계된다. 폰은 토큰만 갖고, 실제 API 키는 PC 에만 있다
   return up.kind === 'ollama' ? { kind: 'ollama', baseUrl: root, model: up.model, apiKey: l.token, viaPc: true } : { kind: 'custom', baseUrl: `${root}/v1`, model: up.model, apiKey: l.token, viaPc: true }
 }
 
-/** 짝을 맺은 뒤: PC 의 AI 서버를 폰의 AI 연결로 추가한다. 이미 있던 내 연결은 건드리지 않고, 같은 PC 경유 연결이 있으면 그것만 새로 고친다 */
-export function adoptUpstream(l: PcLink): boolean {
-  const cfg = llmConfigVia(l)
-  if (!cfg) return false
-  const id = loadAllLlmConfigs().find((c) => c.viaPc)?.id ?? newConnectionId()
-  saveLlmConfig({ ...cfg, id })
-  setSelected(id, cfg.model) // 방금 연결한 것을 쓴다
-  return true
+/**
+ * PC 가 빌려주는 AI 들을 폰의 "PC 경유" 연결로 맞춘다.
+ *  - 새로 빌려준 것은 추가, 이미 있는 것(remoteId 가 같은 것)은 주소·토큰을 고침, PC 가 더는 빌려주지 않는 것은 지운다. 내가 직접 연결한 AI 는 건드리지 않는다.
+ *  - keepModel: 이미 있는 연결의 모델은 그대로 둔다(자동 동기화가 내가 폰에서 고른 모델을 덮어쓰지 않게). 짝을 맺을 때는 PC 가 알려 준 모델로 맞춘다.
+ *  - 돌려주는 값: 쓸 수 있는 연결이 하나라도 있는가.
+ */
+export function adoptUpstream(l: PcLink, opts: { keepModel?: boolean } = {}): boolean {
+  const ups = upstreamsOf(l)
+  const existing = listConnections().filter((c) => c.viaPc)
+  const keep = new Set<string>()
+  let first: string | null = null
+  for (const up of ups) {
+    const cfg = llmConfigVia(l, up)
+    if (!cfg) continue
+    // 예전 방식으로 저장된 연결(remoteId 없음)은 PC 가 하나만 빌려줄 때 그 하나로 본다
+    const prev = existing.find((c) => c.remoteId === up.id) ?? (ups.length === 1 ? existing.find((c) => !c.remoteId) : undefined)
+    const body = { kind: cfg.kind, baseUrl: cfg.baseUrl, apiKey: cfg.apiKey, viaPc: true as const, remoteId: up.id }
+    const conn = prev ? updateConnection(prev.id, { ...body, ...(opts.keepModel && prev.model ? {} : { model: cfg.model }) }) : addConnection({ ...body, model: cfg.model })
+    if (conn) {
+      keep.add(conn.id)
+      first ??= conn.id
+    }
+  }
+  for (const c of existing) if (!keep.has(c.id)) removeConnection(c.id) // PC 가 더는 빌려주지 않는 AI
+  if (first && !opts.keepModel) setSelected(first, connectionById(first)?.model) // 방금 연결했으면 첫 번째를 쓴다
+  return keep.size > 0
+}
+
+let lastSync = 0
+/** 연결해 둔 PC 에서 지금 빌려주는 AI 목록을 다시 받아 폰의 연결을 맞춘다(PC 가 꺼져 있거나 닿지 않으면 조용히 그대로). 같은 PC 에는 1분에 한 번만 */
+export async function syncPcUpstreams(now = Date.now()): Promise<boolean> {
+  const l = loadPcLink()
+  if (!l || now - lastSync < 60_000) return false
+  lastSync = now
+  try {
+    const j = await pingPc(l)
+    const next: PcLink = { ...l, name: j.name || l.name, claude: j.claude === true, upstream: j.upstream ?? null, upstreams: j.upstreams }
+    if (JSON.stringify(next) !== JSON.stringify(l)) savePcLink(next)
+    adoptUpstream(next, { keepModel: true })
+    return true
+  } catch {
+    return false
+  }
+}
+/** 시험용 */
+export const _resetSync = () => {
+  lastSync = 0
 }
 
 /** 연결 해제(폰 쪽): 토큰을 지우고, PC 를 통한 AI 연결 설정도 지운다 */

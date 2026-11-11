@@ -5,6 +5,11 @@ import { t } from '../lib/i18n'
 import { desktop, type RelayStatus } from '../lib/externalIO'
 import { PairModal } from './PairModal'
 import { relayState } from '../lib/pairModal'
+import { listConnections, updateConnection } from '../lib/aiConnections'
+import { connectionTitle } from '../lib/aiWizard'
+import { toLlmConfig } from '../lib/llm'
+import { useAiConfigVersion } from '../lib/useAiConfig'
+import { confirmAsk } from '../lib/dialog'
 
 const ago = (ts: number) => {
   const m = Math.round((Date.now() - ts) / 60000)
@@ -24,9 +29,22 @@ export function RelayCard() {
     const id = setInterval(() => void refresh(), 4000) // 새 기기·코드 만료를 따라간다
     return () => clearInterval(id)
   }, [refresh])
+  // 이 PC 에 연결된 내 AI 들(PC 를 거쳐 온 연결은 빌려줄 수 없다). 연결·토글이 바뀌면 다시 읽는다
+  useAiConfigVersion()
+  const mine = listConnections().filter((c) => !c.viaPc && toLlmConfig(c))
   if (!api || !st) return null
 
-  const noAi = !st.upstream && !st.claude
+  const noAi = !mine.length && !st.claude
+  const toggle = async (id: string, on: boolean) => {
+    const c = mine.find((x) => x.id === id)
+    if (!c) return
+    if (on) {
+      const ok = await confirmAsk(t('"{name}" 을(를) 휴대폰에 빌려줄까요?', { name: connectionTitle(toLlmConfig(c)!) }), t('연결한 휴대폰이 이 AI 로 노트에 대해 물을 수 있게 돼요. 요청은 이 PC 를 거쳐 가고, API 키는 휴대폰에 전달되지 않아요. 언제든 끌 수 있어요.'), t('빌려주기'))
+      if (!ok) return
+    }
+    updateConnection(id, { shareToPhone: on ? true : undefined })
+    void refresh()
+  }
 
   return (
     <section className="card relay">
@@ -40,11 +58,23 @@ export function RelayCard() {
       {!st.enabled && <p className="hint small">{t('켜면 같은 와이파이의 내 휴대폰이 이 PC의 AI(Claude·Ollama 등)로 노트에 대해 물을 수 있어요.')}</p>}
       {st.enabled && (
         <>
-          <p className="relay-ai">
-            {st.claude && <span className="relay-chip">{t('Claude 구독')}</span>}
-            {st.upstream && <span className="relay-chip">{st.upstream.kind === 'ollama' ? 'Ollama' : st.upstream.kind === 'openai' ? 'OpenAI' : t('내 서버')} {st.upstream.model}</span>}
-            {noAi && <span className="hint small ai-warn">{t('이 PC에 연결된 AI가 없어요. 위에서 AI를 먼저 연결해 주세요.')}</span>}
-          </p>
+          <div className="relay-share">
+            <div className="auto-sub">{t('휴대폰에 빌려줄 AI')}</div>
+            <ul>
+              {st.claude && <li><span><b>{t('Claude (구독)')}</b><small>{t('휴대폰이 연결되면 항상 쓸 수 있어요')}</small></span></li>}
+              {mine.map((c) => {
+                const on = c.shareToPhone === true
+                return (
+                  <li key={c.id}>
+                    <span><b>{connectionTitle(toLlmConfig(c)!)}</b><small>{c.model || t('모델 안 고름')}</small></span>
+                    <button className={`hc-perm${on ? ' on' : ''}`} aria-pressed={on} onClick={() => void toggle(c.id, !on)}>{on ? t('빌려주는 중') : t('빌려주지 않음')}</button>
+                  </li>
+                )
+              })}
+            </ul>
+            {noAi && <p className="hint small ai-warn">{t('이 PC에 연결된 AI가 없어요. 위에서 AI를 먼저 연결해 주세요.')}</p>}
+            {!noAi && mine.length > 0 && !mine.some((c) => c.shareToPhone) && <p className="hint small">{t('연결한 AI 는 기본으로 휴대폰에 빌려주지 않아요. 빌려줄 AI 를 켜 주세요.')}</p>}
+          </div>
           {st.error && <p className="hint small ai-warn">{st.error}</p>}
           {!st.running && !st.error && <p className="hint small">{t('시작하는 중…')}</p>}
           {st.running && st.ips.length === 0 && <p className="hint small ai-warn">{t('와이파이에 연결돼 있지 않아요. 같은 와이파이에 연결해 주세요.')}</p>}

@@ -334,3 +334,73 @@ describe('기기 하나에 연결 링크 하나', () => {
     expect(s.relay.state().devices).toHaveLength(5)
   })
 })
+
+describe('AI 여러 개 중계(연결별 경로)', () => {
+  type Ups = { id: string; kind: string; baseUrl: string; model: string; keyStored?: boolean; keyId?: string | null }[]
+  const A = { id: 'c_aaaa1111', kind: 'ollama', baseUrl: 'http://10.0.0.1:11434', model: 'qwen' }
+  const B = { id: 'c_bbbb2222', kind: 'custom', baseUrl: 'http://10.0.0.2:1234/v1', model: 'm-b' }
+  const O = { id: 'c_oooo3333', kind: 'openai', baseUrl: 'https://api.openai.com/v1', model: 'gpt', keyStored: true, keyId: 'c_oooo3333' }
+  let ups: Ups = []
+  const multi = async () => {
+    const s = await start({ getUpstream: undefined, getUpstreams: () => ups })
+    const r = await post(s.base, '/pair', { code: s.code, name: '내 폰' })
+    const j = (await r.json()) as { token: string; upstream: unknown; upstreams: unknown }
+    return { ...s, token: j.token, pairRes: j }
+  }
+  const call = (s: { base: string; token: string }, path: string, body?: unknown) =>
+    fetch(s.base + path, { method: body ? 'POST' : 'GET', headers: { authorization: `Bearer ${s.token}`, 'content-type': 'application/json', Connection: 'close' }, body: body ? JSON.stringify(body) : undefined })
+
+  it('짝을 맺을 때와 /ping 에서 빌려주는 AI 목록(키 없이)과 예전 폰용 첫 번째 AI 를 알려 준다', async () => {
+    ups = [A, B]
+    const s = await multi()
+    expect(s.pairRes.upstreams).toEqual([{ id: A.id, kind: 'ollama', model: 'qwen' }, { id: B.id, kind: 'custom', model: 'm-b' }])
+    expect(s.pairRes.upstream).toEqual({ kind: 'ollama', model: 'qwen' })
+    const ping = (await (await call(s, '/ping')).json()) as { upstreams: unknown[] }
+    expect(ping.upstreams).toHaveLength(2)
+    expect(JSON.stringify(ping)).not.toMatch(/10\.0\.0|baseUrl|apiKey/) // 주소·키는 폰에 알리지 않는다
+  })
+  it('/u/<id>/… 는 그 AI 로만 전달한다', async () => {
+    ups = [A, B]
+    const s = await multi()
+    await call(s, `/u/${A.id}/api/chat`, { model: 'qwen' })
+    await call(s, `/u/${B.id}/v1/chat/completions`, { model: 'm-b' })
+    const urls = s.llmRequest.mock.calls.map((c) => (c[0] as { url: string }).url)
+    expect(urls).toEqual(['http://10.0.0.1:11434/api/chat', 'http://10.0.0.2:1234/v1/chat/completions'])
+  })
+  it('다른 AI 의 종류로는 못 간다(Ollama 경로를 OpenAI 호환 AI 에 보내면 404)', async () => {
+    ups = [A, B]
+    const s = await multi()
+    expect((await call(s, `/u/${B.id}/api/chat`, {})).status).toBe(404)
+    expect(s.llmRequest).not.toHaveBeenCalled()
+  })
+  it('빌려주지 않는 AI·없는 id 는 404, 빌려주는 AI 가 하나도 없으면 503', async () => {
+    ups = [A]
+    const s = await multi()
+    expect((await call(s, `/u/${B.id}/v1/models`)).status).toBe(404)
+    expect((await call(s, '/u/../../etc/passwd')).status).toBe(404)
+    ups = []
+    expect((await call(s, `/u/${A.id}/api/tags`)).status).toBe(503)
+    expect(s.llmRequest).not.toHaveBeenCalled()
+  })
+  it('토글이 바뀌면(목록이 바뀌면) 바로 반영된다 — 끈 AI 는 즉시 막힌다', async () => {
+    ups = [A, B]
+    const s = await multi()
+    expect((await call(s, `/u/${B.id}/v1/models`)).status).toBe(200)
+    ups = [A]
+    expect((await call(s, `/u/${B.id}/v1/models`)).status).toBe(404)
+  })
+  it('예전 경로(/api/…, /v1/…)는 첫 번째 AI 로 간다', async () => {
+    ups = [B, A]
+    const s = await multi()
+    await call(s, '/v1/models')
+    expect((s.llmRequest.mock.calls[0][0] as { url: string }).url).toBe('http://10.0.0.2:1234/v1/models')
+  })
+  it('API 키 AI 는 그 연결의 키 자리표시자({{KEY:id}})로만 보낸다', async () => {
+    ups = [A, O]
+    const s = await multi()
+    await call(s, `/u/${O.id}/v1/chat/completions`, { model: 'gpt' })
+    const req = s.llmRequest.mock.calls[0][0] as { url: string; headers: Record<string, string> }
+    expect(req.url).toBe('https://api.openai.com/v1/chat/completions')
+    expect(req.headers.authorization).toBe(`Bearer {{KEY:${O.id}}}`)
+  })
+})

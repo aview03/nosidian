@@ -37,6 +37,8 @@ export interface AiConnection {
   models?: { list: string[]; at: number }
   /** PC: 이 연결을 휴대폰에 빌려줄까(기본 꺼짐) */
   shareToPhone?: boolean
+  /** 폰: PC 가 빌려준 AI 의 PC 쪽 연결 id(같은 PC 에 다시 연결·동기화할 때 같은 항목을 찾는다) */
+  remoteId?: string
 }
 
 export interface Selected {
@@ -127,6 +129,7 @@ function toConnection(id: string, v: Record<string, unknown>): AiConnection {
     ...(v.viaPc ? { viaPc: true } : {}),
     ...(models && Array.isArray(models.list) && typeof models.at === 'number' ? { models: { list: models.list.map(String), at: models.at } } : {}),
     ...(v.shareToPhone === true ? { shareToPhone: true } : {}),
+    ...(typeof v.remoteId === 'string' && v.remoteId ? { remoteId: v.remoteId } : {}),
   }
 }
 
@@ -204,7 +207,7 @@ export function updateConnection(id: string, patch: Partial<Omit<AiConnection, '
   const cur = connectionById(id)
   if (!cur) return null
   const next: AiConnection = { ...cur, ...patch, id }
-  for (const k of ['apiKey', 'keyStored', 'viaPc', 'models', 'shareToPhone', 'label'] as const) if (patch[k] === undefined && k in patch) delete next[k]
+  for (const k of ['apiKey', 'keyStored', 'viaPc', 'models', 'shareToPhone', 'label', 'remoteId'] as const) if (patch[k] === undefined && k in patch) delete next[k]
   if ((patch.baseUrl !== undefined && patch.baseUrl !== cur.baseUrl) || (patch.kind !== undefined && patch.kind !== cur.kind)) if (patch.models === undefined) delete next.models
   registerSecret(specOf(id))
   persist(next)

@@ -72,6 +72,7 @@ contextBridge.exposeInMainWorld('amsidianDesktop', {
     revokeCode: () => ipcRenderer.invoke('relay:revokeCode'),
     revoke: (id) => ipcRenderer.invoke('relay:revoke', id),
     upstream: (cfg) => ipcRenderer.invoke('relay:upstream', cfg),
+    upstreams: (list) => ipcRenderer.invoke('relay:upstreams', list),
   },
   /** 탐색기에서 "연결 프로그램"으로 열었거나 실행 인자로 받은 파일들 (읽은 뒤 비워진다) */
   takeFiles: () => ipcRenderer.invoke('open-file:take'),

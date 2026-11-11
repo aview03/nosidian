@@ -12,7 +12,7 @@ import { modelList, refreshModels, refreshStaleModels } from '../lib/aiModels'
 import { confirmAsk } from '../lib/dialog'
 import { LlmCard } from './LlmSettings'
 import { startAnalysis } from '../lib/autoRunner'
-import { adoptUpstream, forgetPc, loadPcLink, pairWithPc, parsePairing, runClaudeViaPc, type Pairing } from '../lib/pcLink'
+import { adoptUpstream, forgetPc, loadPcLink, pairWithPc, parsePairing, runClaudeViaPc, syncPcUpstreams, type Pairing } from '../lib/pcLink'
 import { useAiConfigVersion } from '../lib/useAiConfig'
 import { QrScan } from './QrScan'
 import { KEY_PROVIDERS, LOCAL_PROVIDERS, aiSummary, connectionBadge, connectionSub, connectionTitle, countConnected, isInUse, pickModel, type WizardWay } from '../lib/aiWizard'
@@ -42,6 +42,8 @@ export function AiWizard() {
   useEffect(() => { void claude?.detect().then(setCs) }, [claude])
   // 모델 목록이 없거나 낡은 연결은 열 때 백그라운드로 가져온다(목록이 오면 저장 이벤트로 화면이 다시 그려진다)
   useEffect(() => { void refreshStaleModels() }, [])
+  // 폰: 연결해 둔 PC 가 지금 빌려주는 AI 가 바뀌었으면 목록을 맞춘다(PC 가 꺼져 있으면 조용히 그대로)
+  useEffect(() => { if (mobile) void syncPcUpstreams() }, [mobile])
   const [refreshing, setRefreshing] = useState<string | null>(null)
   const [note, setNote] = useState<{ id: string; text: string } | null>(null)
   const refresh = async (id: string) => {

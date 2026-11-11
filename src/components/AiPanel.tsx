@@ -11,7 +11,7 @@ import { baseName } from '../lib/links'
 import { linkifyPaths, PRESETS, readiness, toolLabel } from '../lib/aiAssistant'
 import { answerNote, titleOfAnswer } from '../lib/aiExport'
 import { openSettingsGroup } from './Settings'
-import { pcClaude } from '../lib/pcLink'
+import { pcClaude, syncPcUpstreams } from '../lib/pcLink'
 import { useFileProposals } from '../lib/fileProposals'
 import { getLang } from '../lib/i18n'
 import { currentEngine, localEngine, useAiThread, type Msg, type Step } from '../lib/aiThread'
@@ -216,7 +216,8 @@ export function AiPanel() {
     useAiThread.getState().ensure()
     useProposals.getState().ensure()
     void claude?.detect().then(setStatus)
-    void refreshStaleModels() // 낡은 모델 목록은 열 때 백그라운드로 새로 가져온다(실패는 조용히)
+    if (!claude) void syncPcUpstreams().then(() => refreshStaleModels()) // 폰: PC 가 빌려주는 AI 목록을 먼저 맞추고, 낡은 모델 목록을 새로 가져온다(실패는 조용히)
+    else void refreshStaleModels() // 낡은 모델 목록은 열 때 백그라운드로 새로 가져온다
     setTimeout(() => box.current?.focus(), 50)
   }, [open, claude, vault])
 

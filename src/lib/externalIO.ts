@@ -88,6 +88,8 @@ export interface RelayStatus {
   pairs: string[]
   devices: { id: string; name: string; createdAt: number; lastSeen: number }[]
   upstream: { kind: string; model: string } | null
+  /** 휴대폰에 빌려주고 있는 AI 들 */
+  upstreams: { id: string; kind: string; model: string }[]
   claude: boolean
   error: string | null
 }
@@ -99,6 +101,8 @@ export interface RelayApi {
   revokeCode(): Promise<RelayStatus>
   revoke(id: string): Promise<RelayStatus>
   upstream(cfg: { kind: string; baseUrl: string; model: string; keyStored?: boolean; keyId?: string } | null): Promise<boolean>
+  /** "휴대폰에 빌려주기"를 켠 연결들(키는 보내지 않는다) */
+  upstreams(list: { id: string; kind: string; baseUrl: string; model: string; keyStored?: boolean; keyId?: string }[]): Promise<boolean>
 }
 export interface ShareStatus {
   enabled: boolean

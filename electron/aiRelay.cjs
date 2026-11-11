@@ -47,6 +47,14 @@ const newCode = () => String(crypto.randomInt(0, 1_000_000)).padStart(6, '0')
 
 function createRelay(deps) {
   const { store, getUpstream, llmRequest, claude } = deps
+  // 휴대폰에 빌려주는 AI 들. getUpstreams 가 없으면(옛 호출·시험) getUpstream 하나를 id 'default' 로 본다
+  const upsList = () => {
+    if (typeof deps.getUpstreams === 'function') return deps.getUpstreams() || []
+    const u = getUpstream ? getUpstream() : null
+    return u ? [{ id: 'default', ...u }] : []
+  }
+  const upsPublic = () => upsList().map((u) => ({ id: u.id, kind: u.kind, model: u.model }))
+  const firstPublic = () => upsPublic()[0] || null // 예전 폰(upstream 하나만 아는 버전)을 위해 함께 알린다
   const now = deps.now || (() => Date.now())
   let state = { enabled: false, port: DEFAULT_PORT, devices: [] }
   try {
@@ -147,16 +155,19 @@ function createRelay(deps) {
     if (prev) Object.assign(prev, { name, hash: sha(token), createdAt: now(), lastSeen: now() })
     else state.devices.push({ id: crypto.randomUUID(), ...(cid ? { clientId: cid } : {}), name, hash: sha(token), createdAt: now(), lastSeen: now() })
     save()
-    const up = getUpstream()
-    send(res, 200, { token, name: deps.hostName || 'PC', upstream: up ? { kind: up.kind, model: up.model } : null, claude: !!claude.ready() })
+    const first = firstPublic()
+    send(res, 200, { token, name: deps.hostName || 'PC', upstream: first ? { kind: first.kind, model: first.model } : null, upstreams: upsPublic(), claude: !!claude.ready() })
   }
 
   // ── 모델 중계(역방향 프록시) ──
   async function proxy(req, res, url) {
-    const up = getUpstream()
-    if (!up) return send(res, 503, { error: 'no upstream' })
+    // 경로: `/u/<연결id>/api/…`·`/u/<연결id>/v1/…`(빌려준 AI 중 하나) 또는 예전처럼 `/api/…`·`/v1/…`(첫 번째)
+    const list = upsList()
+    const m = /^\/u\/([A-Za-z0-9_-]{1,40})(\/.*)$/.exec(url.pathname)
+    const up = m ? list.find((u) => u.id === m[1]) : list[0]
+    if (!up) return send(res, list.length ? 404 : 503, { error: list.length ? 'unknown upstream' : 'no upstream' })
     if (req.method !== 'GET' && req.method !== 'POST') return send(res, 405, { error: 'method' })
-    const p = url.pathname + url.search
+    const p = (m ? m[2] : url.pathname) + url.search
     let target = null
     let key = false
     if (p.startsWith('/api/') && up.kind === 'ollama') target = up.baseUrl.replace(/\/+$/, '') + p
@@ -262,14 +273,14 @@ function createRelay(deps) {
       if (!dev) return send(res, 401, { error: 'unauthorized' })
       dev.lastSeen = now()
       if (req.method === 'GET' && url.pathname === '/ping') {
-        const up = getUpstream()
-        return send(res, 200, { name: deps.hostName || 'PC', upstream: up ? { kind: up.kind, model: up.model } : null, claude: !!claude.ready(), busy: !!claude.busy() })
+        const first = firstPublic()
+        return send(res, 200, { name: deps.hostName || 'PC', upstream: first ? { kind: first.kind, model: first.model } : null, upstreams: upsPublic(), claude: !!claude.ready(), busy: !!claude.busy() })
       }
       if (req.method === 'POST' && url.pathname === '/claude/run') return await claudeRun(req, res)
       if (req.method === 'POST' && url.pathname === '/claude/poll') return await claudePoll(req, res)
       if (req.method === 'POST' && url.pathname === '/claude/tool') return await claudeTool(req, res)
       if (req.method === 'POST' && url.pathname === '/claude/cancel') return await claudeCancel(req, res)
-      if (url.pathname.startsWith('/v1/') || url.pathname.startsWith('/api/')) return await proxy(req, res, url)
+      if (url.pathname.startsWith('/v1/') || url.pathname.startsWith('/api/') || url.pathname.startsWith('/u/')) return await proxy(req, res, url)
       send(res, 404, { error: 'not found' })
     } catch (e) {
       if (!res.headersSent) send(res, e && e.status ? e.status : 500, { error: e && e.status ? String(e.message) : 'internal error' })
@@ -330,7 +341,7 @@ function register({ ipcMain, app, claudeRunner, llm }) {
   const fs = require('fs')
   const path = require('path')
   const file = path.join(app.getPath('userData'), 'relay.json')
-  let upstream = null
+  let upstreams = [] // 휴대폰에 빌려주는 AI 들(화면이 알려 준다)
   const relay = createRelay({
     store: {
       read: () => {
@@ -343,7 +354,8 @@ function register({ ipcMain, app, claudeRunner, llm }) {
       write: (v) => fs.writeFileSync(file, JSON.stringify(v), { mode: 0o600 }),
     },
     hostName: os.hostname(),
-    getUpstream: () => upstream,
+    getUpstream: () => upstreams[0] || null,
+    getUpstreams: () => upstreams,
     llmRequest: (req) => llm.request(req),
     claude: {
       ready: () => claudeRunner.isReady(),
@@ -383,7 +395,8 @@ function register({ ipcMain, app, claudeRunner, llm }) {
       // 주소 후보를 쉼표로 모두 넣는다 — 폰이 앞에서부터 닿는 주소를 찾는다
       pairs: c && ips.length ? [`nsd1:${ips.join(',')}:${port}:${c.value}`] : [],
       devices: relay.state().devices.map((d) => ({ id: d.id, name: d.name, createdAt: d.createdAt, lastSeen: d.lastSeen })),
-      upstream: upstream ? { kind: upstream.kind, model: upstream.model } : null,
+      upstream: upstreams[0] ? { kind: upstreams[0].kind, model: upstreams[0].model } : null,
+      upstreams: upstreams.map((u) => ({ id: u.id, kind: u.kind, model: u.model })),
       claude: !!claudeRunner.isReady(),
       error: relay.error(),
     }
@@ -412,9 +425,26 @@ function register({ ipcMain, app, claudeRunner, llm }) {
     if (typeof id === 'string') relay.revoke(id)
     return status()
   })
-  // 화면(렌더러)이 PC 에 저장된 AI 연결 설정을 알려 준다(키는 보내지 않는다 — 키는 보안 저장소에 있다)
+  // 화면(렌더러)이 "휴대폰에 빌려주기"를 켠 AI 연결들을 알려 준다(키는 보내지 않는다 — 키는 보안 저장소에 있고 연결 id 로 찾는다)
+  const ID_RE = /^c_[a-z0-9]{1,16}$/
+  const cleanUp = (cfg) => {
+    if (!cfg || typeof cfg.kind !== 'string' || typeof cfg.baseUrl !== 'string') return null
+    const keyId = typeof cfg.keyId === 'string' && ID_RE.test(cfg.keyId) ? cfg.keyId : null
+    const id = typeof cfg.id === 'string' && /^[A-Za-z0-9_-]{1,40}$/.test(cfg.id) ? cfg.id : keyId || 'default'
+    return { id, kind: String(cfg.kind), baseUrl: String(cfg.baseUrl), model: String(cfg.model || ''), keyStored: cfg.keyStored === true, keyId }
+  }
+  ipcMain.handle('relay:upstreams', (_e, list) => {
+    const seen = new Set()
+    upstreams = (Array.isArray(list) ? list : [])
+      .slice(0, 8)
+      .map(cleanUp)
+      .filter((u) => u && !seen.has(u.id) && seen.add(u.id))
+    return true
+  })
+  // 예전 호출(연결 하나): 목록 하나로 본다
   ipcMain.handle('relay:upstream', (_e, cfg) => {
-    upstream = cfg && typeof cfg.kind === 'string' && typeof cfg.baseUrl === 'string' ? { kind: String(cfg.kind), baseUrl: String(cfg.baseUrl), model: String(cfg.model || ''), keyStored: cfg.keyStored === true, keyId: typeof cfg.keyId === 'string' && /^c_[a-z0-9]{1,16}$/.test(cfg.keyId) ? cfg.keyId : null } : null
+    const u = cleanUp(cfg)
+    upstreams = u ? [u] : []
     return true
   })
   if (relay.state().enabled) void start()
