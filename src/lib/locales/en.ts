@@ -1363,5 +1363,8 @@ const dict: Record<string, string> = {
   '담당자가 정해지지 않은 일이 여기에 모여요': "Work with no owner gathers here",
   '아직 프로젝트에 넣지 않은 새 업무가 여기에 모여요': "New work not yet in a project gathers here",
   '프로젝트가 여기에 모여요': "Projects gather here",
+  '상태·우선순위 더 보기': "More: status & priority",
+  '제안을 거절했어요. 문서는 바뀌지 않았어요': "Proposal rejected. The note was not changed",
+  '제안을 거절했어요. 파일은 올라가지 않았어요': "Proposal rejected. The file was not uploaded",
 }
 export default dict

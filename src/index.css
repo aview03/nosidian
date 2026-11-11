@@ -1574,3 +1574,5 @@ input.inline.wide { width: 100%; box-sizing: border-box; height: 42px; }
 .wrk-tile-empty.danger .wrk-tname { color: var(--danger); }
 .wrk-tile-empty .hint { margin: 0; font-size: 12.5px; }
 .wrk-scope-hint { margin: 4px 0 8px; }
+
+.te-more { align-self: flex-start; padding: 4px 0; color: var(--muted); }

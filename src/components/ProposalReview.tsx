@@ -101,7 +101,7 @@ function Item({ p }: { p: Proposal }) {
         <footer>
           {stale && <span className="pr-stale">{reasonText('stale')} — {t('승인해도 반영되지 않아요')}</span>}
           <span className="grow" />
-          <button onClick={() => useProposals.getState().reject(p.id)}>{t('거절')}</button>
+          <button onClick={() => { useProposals.getState().reject(p.id); useApp.getState().say(t('제안을 거절했어요. 문서는 바뀌지 않았어요')) }}>{t('거절')}</button>
           <button className="primary" disabled={stale} onClick={() => useProposals.getState().approve(p.id)}>{t('승인하고 반영')}</button>
         </footer>
       )}
@@ -134,7 +134,7 @@ function FileItem({ p }: { p: FileProposal }) {
       {p.status === 'pending' && (
         <footer>
           <span className="grow" />
-          <button onClick={() => useFileProposals.getState().reject(p.id)}>{t('거절')}</button>
+          <button onClick={() => { useFileProposals.getState().reject(p.id); useApp.getState().say(t('제안을 거절했어요. 파일은 올라가지 않았어요')) }}>{t('거절')}</button>
           <button className="primary" onClick={() => void useFileProposals.getState().approve(p.id)}>{t('승인하고 올리기')}</button>
         </footer>
       )}

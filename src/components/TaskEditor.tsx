@@ -38,6 +38,9 @@ function Form({ task, project, closing }: { task?: Task; project: string | null;
   const [p, setP] = useState<0 | 1 | 2 | 3>(task?.p ?? 0)
   const [proj, setProj] = useState(task ? task.project ?? '' : project ?? '')
   const [conclusion, setConclusion] = useState(task?.conclusion ?? '')
+  // 새 업무는 제목·마감·담당·프로젝트만 먼저 보여 주고, 상태·완료·우선순위는 "더 보기" 로 연다(수정·닫기는 처음부터 전부)
+  const [more, setMore] = useState(false)
+  const showAll = !!task || closing || more
 
   useEffect(() => {
     if (!task) titleRef.current?.focus()
@@ -107,20 +110,24 @@ function Form({ task, project, closing }: { task?: Task; project: string | null;
             <input ref={titleRef} value={title} onChange={(e) => setTitle(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && !e.nativeEvent.isComposing && save()} placeholder={t('무슨 일인가요?')} />
           </label>
 
-          <div className="ee-field">
-            <span>{t('상태')}</span>
-            <div className="ee-days te-states">
-              {STATES.map(([v, l]) => <button key={v} className={ui === v ? 'on' : ''} onClick={() => setUi(v)}>{t(l)}</button>)}
+          {showAll && (
+            <div className="ee-field">
+              <span>{t('상태')}</span>
+              <div className="ee-days te-states">
+                {STATES.map(([v, l]) => <button key={v} className={ui === v ? 'on' : ''} onClick={() => setUi(v)}>{t(l)}</button>)}
+              </div>
             </div>
-          </div>
+          )}
           <label className="ee-check">
             <input type="checkbox" checked={decision} onChange={(e) => setDecision(e.target.checked)} />
             <span>{t('결정이 필요한 안건')}</span>
           </label>
-          <label className="ee-check">
-            <input type="checkbox" checked={done} onChange={(e) => setDone(e.target.checked)} />
-            <span>{decision ? t('결정함 (닫기)') : t('완료')}</span>
-          </label>
+          {showAll && (
+            <label className="ee-check">
+              <input type="checkbox" checked={done} onChange={(e) => setDone(e.target.checked)} />
+              <span>{decision ? t('결정함 (닫기)') : t('완료')}</span>
+            </label>
+          )}
           {(done || ui === 'dropped') && (
             <label className="ee-field">
               <span>{decision && done ? t('결론 (한 줄, 필수)') : t('결론 (한 줄)')}</span>
@@ -152,12 +159,14 @@ function Form({ task, project, closing }: { task?: Task; project: string | null;
             <div className="ee-chips"><button onClick={() => setOwner(parseMe(myName)[0])}>{t('나')} ({parseMe(myName)[0]})</button></div>
           )}
 
-          <div className="ee-field">
-            <span>{t('우선순위')}</span>
-            <div className="ee-days te-states">
-              {([[0, '없음'], [1, '높음'], [2, '보통'], [3, '낮음']] as const).map(([v, l]) => <button key={v} className={p === v ? 'on' : ''} onClick={() => setP(v)}>{t(l)}</button>)}
+          {showAll && (
+            <div className="ee-field">
+              <span>{t('우선순위')}</span>
+              <div className="ee-days te-states">
+                {([[0, '없음'], [1, '높음'], [2, '보통'], [3, '낮음']] as const).map(([v, l]) => <button key={v} className={p === v ? 'on' : ''} onClick={() => setP(v)}>{t(l)}</button>)}
+              </div>
             </div>
-          </div>
+          )}
 
           <div className="ee-field">
             <span>{t('프로젝트')}</span>
@@ -170,6 +179,7 @@ function Form({ task, project, closing }: { task?: Task; project: string | null;
             />
           </div>
           {!task && <p className="hint small te-note">{proj ? t('선택한 프로젝트 폴더의 "할 일" 노트에 추가돼요.') : t('"받은 업무" 노트에 추가돼요. 나중에 프로젝트로 옮길 수 있어요.')}</p>}
+          {!showAll && <button className="link-btn te-more" onClick={() => setMore(true)}>{t('상태·우선순위 더 보기')}</button>}
         </div>
 
         <div className="ee-foot">
