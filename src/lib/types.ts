@@ -76,6 +76,8 @@ export interface Settings {
   dailyFolder: string
   startMode: 'read' | 'edit'
   showRecent: boolean
+  /** 저장소(클라우드·내 PC)와 알아서 맞춘다: 앱을 켤 때·다시 열 때·5분마다·고친 뒤 잠시 있다가. 끄면 "지금 동기화"만 */
+  autoSync: boolean
   lang: LangPref // 'auto' = 시스템 언어를 따른다
   leftOpen: boolean // PC: 왼쪽(파일·검색) 사이드바
   rightOpen: boolean // PC: 오른쪽(링크·목차) 사이드바
@@ -99,6 +101,7 @@ export const DEFAULT_SETTINGS: Settings = {
   dailyFolder: 'Daily',
   startMode: 'read',
   showRecent: true,
+  autoSync: true,
   lang: 'auto',
   leftOpen: true,
   rightOpen: true,

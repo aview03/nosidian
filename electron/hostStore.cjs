@@ -492,6 +492,49 @@ function openHost(dir, opts = {}) {
       return { trashed, tombs }
     },
     trash: () => m.trash.map((x) => ({ ...x })),
+    /** 휴지통 목록(복구 화면용): 최근에 지운 것이 위. 내용이 이미 사라진 항목은 뺀다 */
+    trashList() {
+      const out = []
+      for (const x of m.trash) {
+        let size = null
+        try {
+          size = fs.statSync(path.join(meta, 'trash', x.name)).size
+        } catch {
+          continue // 내용이 없다(복구할 수 없다)
+        }
+        out.push({ name: x.name, path: x.path, at: x.at, size })
+      }
+      return out.sort((a, b) => b.at - a.at)
+    },
+    /**
+     * 휴지통에서 되살린다. 원래 자리가 비어 있으면 거기로(삭제 기록 위에 쓰는 것이라 그 rev 를 baseRev 로), 이미 다른 파일이 있으면
+     * 덮어쓰지 않고 `이름 (복구).확장자` 로. 쓰기는 평범한 put 이라 조건부·원자적이다. 휴지통 항목은 되살린 뒤에 지운다(실패해도 데이터는 안전).
+     */
+    restoreTrash(name, by = 'app') {
+      const x = m.trash.find((t) => t.name === name)
+      if (!x) throw new HostError('not in trash', 404, 'notFound')
+      const bytes = api.readTrash(name)
+      const cur = currentRev(x.path)
+      let dest = x.path
+      let baseRev = null
+      if (!cur.exists && !caseClash(x.path)) {
+        baseRev = cur.rev ?? null // 삭제 기록이 있으면 그 rev
+      } else {
+        const dot = path.posix.extname(x.path)
+        const stem = dot ? x.path.slice(0, -dot.length) : x.path
+        for (let n = 1; ; n++) {
+          dest = `${stem} (복구${n > 1 ? ' ' + n : ''})${dot}`
+          const c = currentRev(dest)
+          if (c.rev === null && !caseClash(dest)) break // 파일도 삭제 기록도 없는 이름
+        }
+        baseRev = null
+      }
+      const r = api.put(dest, bytes, baseRev, by)
+      fs.rmSync(path.join(meta, 'trash', name), { force: true })
+      m.trash = m.trash.filter((t) => t.name !== name)
+      saveManifest()
+      return { path: dest, rev: r.rev, seq: r.seq, renamed: dest !== x.path }
+    },
     /** 휴지통에서 되살린 파일 내용(복구 화면용). 되돌리는 것은 put 으로 한다 */
     readTrash(name) {
       if (!/^[0-9]+-[^/\\]+$/.test(name)) throw new HostError('bad name', 400, 'badPath')

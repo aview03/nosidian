@@ -185,6 +185,7 @@ function SyncCard() {
   const s = useApp((x) => x.settings)
   const files = useApp((x) => x.files)
   const syncing = useApp((x) => x.syncing)
+  const syncError = useApp((x) => x.syncError)
   const app = useApp.getState()
   const [editing, setEditing] = useState(false)
   const [pick, setPick] = useState<AccountKind>('github')
@@ -204,6 +205,15 @@ function SyncCard() {
           <div className="kv"><span>{t('연결')}</span><b>{SYNC_LABEL[r.kind]} · {remoteDetail(r)}</b></div>
           <div className="kv"><span>{t('마지막 동기화')}</span><b>{ago(s.lastSync)}</b></div>
           <div className="kv"><span>{t('올리기 대기')}</span><b>{t('{n}개', { n: dirty })}{conflicts ? ' · ' + t('충돌 {n}', { n: conflicts }) : ''}</b></div>
+          <div className="kv">
+            <span>{t('자동으로 맞추기')}</span>
+            <div className="seg">
+              <button className={s.autoSync ? 'on' : ''} onClick={() => app.patchSettings({ autoSync: true })}>{t('켜기')}</button>
+              <button className={!s.autoSync ? 'on' : ''} onClick={() => app.patchSettings({ autoSync: false })}>{t('끄기')}</button>
+            </div>
+          </div>
+          <p className="hint small">{s.autoSync ? t('앱을 켤 때, 5분마다, 고친 뒤 잠시 있다가 알아서 맞춰요.') : t('꺼 두면 "지금 동기화"를 눌러야 맞춰요.')}</p>
+          {syncError && <p className="hint small ai-warn">{syncError}</p>}
           <button className="primary big" disabled={syncing} onClick={() => void app.sync()}>{syncing ? t('동기화 중…') : t('지금 동기화')}</button>
           <details className="more">
             <summary>{t('고급')}</summary>

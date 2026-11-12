@@ -124,6 +124,8 @@ interface AppState {
   sheet: null | 'info'
   palette: null | 'switcher' | 'command'
   syncing: boolean
+  /** 마지막 동기화가 실패했으면 그 이유(성공하면 null). 설정 화면이 보여 준다 */
+  syncError: string | null
   toast: string | null
   /** 알림에 붙는 '되돌리기'(있으면 알림이 5초 동안 눌러 볼 수 있게 남는다) */
   toastUndo: (() => void) | null
@@ -153,6 +155,8 @@ interface AppState {
   backScreen(): boolean
   /** 드릴로 들어온 노트로 돌아간다(없으면 false) */
   popDrill(): boolean
+  /** PC 의 Alt+← : 노트 기록(브라우저식)을 먼저 따르고, 기록이 끝나면 처음 노트를 연 화면(없으면 아무것도 안 함)으로. 홈으로 가거나 종료하지는 않는다 */
+  backOrScreen(): boolean
   /** 노트 화면의 ← : 안드로이드 뒤로 가기와 같은 곳으로(이전 노트 → 노트를 연 화면 → 들어온 노트 → 없으면 홈). 예전엔 마지막이 메모 목록이라 뒤로 가기 키와 달랐다 */
   backOrHome(): void
   /** 설정 등 다른 곳이 "지금 화면"을 돌아갈 곳으로 적어 둔다 */
@@ -202,7 +206,8 @@ interface AppState {
   commitHostConnect(files: Record<string, NoteFile>, assets: AppState['assets'], cfg: RemoteCfg): Promise<void>
   /** 호스트 폴더 연결만 끊는다. 노트는 그대로(지우지 않는다) */
   leaveHost(): void
-  sync(retried?: boolean): Promise<void>
+  /** auto: 자동 실행 — 성공은 조용히(충돌·병합만 알림), 실패도 알림 없이 syncError 에만 남긴다 */
+  sync(retried?: boolean, opts?: { auto?: boolean }): Promise<void>
 }
 
 /** 400ms 디바운스로 저장 대기 중인 편집을 지금 바로 IndexedDB 에 쓴다 (작은 창을 닫기 직전에 호출) */
@@ -367,6 +372,7 @@ export const useApp = create<AppState>((set, get) => {
     sheet: null,
     palette: null,
     syncing: false,
+    syncError: null,
     toast: null,
     toastUndo: null,
     searchQuery: '',
@@ -413,7 +419,7 @@ export const useApp = create<AppState>((set, get) => {
       } catch (e) {
         get().say((e as Error).message)
       }
-      if (settings.remote) setTimeout(() => void get().sync(), 300)
+      if (settings.remote) setTimeout(() => void get().sync(false, { auto: true }), 300)
     },
 
     patchSettings(p) {
@@ -505,6 +511,11 @@ export const useApp = create<AppState>((set, get) => {
       }
       if (s.drillFrom) return get().popDrill()
       return false
+    },
+    backOrScreen() {
+      const s = get()
+      if (s.tab !== 'note' && s.drillFrom) return get().popDrill() // 들여다보던 화면(그래프·검색)을 먼저 벗어난다
+      return get().back() || get().backScreen()
     },
     backOrHome() {
       if (!get().backScreen()) get().go(homeTab())
@@ -814,7 +825,7 @@ export const useApp = create<AppState>((set, get) => {
       await enterVault(id)
       get().say(`"${v.name}"`)
       // 연결된 vault 는 오래됐으면 전환하면서 한 번 동기화
-      if (v.remote && (!v.lastSync || Date.now() - v.lastSync > 60_000)) setTimeout(() => void get().sync(), 200)
+      if (v.remote && (!v.lastSync || Date.now() - v.lastSync > 60_000)) setTimeout(() => void get().sync(false, { auto: true }), 200)
     },
     renameVault(id, name) {
       const n = name.trim()
@@ -882,11 +893,13 @@ export const useApp = create<AppState>((set, get) => {
       get().patchSettings({ remote: null, lastSync: null, bookmarks: [], recent: [] })
     },
 
-    async sync(retried = false) {
+    async sync(retried = false, opts = {}) {
+      const auto = opts.auto === true
       const { settings, syncing } = get()
       const cfg = settings.remote
       if (!cfg || syncing) return
       set({ syncing: true })
+      const conflictsBefore = Object.values(get().files).filter((f) => f.conflict).length
       try {
         const prov = providerOf(cfg)
         // ── pull ──
@@ -1017,7 +1030,11 @@ export const useApp = create<AppState>((set, get) => {
         get().patchSettings({ lastSync: Date.now() })
         const conflicts = Object.values(get().files).filter((f) => f.conflict).length
         const notice = prov.notice?.() // 예: 삭제를 PC 로 전파하지 못했다
-        get().say(
+        set({ syncError: null })
+        // 자동 실행은 조용하다: 새로 생긴 충돌·자동 병합·바뀐 안내가 있을 때만 알린다(같은 말을 5분마다 되풀이하지 않는다)
+        const newNotice = notice && notice !== lastAutoNotice ? notice : null
+        if (auto) lastAutoNotice = notice ?? null
+        if (!auto || conflicts > conflictsBefore || merged || newNotice) get().say(
           (conflicts
             ? t('동기화 완료 · 충돌 {n}건 확인 필요', { n: conflicts })
             : merged
@@ -1029,25 +1046,29 @@ export const useApp = create<AppState>((set, get) => {
         if (err.code === 'noWrite') {
           // 이 기기에 쓰기가 허용되지 않았다: 받기는 끝났고, 내 변경은 그대로 남아 있다가 허용된 뒤 올라간다(실패가 아니다)
           get().patchSettings({ lastSync: Date.now() })
-          get().say(t('받기만 했어요. 이 PC에서 이 휴대폰의 쓰기를 허용하면 내 변경도 올라가요'))
+          set({ syncError: null })
+          if (!auto) get().say(t('받기만 했어요. 이 PC에서 이 휴대폰의 쓰기를 허용하면 내 변경도 올라가요'))
           return
         }
         if ((err.status === 422 || err.status === 409) && !retried) {
           // 올리는 사이 다른 사람이 먼저 올렸다 → 한 번은 알아서 다시 받아 합친 뒤 올려 본다
           set({ syncing: false })
-          return await get().sync(true)
+          return await get().sync(true, opts)
         }
-        get().say(
-          err.status === 422 || err.status === 409
-            ? t('원격이 먼저 변경되었습니다. 다시 동기화해 주세요')
-            : t('{name} 동기화 실패: {msg}', { name: SYNC_LABEL[cfg.kind], msg: err.message }),
-        )
+        const why = err.status === 422 || err.status === 409
+          ? t('원격이 먼저 변경되었습니다. 다시 동기화해 주세요')
+          : t('{name} 동기화 실패: {msg}', { name: SYNC_LABEL[cfg.kind], msg: err.message })
+        set({ syncError: why })
+        if (!auto) get().say(why) // 자동 실행의 실패는 알림 대신 설정 화면에 남긴다(꺼진 PC 때문에 계속 알림이 뜨면 안 된다)
       } finally {
         set({ syncing: false })
       }
     },
   }
 })
+
+/** 자동 동기화가 마지막으로 알린 안내(같은 안내를 되풀이하지 않으려고 기억한다) */
+let lastAutoNotice: string | null = null
 
 // ── 자산(이미지) ──
 const assetUrls = new Map<string, Promise<string | null>>()

@@ -47,6 +47,8 @@ contextBridge.exposeInMainWorld('amsidianDesktop', {
     snapshots: () => ipcRenderer.invoke('host:snapshots'),
     snapshotVault: (id) => ipcRenderer.invoke('host:snapshotVault', id),
     gc: () => ipcRenderer.invoke('host:gc'),
+    trash: () => ipcRenderer.invoke('host:trash'),
+    restoreTrash: (name) => ipcRenderer.invoke('host:restore', name),
   },
   hostsrv: {
     get: () => ipcRenderer.invoke('hostsrv:get'),

@@ -606,3 +606,137 @@ describe('충돌 정보와 새 이름', () => {
     expect(conflictCopyPath('a.zip', new Set(), '202611121530')).toBe('a (내 것 202611121530).zip')
   })
 })
+
+describe('자동 동기화는 조용하다 (6번 4항)', () => {
+  it('자동 실행이 성공하면 알림을 띄우지 않는다(수동은 "동기화 완료")', async () => {
+    host.put('a.md', 'a\n', null)
+    await connect()
+    useApp.setState({ toast: null })
+    await useApp.getState().sync(false, { auto: true })
+    expect(useApp.getState().toast).toBeNull()
+    expect(useApp.getState().syncError).toBeNull()
+    expect(text('a.md')).toBe('a\n') // 조용해도 받았다
+    await sync()
+    expect(toast()).toContain('동기화 완료')
+  })
+  it('자동 실행이 실패해도(PC 꺼짐) 알림 없이 syncError 에만 남기고, 수동 실행은 알린다', async () => {
+    await connect()
+    await server.close() // PC 앱이 꺼졌다
+    useApp.setState({ toast: null })
+    await useApp.getState().sync(false, { auto: true })
+    expect(useApp.getState().toast).toBeNull()
+    expect(useApp.getState().syncError).toContain('PC에 연결하지 못했어요')
+    await sync() // 사람이 누르면 알린다
+    expect(toast()).toContain('PC에 연결하지 못했어요')
+  })
+  it('PC 가 돌아와 성공하면 syncError 가 사라진다', async () => {
+    host.put('a.md', 'a\n', null)
+    await connect()
+    useApp.setState({ syncError: '이전 실패' })
+    await useApp.getState().sync(false, { auto: true })
+    expect(useApp.getState().syncError).toBeNull()
+  })
+  it('읽기 전용 폰의 자동 실행은 "받기만 했어요" 알림을 되풀이하지 않는다', async () => {
+    host.put('a.md', 'a\n', null)
+    await connect(false) // 쓰기 허용 안 함
+    useApp.setState({ files: { ...useApp.getState().files, 'mine.md': note('mine.md', 'mine\n') }, toast: null })
+    await useApp.getState().sync(false, { auto: true })
+    expect(useApp.getState().toast).toBeNull()
+    expect(useApp.getState().syncError).toBeNull() // 실패가 아니다
+    await sync()
+    expect(toast()).toContain('받기만 했어요') // 수동은 알린다
+  })
+})
+
+describe('삭제 전파: 별도 권한을 켠 폰의 삭제가 PC 폴더의 휴지통으로 간다 (6번 4항)', () => {
+  /** 삭제를 켤 수 있는 서버(앱은 켜 두고, 기기별로는 기본 꺼짐)로 다시 띄운다 */
+  const restartWithDelete = async () => {
+    await server.close()
+    let saved: unknown = null
+    server = createHostServer({ store: { read: () => saved, write: (v: unknown) => { saved = JSON.parse(JSON.stringify(v)) } }, tls, hostName: 'TEST-PC', now: () => clock, getHost: () => host, lanAddresses: () => ['10.9.8.7'], allowDelete: true })
+    port = await server.listen(0, '127.0.0.1')
+  }
+  const allowDelete = (link: { deviceId: string }) => server.setPerms(link.deviceId, { write: true, delete: true })
+  const trashed = () => host.trashList().map((x: { path: string }) => x.path)
+  const tomb = (p: string) => host.list().tombs.some((x: { path: string }) => x.path === p)
+
+  it('기본: 삭제 허용을 켜지 않은 기기는 서버가 켜져 있어도 지울 수 없다(전파 안 됨 + 안내)', async () => {
+    await restartWithDelete()
+    host.put('a.md', 'a\n', null)
+    const link = await connect(true) // 쓰기만 허용
+    await sync()
+    useApp.getState().deleteNote('a.md')
+    await sync()
+    expect(fs.existsSync(hf('a.md'))).toBe(true)
+    expect(toast()).toContain('삭제를 허용하지 않아서')
+    expect(link.deviceId).toBeTruthy()
+  })
+  it('삭제 허용을 켜면 폰에서 지운 노트가 PC 폴더의 휴지통으로 가고(삭제 기록 남음), 폰에는 다시 받아지지 않는다', async () => {
+    await restartWithDelete()
+    host.put('a.md', 'a\n', null)
+    host.put('b.md', 'b\n', null)
+    const link = await connect(true)
+    allowDelete(link)
+    await sync()
+    useApp.getState().deleteNote('a.md')
+    await sync()
+    expect(fs.existsSync(hf('a.md'))).toBe(false)
+    expect(trashed()).toEqual(['a.md']) // 휴지통에 있다 — 되살릴 수 있다
+    expect(tomb('a.md')).toBe(true)
+    expect(fs.existsSync(hf('b.md'))).toBe(true) // 다른 파일은 그대로
+    await sync()
+    expect(useApp.getState().files['a.md']).toBeUndefined() // 다시 받아지지 않는다
+    expect(toast()).not.toContain('삭제를 허용하지 않아서')
+  })
+  it('바이너리 파일 삭제(deleteOther)도 전파된다', async () => {
+    await restartWithDelete()
+    host.put('자료/r.docx', Buffer.from([1, 2, 3]), null)
+    const link = await connect(true)
+    allowDelete(link)
+    await sync()
+    const { deleteOther } = await import('./app')
+    await deleteOther('자료/r.docx')
+    expect(fs.existsSync(hf('자료/r.docx'))).toBe(false)
+    expect(trashed()).toEqual(['자료/r.docx'])
+  })
+  it('★ 폰이 지우려던 파일을 PC 에서 그새 고쳤으면: 동기화가 멈추지 않고, 수정(PC 것)을 살려 폰에 다시 받아온다', async () => {
+    await restartWithDelete()
+    host.put('a.md', 'v1\n', null)
+    const link = await connect(true)
+    allowDelete(link)
+    await sync()
+    useApp.getState().deleteNote('a.md') // 폰에서 지웠다
+    host.put('a.md', 'v2 PC 에서 고침\n', host.list().entries.find((e: { path: string }) => e.path === 'a.md').rev) // 그새 PC 에서 고쳤다
+    await sync()
+    expect(toast()).not.toContain('실패')
+    expect(fs.readFileSync(hf('a.md'), 'utf8')).toBe('v2 PC 에서 고침\n') // PC 것은 살아 있다
+    expect(trashed()).toEqual([]) // 지워지지 않았다
+    await sync()
+    expect(text('a.md')).toBe('v2 PC 에서 고침\n') // 폰에 다시 받아졌다(수정을 살린다)
+  })
+  it('PC 에서 이미 지운 파일을 폰도 지우면 오류 없이 지나간다', async () => {
+    await restartWithDelete()
+    host.put('a.md', 'a\n', null)
+    const link = await connect(true)
+    allowDelete(link)
+    await sync()
+    host.del('a.md', host.list().entries.find((e: { path: string }) => e.path === 'a.md').rev)
+    useApp.getState().deleteNote('a.md')
+    await sync()
+    expect(toast()).not.toContain('실패')
+    expect(useApp.getState().files['a.md']).toBeUndefined()
+  })
+  it('휴지통에서 되살리면 다음 동기화에서 폰에도 돌아온다', async () => {
+    await restartWithDelete()
+    host.put('a.md', 'precious\n', null)
+    const link = await connect(true)
+    allowDelete(link)
+    await sync()
+    useApp.getState().deleteNote('a.md')
+    await sync()
+    expect(useApp.getState().files['a.md']).toBeUndefined()
+    host.restoreTrash(host.trashList()[0].name) // PC 앱의 "휴지통 > 되살리기"
+    await sync()
+    expect(text('a.md')).toBe('precious\n')
+  })
+})

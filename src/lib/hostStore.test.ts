@@ -503,3 +503,96 @@ describe('보조 규칙', () => {
     expect(e.status).toBe(409)
   })
 })
+
+describe('휴지통 복구 (6번 4항)', () => {
+  type H2 = Host & {
+    trashList(): { name: string; path: string; at: number; size: number }[]
+    restoreTrash(name: string, by?: string): { path: string; rev: string; seq: number; renamed: boolean }
+  }
+  const mk = () => track(open()) as unknown as H2
+  const removeIt = (h: H2, p: string) => h.del(p, h.list().entries.find((e) => e.path === p)!.rev)
+  /** 지운 경로에 새로 만든다(삭제 기록 위에는 그 rev 를 baseRev 로 내야 한다) */
+  const recreate = (h: H2, p: string, text: string) => h.put(p, text, h.list().tombs.find((x) => x.path === p)?.rev ?? null)
+
+  it('지운 파일을 원래 자리로 되살린다: 내용·삭제 기록·휴지통이 모두 맞게 정리된다', () => {
+    const h = mk()
+    h.put('a.md', 'precious', null)
+    removeIt(h, 'a.md')
+    expect(fs.existsSync(f('a.md'))).toBe(false)
+    const [x] = h.trashList()
+    expect(x).toMatchObject({ path: 'a.md', size: 8 })
+    const r = h.restoreTrash(x.name)
+    expect(r).toMatchObject({ path: 'a.md', renamed: false })
+    expect(fs.readFileSync(f('a.md'), 'utf8')).toBe('precious')
+    expect(h.trashList()).toHaveLength(0)
+    expect(h.list().tombs.some((t) => t.path === 'a.md')).toBe(false) // 삭제 기록이 되살림으로 바뀌었다
+    expect(h.list().entries.find((e) => e.path === 'a.md')!.rev).toBe(r.rev)
+  })
+  it('원래 자리에 이미 다른 파일이 있으면 덮어쓰지 않고 `이름 (복구).확장자` 로 되살린다', () => {
+    const h = mk()
+    h.put('a.md', 'old', null)
+    removeIt(h, 'a.md')
+    recreate(h, 'a.md', 'new content') // 삭제 뒤에 같은 이름으로 새로 만들었다
+    const [x] = h.trashList()
+    const r = h.restoreTrash(x.name)
+    expect(r).toMatchObject({ path: 'a (복구).md', renamed: true })
+    expect(fs.readFileSync(f('a.md'), 'utf8')).toBe('new content') // 건드리지 않았다
+    expect(fs.readFileSync(f('a (복구).md'), 'utf8')).toBe('old')
+  })
+  it('`(복구)` 이름도 겹치면 `(복구 2)`', () => {
+    const h = mk()
+    h.put('a.md', 'one', null)
+    removeIt(h, 'a.md')
+    recreate(h, 'a.md', 'two')
+    h.put('a (복구).md', 'taken', null)
+    const [x] = h.trashList()
+    expect(h.restoreTrash(x.name).path).toBe('a (복구 2).md')
+    expect(fs.readFileSync(f('a (복구).md'), 'utf8')).toBe('taken')
+  })
+  it('같은 경로를 두 번 지웠어도 각각 따로 되살릴 수 있다(나중 것이 원래 자리, 먼저 것은 (복구))', () => {
+    const h = mk()
+    h.put('a.md', 'v1', null)
+    removeIt(h, 'a.md')
+    recreate(h, 'a.md', 'v2')
+    removeIt(h, 'a.md')
+    const list = h.trashList()
+    expect(list).toHaveLength(2)
+    const newest = list[0]
+    expect(h.restoreTrash(newest.name).path).toBe('a.md')
+    const older = h.trashList()[0]
+    expect(h.restoreTrash(older.name)).toMatchObject({ path: 'a (복구).md', renamed: true })
+    expect([fs.readFileSync(f('a.md'), 'utf8'), fs.readFileSync(f('a (복구).md'), 'utf8')].sort()).toEqual(['v1', 'v2'])
+  })
+  it('폴더 안의 파일은 폴더가 사라졌어도 다시 만들어 되살린다', () => {
+    const h = mk()
+    h.put('자료/r.docx', Buffer.from([1, 2, 3]), null)
+    removeIt(h, '자료/r.docx')
+    fs.rmSync(f('자료'), { recursive: true, force: true })
+    const [x] = h.trashList()
+    expect(h.restoreTrash(x.name).path).toBe('자료/r.docx')
+    expect([...fs.readFileSync(f('자료/r.docx'))]).toEqual([1, 2, 3])
+  })
+  it('목록은 최근에 지운 것이 위이고, 내용이 사라진 항목은 보이지 않는다. 없는 이름은 404', () => {
+    const h = mk()
+    h.put('a.md', 'a', null)
+    h.put('b.md', 'b', null)
+    removeIt(h, 'a.md')
+    clock += 5000
+    removeIt(h, 'b.md')
+    expect(h.trashList().map((x) => x.path)).toEqual(['b.md', 'a.md'])
+    fs.rmSync(path.join(dir, '.nosidian', 'trash', h.trashList()[1].name)) // 내용이 사라졌다
+    expect(h.trashList().map((x) => x.path)).toEqual(['b.md'])
+    expectErr(() => h.restoreTrash('999-nothing.md'), 404, 'notFound')
+  })
+  it('되살린 뒤 다시 열어도 그대로이고, 휴지통은 비어 있다', () => {
+    const h = mk()
+    h.put('a.md', 'keep', null)
+    removeIt(h, 'a.md')
+    h.restoreTrash(h.trashList()[0].name)
+    h.close()
+    const h2 = track(open()) as unknown as H2
+    expect(fs.readFileSync(f('a.md'), 'utf8')).toBe('keep')
+    expect(h2.trashList()).toHaveLength(0)
+    expect(h2.list().entries.some((e) => e.path === 'a.md')).toBe(true)
+  })
+})

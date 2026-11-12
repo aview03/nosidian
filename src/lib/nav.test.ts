@@ -208,3 +208,48 @@ describe('위젯·알림 딥링크로 연 화면에서 뒤로 가면 보던 화�
     expect(app().backScreen()).toBe(false)
   })
 })
+
+describe('PC 의 Alt+← 규칙 (7번 결정): 노트 기록 → 처음 노트를 연 화면, 홈·종료는 없다', () => {
+  it('링크로 따라온 노트를 한 칸씩 되돌아가고, 기록이 끝나면 노트를 연 화면으로 간다', () => {
+    reset('calendar')
+    app().openNote('a.md')
+    app().openNote('b.md')
+    app().openNote('c.md')
+    expect(app().backOrScreen()).toBe(true); expect(app().current).toBe('b.md')
+    expect(app().backOrScreen()).toBe(true); expect(app().current).toBe('a.md')
+    expect(app().backOrScreen()).toBe(true); expect(app().tab).toBe('calendar')
+    expect(app().backOrScreen()).toBe(false) // 더 갈 곳이 없다(홈으로 보내거나 종료하지 않는다)
+  })
+  it('사이드바에서 연 노트들(매번 새 흐름)도 브라우저처럼 이전 노트로 돌아간다 — 모바일과 달리 노트 기록을 먼저 따른다', () => {
+    reset('files')
+    app().openNote('a.md')
+    app().go('files')
+    app().openNote('b.md') // 새 흐름이지만 PC 는 history 를 따른다
+    expect(app().backOrScreen()).toBe(true)
+    expect(app().current).toBe('a.md')
+  })
+  it('노트 기록이 없는 화면(캘린더 등)에서는 아무것도 하지 않는다', () => {
+    reset('calendar')
+    expect(app().backOrScreen()).toBe(false)
+    expect(app().tab).toBe('calendar')
+  })
+  it('태그·그래프로 들어간 화면에서는 그 노트로 돌아온다', () => {
+    reset('files')
+    app().openNote('a.md')
+    app().drillTo('graph')
+    expect(app().backOrScreen()).toBe(true)
+    expect(app().tab).toBe('note')
+    expect(app().current).toBe('a.md')
+  })
+  it('노트를 여러 개 따라온 뒤 그래프로 들어가도, 먼저 그래프를 벗어나 그 노트로 돌아온다(이전 노트로 건너뛰지 않는다)', () => {
+    reset('calendar')
+    app().openNote('a.md')
+    app().openNote('b.md')
+    app().drillTo('graph')
+    expect(app().backOrScreen()).toBe(true)
+    expect(app().tab).toBe('note')
+    expect(app().current).toBe('b.md')
+    expect(app().backOrScreen()).toBe(true) // 그다음에야 이전 노트
+    expect(app().current).toBe('a.md')
+  })
+})

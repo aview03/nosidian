@@ -40,6 +40,7 @@ import { VaultSheet } from './components/VaultSheet'
 import { listenExternalFiles } from './lib/importFiles'
 import { SYNC_LABEL } from './lib/types'
 import { androidBack } from './lib/androidBack'
+import { createAutoSync } from './lib/autoSync'
 
 function useWide() {
   const [w, setW] = useState(() => window.matchMedia('(min-width: 900px)').matches)
@@ -164,7 +165,7 @@ export default function App() {
       else if (mod && !e.shiftKey && e.key.toLowerCase() === 'f') { e.preventDefault(); app.openFind() }
       else if (mod && e.shiftKey && e.key.toLowerCase() === 'f') { e.preventDefault(); app.go('search') }
       else if (mod && e.shiftKey && e.key.toLowerCase() === 'a' && desktop()) { e.preventDefault(); useAiThread.getState().toggle() }
-      else if (e.altKey && e.key === 'ArrowLeft') { e.preventDefault(); app.back() }
+      else if (e.altKey && e.key === 'ArrowLeft') { e.preventDefault(); app.backOrScreen() }
       else if (e.altKey && e.key === 'ArrowRight') { e.preventDefault(); app.forward() }
       else if (e.key === 'Escape') { if (!app.palette && !app.sheet && !app.vaultSheet) app.closeFind(); app.setPalette(null); app.setSheet(null); app.setVaultSheet(false) }
     }
@@ -179,15 +180,8 @@ export default function App() {
     return () => void h.then((x) => x.remove())
   }, [])
 
-  // 앱이 다시 보일 때 자동 동기화 (변경 없을 때만 가볍게)
-  useEffect(() => {
-    const f = () => {
-      const s = useApp.getState()
-      if (document.visibilityState === 'visible' && s.settings.remote && (!s.settings.lastSync || Date.now() - s.settings.lastSync > 5 * 60000)) void s.sync()
-    }
-    document.addEventListener('visibilitychange', f)
-    return () => document.removeEventListener('visibilitychange', f)
-  }, [])
+  // 자동 동기화: 다시 보일 때·5분마다·고친 뒤 잠시 있다가·네트워크가 돌아왔을 때(규칙은 lib/autoSync.ts). 끄는 설정은 설정 > 노트와 동기화
+  useEffect(() => createAutoSync(), [])
 
   if (!ready) return <div className="splash">Nosidian</div>
   // vault 가 없어도 밖에서 연 문서는 열람할 수 있다

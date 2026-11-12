@@ -18,9 +18,11 @@ const errText = (e: unknown) => {
   return e instanceof Error && x.status != null ? hostErrorText(x.status, x.code, e.message) : e instanceof Error ? e.message : String(e)
 }
 
-function PermLine({ perms }: { perms: { write: boolean } | null }) {
+function PermLine({ perms }: { perms: { write: boolean; delete?: boolean } | null }) {
   if (!perms) return null
-  return perms.write ? <p className="hint small">{t('이 휴대폰은 PC에서 쓰기가 허용돼 있어요.')}</p> : <p className="hint small ai-warn">{t('이 휴대폰은 지금 읽기만 가능해요. PC 앱에서 이 휴대폰의 쓰기를 허용하면 내 노트를 올릴 수 있어요.')}</p>
+  if (perms.write && perms.delete) return <p className="hint small">{t('이 휴대폰은 PC에서 쓰기와 삭제가 허용돼 있어요. 지운 파일은 PC 폴더의 휴지통으로 가요.')}</p>
+  if (perms.write) return <p className="hint small">{t('이 휴대폰은 PC에서 쓰기가 허용돼 있어요. 지운 파일은 PC에 전파되지 않아요(PC 앱에서 "삭제 허용"을 켜면 전파돼요).')}</p>
+  return <p className="hint small ai-warn">{t('이 휴대폰은 지금 읽기만 가능해요. PC 앱에서 이 휴대폰의 쓰기를 허용하면 내 노트를 올릴 수 있어요.')}</p>
 }
 
 export function PcHostConnectDialog({ onClose }: { onClose: () => void }) {
@@ -125,7 +127,7 @@ export function PcHostConnectDialog({ onClose }: { onClose: () => void }) {
                   <PermLine perms={ping?.perms ?? null} />
                   <div className="btn-row">
                     <button disabled={busy} onClick={() => void refresh(link)}>{t('다시 확인')}</button>
-                    <button className="danger-link" disabled={busy} onClick={async () => { await unpairHost(link); forgetPcHost(); setLink(null); setPing(null); setPlan(null) }}>{t('다른 PC에 연결')}</button>
+                    <button className="danger-link" disabled={busy} onClick={() => { void unpairHost(link); forgetPcHost(); setLink(null); setPing(null); setPlan(null) }}>{t('다른 PC에 연결')}</button>
                   </div>
                   {ping && !plan && <button className="primary big" disabled={busy} onClick={() => void preview()}>{busy ? t('확인하는 중…') : t('차이 미리 보기')}</button>}
                   {plan && ping && <HostPlanView plan={plan} choices={choices} setChoices={setChoices} busy={busy} side="phone" canWrite={ping.perms.write} onStart={() => void start()} />}

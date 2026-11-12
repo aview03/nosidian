@@ -169,6 +169,10 @@ export interface HostApi {
   snapshots(): Promise<HostRes<{ snapshots: { id: string; at: number; files?: number; label?: string; hasVault: boolean }[] }>>
   snapshotVault(id: string): Promise<HostRes<{ vault: Record<string, string> | null }>>
   gc(): Promise<HostRes<{ trashed: number; tombs: number }>>
+  /** 휴지통(호스트 폴더의 .nosidian/trash): 최근에 지운 것이 위 */
+  trash(): Promise<HostRes<{ entries: { name: string; path: string; at: number; size: number }[] }>>
+  /** 되살린다. renamed: 원래 자리에 다른 파일이 있어 "이름 (복구)" 로 되살렸다 */
+  restoreTrash(name: string): Promise<HostRes<{ path: string; rev: string; seq: number; renamed: boolean }>>
 }
 export interface HostServerStatus {
   hostConfigured: boolean
@@ -181,7 +185,7 @@ export interface HostServerStatus {
   /** 연결 문자열("nsh1:ip,ip:port:code:지문") — QR·복사에 쓴다 */
   pair: string | null
   fingerprint: string
-  /** 삭제 권한을 켤 수 있는 빌드인가(이번 버전에서는 false) */
+  /** 삭제 권한을 기기별로 켤 수 있나(PC 앱은 true — 단, 기기마다 기본은 꺼짐이고 쓰기를 허용한 기기에만 켠다) */
   allowDelete: boolean
   devices: { id: string; name: string; createdAt: number; lastSeen: number; perms: { write: boolean; delete: boolean }; writes: number; lastWriteAt: number }[]
   error: string | null

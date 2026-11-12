@@ -238,6 +238,9 @@ function register({ ipcMain, app, dialog, BrowserWindow, getTls, allowDelete }) 
   ipcMain.handle('host:snapshots', wrap(() => ({ snapshots: getHost().snapshots() })))
   ipcMain.handle('host:snapshotVault', wrap((id) => ({ vault: getHost().readSnapshotVault(String(id)) })))
   ipcMain.handle('host:gc', wrap(() => ({ ...getHost().gc() })))
+  // 휴지통 복구 화면: 목록과 되살리기(원래 자리가 비어 있으면 거기로, 아니면 "이름 (복구)" — 덮어쓰지 않는다)
+  ipcMain.handle('host:trash', wrap(() => ({ entries: getHost().trashList() })))
+  ipcMain.handle('host:restore', wrap((name) => ({ ...getHost().restoreTrash(String(name), 'pc-app') })))
 
   // 켜 두었다면 앱이 준비된 뒤 서버를 다시 연다(호스트 폴더가 지정돼 있을 때만)
   if (getTls) {

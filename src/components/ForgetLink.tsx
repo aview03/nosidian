@@ -32,5 +32,5 @@ export function ForgetLink({ kind, pcName, onForget, className = 'btn-link', lab
       setBusy(false)
     }
   }
-  return <button className={className} disabled={busy} onClick={() => void go()}>{label ?? t('연결 해제')}</button>
+  return <button className={className} disabled={busy} onClick={() => void go()}>{busy ? t('해제하는 중…') : (label ?? t('연결 해제'))}</button>
 }

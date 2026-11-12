@@ -305,7 +305,7 @@ describe('경로·링크·제한', () => {
   })
 })
 
-describe('삭제: 별도 권한이고 이번 버전에서는 꺼 둔다', () => {
+describe('삭제: 별도 권한 — 서버 설정(allowDelete)이 꺼져 있으면 켤 수 없다', () => {
   it('기본(allowDelete 꺼짐)에서는 쓰기 권한이 있어도 삭제할 수 없고, 삭제 권한도 켤 수 없다', async () => {
     const b = await boot()
     const d = await writer(b)
@@ -472,5 +472,58 @@ describe('/unpair — 폰이 스스로 연결을 해제한다 (5-c)', () => {
     expect((await req(b.port, '/unpair', {})).status).toBe(401)
     expect((await req(b.port, '/unpair', {}, 'a'.repeat(48))).status).toBe(401)
     expect(b.s.state().devices).toHaveLength(1)
+  })
+})
+
+describe('삭제 권한의 안전장치 (6번 4항: 삭제 전파)', () => {
+  it('삭제 허용은 쓰기가 켜져 있어야 켤 수 있고(412 needWrite), 쓰기를 끄면 삭제도 함께 꺼진다', async () => {
+    const b = await boot({ allowDelete: true })
+    const d = await pairDevice(b)
+    expect(() => b.s.setPerms(d.id, { delete: true })).toThrow('allow writing')
+    expect(b.s.state().devices[0].perms).toEqual({ write: false, delete: false })
+    b.s.setPerms(d.id, { write: true })
+    b.s.setPerms(d.id, { delete: true })
+    expect(b.s.state().devices[0].perms).toEqual({ write: true, delete: true })
+    b.s.setPerms(d.id, { write: false }) // 쓰기를 끈다
+    expect(b.s.state().devices[0].perms).toEqual({ write: false, delete: false })
+    b.s.setPerms(d.id, { write: true }) // 다시 쓰기만 켜면 삭제는 꺼진 채다(자동으로 되살아나지 않는다)
+    expect(b.s.state().devices[0].perms).toEqual({ write: true, delete: false })
+  })
+  it('저장된 설정이 삭제만 켜져 있고 쓰기는 꺼져 있어도(손상·수동 편집) 삭제는 효력이 없다', async () => {
+    const b = await boot({ allowDelete: true })
+    const d = await writer(b)
+    b.s.setPerms(d.id, { delete: true })
+    const saved = JSON.parse(JSON.stringify(b.saved()))
+    saved.devices[0].perms = { write: false, delete: true }
+    const again = createHostServer({ store: { read: () => saved, write: () => {} }, tls, getHost: () => host, allowDelete: true })
+    expect(again.state().devices[0].perms).toEqual({ write: false, delete: false })
+  })
+  it('삭제가 너무 잦으면(분당 30회) 429 — 한꺼번에 지우라는 요청을 느리게 한다. 1분 뒤에는 다시 된다', async () => {
+    const b = await boot({ allowDelete: true })
+    const d = await writer(b)
+    b.s.setPerms(d.id, { delete: true })
+    const revs: string[] = []
+    for (let i = 0; i < 31; i++) revs.push((await put(b.port, d.token, `n${i}.md`, 'x', null)).json.rev)
+    let last = 0
+    let okCount = 0
+    for (let i = 0; i < 31; i++) {
+      last = (await req(b.port, '/delete', { path: `n${i}.md`, baseRev: revs[i] }, d.token)).status
+      if (last === 200) okCount++
+    }
+    expect(okCount).toBe(30)
+    expect(last).toBe(429)
+    expect(fs.existsSync(hf('n30.md'))).toBe(true) // 31번째는 지워지지 않았다
+    clock += 61_000
+    expect((await req(b.port, '/delete', { path: 'n30.md', baseRev: revs[30] }, d.token)).status).toBe(200)
+  })
+  it('쓰기를 끈 기기의 삭제 요청은 삭제 권한이 남아 있었더라도 거절한다', async () => {
+    const b = await boot({ allowDelete: true })
+    const d = await writer(b)
+    const r1 = await put(b.port, d.token, 'a.md', 'x', null)
+    b.s.setPerms(d.id, { delete: true })
+    b.s.setPerms(d.id, { write: false })
+    const r = await req(b.port, '/delete', { path: 'a.md', baseRev: r1.json.rev }, d.token)
+    expect(r.status).toBe(403)
+    expect(fs.existsSync(hf('a.md'))).toBe(true)
   })
 })

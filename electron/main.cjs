@@ -141,7 +141,8 @@ if (!app.requestSingleInstanceLock()) {
   const claudeRunner = require('./claudeCli.cjs').register({ ipcMain, getWindow: () => win, startMcp: mcpHost.startInternal })
   require('./aiRelay.cjs').register({ ipcMain, app, claudeRunner, llm })
   const share = require('./fileShare.cjs').register({ ipcMain, app, dialog, safeStorage, BrowserWindow })
-  require('./hostIpc.cjs').register({ ipcMain, app, dialog, BrowserWindow, getTls: share.getTls })
+  // allowDelete: 삭제를 "기기별로 켤 수 있게" 한다(기본은 모든 기기가 꺼짐 — PC 화면에서 쓰기를 허용한 기기에만 확인을 거쳐 켠다). 지운 파일은 휴지통(90일)으로 간다
+  require('./hostIpc.cjs').register({ ipcMain, app, dialog, BrowserWindow, getTls: share.getTls, allowDelete: true })
   ipcMain.handle('open-file:take', () => pendingFiles.splice(0))
   // 열어 본 문서를 원본 위치에 저장 (마크다운/텍스트 확장자의 절대 경로만)
   ipcMain.handle('open-file:save', (_e, p, content) => {

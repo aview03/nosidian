@@ -6,7 +6,7 @@
 //    오래된 깨끗한 사본은 동기화의 받기 단계에서 로컬에서 지워지므로 되살아나지 않는다.
 import { callHost, loadPcHost, pingHost, HostCallError } from '../pcHost'
 import { t } from '../i18n'
-import { SyncError, type Provider, type PushChange, type RemoteEntry } from './types'
+import { conflictOf, SyncError, type Provider, type PushChange, type RemoteEntry } from './types'
 
 const utf8 = (b64: string) => new TextDecoder().decode(Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)))
 const toB64 = (s: string) => {
@@ -63,15 +63,30 @@ export function pcHostProvider(): Provider & { notice(): string | null } {
         revs.set(c.path, r.rev)
       }
       let skipped = 0
+      let keptByPc = 0
       for (const c of dels) {
         if (!perms.delete) {
-          skipped++ // 삭제는 PC 로 전파하지 않는다
+          skipped++ // 이 휴대폰의 삭제는 PC 로 전파되지 않는다(PC 에서 기기별로 허용해야 한다)
           continue
         }
-        const r = (await callHost(link(), '/delete', { path: c.path, baseRev: c.baseRev ?? null })) as { rev: string }
-        revs.set(c.path, r.rev)
+        try {
+          const r = (await callHost(link(), '/delete', { path: c.path, baseRev: c.baseRev ?? null })) as { rev: string }
+          revs.set(c.path, r.rev)
+        } catch (e) {
+          const cf = conflictOf(e)
+          if (!cf && (e as { status?: number }).status !== 404) throw e
+          if (cf && !cf.deleted) {
+            // 내가 지우려던 파일을 PC 에서 그새 고쳤다: 삭제와 수정이 겹치면 수정을 살린다(데이터 보존 우선). 지우지 않고, 다음 동기화에서 PC 것을 다시 받는다
+            keptByPc++
+          } else if (cf?.currentRev) {
+            revs.set(c.path, cf.currentRev) // 이미 지워져 있다 — 목적은 이뤄졌다
+          }
+        }
       }
-      if (skipped) note = t('PC가 삭제를 허용하지 않아서 지운 파일 {n}개는 다음에 PC에서 다시 받아져요', { n: skipped })
+      const notes: string[] = []
+      if (skipped) notes.push(t('PC가 삭제를 허용하지 않아서 지운 파일 {n}개는 다음에 PC에서 다시 받아져요', { n: skipped }))
+      if (keptByPc) notes.push(t('PC에서 먼저 바뀐 파일 {n}개는 지우지 않았어요. 다음에 PC 것을 다시 받아요', { n: keptByPc }))
+      if (notes.length) note = notes.join(' · ')
       return revs
     },
     async afterSync() {

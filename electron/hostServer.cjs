@@ -19,6 +19,8 @@ const MAX_DEVICES = 5
 const SMALL_BODY = 64 * 1024
 const PUT_BODY = Math.ceil((MAX_FILE * 4) / 3) + 4096 // base64 25MB
 const WRITES_PER_MIN = 120
+/** 삭제는 더 느리게: 폰의 로컬 데이터가 잘못되어 한꺼번에 지우라고 해도 분당 이만큼만 지운다(휴지통으로 가지만 PC 사용자가 알아챌 시간을 준다) */
+const DELETES_PER_MIN = 30
 const MIN_FREE = 200 * 1024 * 1024
 
 const sha = (s) => crypto.createHash('sha256').update(s).digest('hex')
@@ -42,7 +44,7 @@ function createHostServer(deps) {
         devices: Array.isArray(v.devices)
           ? v.devices
               .filter((d) => d && typeof d.id === 'string' && typeof d.hash === 'string')
-              .map((d) => ({ ...d, perms: { write: d.perms && d.perms.write === true, delete: allowDelete && d.perms && d.perms.delete === true } }))
+              .map((d) => ({ ...d, perms: { write: d.perms && d.perms.write === true, delete: allowDelete && d.perms && d.perms.write === true && d.perms.delete === true } })) // 삭제는 쓰기가 켜져 있을 때만 의미가 있다
           : [],
       }
   } catch {
@@ -59,6 +61,7 @@ function createHostServer(deps) {
   const fails = new Map()
   const authFails = new Map()
   const writeLog = new Map() // 기기 id → 최근 쓰기 시각들
+  const delLog = new Map() // 기기 id → 최근 삭제 시각들
   let srv = null
   let lastSnapshotAt = 0
   const socks = new Set()
@@ -188,10 +191,15 @@ function createHostServer(deps) {
   }
 
   async function del(req, res, dev) {
-    if (!allowDelete || !dev.perms.delete) return send(res, 403, { error: 'delete is not allowed for this device', code: 'noDelete' })
+    if (!allowDelete || !dev.perms.write || !dev.perms.delete) return send(res, 403, { error: 'delete is not allowed for this device', code: 'noDelete' })
+    const t = now()
+    const log = (delLog.get(dev.id) || []).filter((x) => t - x < 60_000)
+    if (log.length >= DELETES_PER_MIN) return send(res, 429, { error: 'too many deletes', code: 'rate' })
     const b = await json(req, SMALL_BODY)
     if (typeof b.path !== 'string') return send(res, 400, { error: 'bad request', code: 'badRequest' })
     const r = hostOr412().del(b.path, typeof b.baseRev === 'string' ? b.baseRev : null, by(dev))
+    log.push(t)
+    delLog.set(dev.id, log)
     dev.lastWriteAt = now()
     save()
     send(res, 200, { rev: r.rev, seq: r.seq })
@@ -200,6 +208,7 @@ function createHostServer(deps) {
   function revokeDevice(id) {
     state.devices = state.devices.filter((d) => d.id !== id)
     writeLog.delete(id)
+    delLog.delete(id)
     save()
     try {
       getHost().removeDevice(id) // 해제한 기기는 삭제 기록 정리에서 더 기다리지 않는다
@@ -330,9 +339,13 @@ function createHostServer(deps) {
     setPerms(id, patch) {
       const d = state.devices.find((x) => x.id === id)
       if (!d) return false
-      if (patch && typeof patch.write === 'boolean') d.perms.write = patch.write
+      if (patch && typeof patch.write === 'boolean') {
+        d.perms.write = patch.write
+        if (!patch.write) d.perms.delete = false // 쓰기를 끄면 삭제도 함께 꺼진다
+      }
       if (patch && typeof patch.delete === 'boolean') {
         if (patch.delete && !allowDelete) throw Object.assign(new Error('delete permission is not available yet'), { status: 403, code: 'noDelete' })
+        if (patch.delete && !d.perms.write) throw Object.assign(new Error('allow writing before allowing delete'), { status: 412, code: 'needWrite' })
         d.perms.delete = patch.delete
       }
       save()

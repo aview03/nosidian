@@ -69,4 +69,15 @@ describe('폰의 PC 연결 해제 버튼(세 곳 공통, 5-c)', () => {
     act(() => root.render(createElement(ForgetLink, { kind: 'ai', pcName: 'MY-PC', label: '이 PC 연결 해제 (MY-PC)', onForget: async () => true })))
     expect(host.querySelector('button')!.textContent).toBe('이 PC 연결 해제 (MY-PC)')
   })
+  it('해제하는 동안(PC 가 늦게 답해도) 버튼에 진행 문구가 보이고 눌리지 않는다', async () => {
+    let release: (v: boolean) => void = () => {}
+    confirmMock.mockResolvedValue(true)
+    render(() => new Promise<boolean>((r) => { release = r }))
+    await click()
+    const b = host.querySelector('button')!
+    expect(b.textContent).toBe('해제하는 중…')
+    expect(b.disabled).toBe(true)
+    await act(async () => { release(true); await Promise.resolve() })
+    expect(host.querySelector('button')!.textContent).toBe('연결 해제')
+  })
 })

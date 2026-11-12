@@ -12,6 +12,7 @@ import { HostPlanView } from './HostPlan'
 import { PairModal } from './PairModal'
 import { hostState } from '../lib/pairModal'
 import { DeviceList } from './DeviceList'
+import { HostTrash } from './HostTrash'
 import { useBackClose } from '../lib/backStack'
 
 const PICK_ERR: Record<string, string> = {
@@ -161,6 +162,7 @@ export function HostPanel() {
           </ul>
         </details>
       )}
+      <HostTrash />
       <button
         className="danger-link"
         onClick={async () => {
@@ -180,7 +182,7 @@ export function HostPanel() {
  * 휴대폰과 맞추기(이 PC가 호스트): 켜면 같은 와이파이의 내 휴대폰이 QR(또는 연결 문자열)로 짝을 맺고 이 폴더를 읽는다.
  * **쓰기는 기기별로 여기서 직접 허용해야** 한다(기본은 읽기만). 삭제 권한은 별도이고 이번 버전에서는 켤 수 없다. 언제든 끄거나 해제한다.
  */
-function HostServerSection() {
+export function HostServerSection() {
   const api = desktop()?.hostsrv
   const [st, setSt] = useState<HostServerStatus | null>(null)
   const [adding, setAdding] = useState(false)
@@ -202,10 +204,24 @@ function HostServerSection() {
   }
   const toggleWrite = async (d: HostServerStatus['devices'][number]) => {
     if (!d.perms.write) {
-      const ok = await confirmAsk(t('"{name}"에 쓰기를 허용할까요?', { name: d.name }), t('이 기기는 이 폴더의 노트와 파일을 만들거나 고칠 수 있게 돼요. 지우는 것과 실행 파일 올리기는 안 돼요. 언제든 여기서 끌 수 있어요.'), t('허용'))
+      const ok = await confirmAsk(t('"{name}"에 쓰기를 허용할까요?', { name: d.name }), t('이 기기는 이 폴더의 노트와 파일을 만들거나 고칠 수 있게 돼요. 지우는 것은 "삭제 허용"을 따로 켜야 하고, 실행 파일 올리기는 안 돼요. 언제든 여기서 끌 수 있어요.'), t('허용'))
       if (!ok) return
     }
     apply(await api.setPerms(d.id, { write: !d.perms.write }))
+  }
+  /** 삭제 허용: 쓰기가 먼저 켜져 있어야 하고, 켤 때 확인한다. 끄는 것은 바로. 지운 파일은 휴지통(90일)으로 간다 */
+  const toggleDelete = async (d: HostServerStatus['devices'][number]) => {
+    if (!d.perms.delete) {
+      if (!d.perms.write) return say(t('먼저 쓰기를 허용해 주세요'))
+      const ok = await confirmAsk(
+        t('"{name}"의 삭제를 허용할까요?', { name: d.name }),
+        t('이 휴대폰에서 지운 노트와 파일이 이 폴더에서도 지워져요. 지운 파일은 90일 동안 폴더의 휴지통에 보관돼서 "휴지통"에서 되살릴 수 있어요. 한 번에 많이 지워도 분당 30개까지만 지워요. 언제든 여기서 끌 수 있어요.'),
+        t('허용'),
+        true,
+      )
+      if (!ok) return
+    }
+    apply(await api.setPerms(d.id, { delete: !d.perms.delete }))
   }
   return (
     <section className="hc-srv">
@@ -242,7 +258,15 @@ function HostServerSection() {
             actions={(d) => (
               <>
                 <button className={`hc-perm${d.perms.write ? ' on' : ''}`} onClick={() => void toggleWrite(d)} aria-pressed={d.perms.write}>{d.perms.write ? t('쓰기 허용됨') : t('읽기만')}</button>
-                <button className="hc-perm" disabled title={t('삭제 권한은 아직 쓸 수 없어요')}>{t('삭제 불가')}</button>
+                <button
+                  className={`hc-perm${d.perms.delete ? ' on' : ''}`}
+                  disabled={!st.allowDelete}
+                  aria-pressed={d.perms.delete}
+                  title={!st.allowDelete ? t('삭제 권한은 아직 쓸 수 없어요') : !d.perms.write ? t('먼저 쓰기를 허용해 주세요') : t('이 휴대폰에서 지운 파일을 이 폴더에서도 지워요(휴지통으로)')}
+                  onClick={() => void toggleDelete(d)}
+                >
+                  {d.perms.delete ? t('삭제 허용됨') : t('삭제 불가')}
+                </button>
               </>
             )}
           />
