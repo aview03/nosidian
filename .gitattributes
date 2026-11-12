@@ -1,0 +1,2 @@
+# npm 이 package-lock.json 을 항상 LF 로 쓴다 — Windows 의 autocrlf 와 어긋나 빌드할 때마다 "변경됨"으로 보이던 것을 막는다
+package-lock.json text eol=lf

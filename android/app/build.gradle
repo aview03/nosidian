@@ -1,5 +1,9 @@
 apply plugin: 'com.android.application'
 
+// 앱 버전은 package.json 하나만 고친다(예전엔 versionName 이 "1.0" 으로 고정돼 앱 안에 1.42.0 으로 보였다)
+def pkgVersion = new groovy.json.JsonSlurper().parse(file('../../package.json')).version
+def (vMajor, vMinor, vPatch) = pkgVersion.tokenize('.').collect { it.toInteger() }
+
 android {
     namespace = "com.amsidian.app"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -7,8 +11,8 @@ android {
         applicationId "com.amsidian.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode vMajor * 10000 + vMinor * 100 + vPatch // 1.43.2 → 14302
+        versionName pkgVersion
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
