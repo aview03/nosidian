@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { applyRows, buildRows, extractHints, rowChanged } from './noteTasks'
 import { buildWork } from './work'
 import type { NoteFile } from './types'
@@ -6,6 +6,10 @@ import type { NoteFile } from './types'
 const TODAY = '2026-11-11' // 수요일
 const KNOWN = new Set(['민수', '지현'])
 const ex = (t: string, known = KNOWN) => extractHints(t, known, TODAY)
+
+// '내일'·'금요일' 같은 말은 실제 오늘 날짜로 풀리므로, 시계를 TODAY 로 고정한다(고정하지 않으면 날짜가 바뀌는 날 실패한다)
+beforeAll(() => { vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(new Date(`${TODAY}T12:00:00`)) })
+afterAll(() => { vi.useRealTimers() })
 
 describe('제목에서 담당·마감 읽기', () => {
   it('괄호 안의 (이름, 날짜까지)를 담당·마감으로 읽고 제목에서 뺀다', () => {

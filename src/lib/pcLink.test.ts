@@ -9,6 +9,8 @@ import { loadLlmConfig } from './llm'
 import type { ClaudeEvent } from './externalIO'
 
 setLang('ko')
+// 이 파일은 실제 로컬 서버를 띄운다. 시험 파일 수십 개가 동시에 도는 전체 실행에서는 첫 시험이 기본 5초를 넘겨 가끔 실패했다
+vi.setConfig({ testTimeout: 20000, hookTimeout: 20000 })
 const { createRelay } = mod as { createRelay(d: unknown): any }
 
 describe('연결 코드 해석', () => {
