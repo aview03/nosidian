@@ -22,7 +22,7 @@ export function Properties({ fm }: { fm: Record<string, unknown> }) {
   if (!entries.length) return null
   const openTag = (t: string) => {
     useApp.getState().setSearch('tag:' + t)
-    useApp.getState().go('search')
+    useApp.getState().drillTo('search') // 뒤로 가면 이 노트로 돌아온다
   }
   return (
     <div className="props">
@@ -173,7 +173,7 @@ export function Reader({ path, content, compact = false }: { path: string; conte
     if (tag) {
       e.preventDefault()
       app.setSearch('tag:' + tag.dataset.tag)
-      app.go('search')
+      app.drillTo('search')
       return
     }
     if (t instanceof HTMLInputElement && t.classList.contains('task') && !compact) {

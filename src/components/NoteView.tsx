@@ -144,7 +144,7 @@ export function NoteView({ wide }: { wide: boolean }) {
     <div className="note">
       <header className="note-head">
         {!wide && (
-          <button className="icon-btn" onClick={() => { if (!app.backScreen()) app.go('files') }} aria-label={t('뒤로')}>
+          <button className="icon-btn" onClick={() => app.backOrHome()} aria-label={t('뒤로')}>
             <Icon name="back" />
           </button>
         )}
@@ -175,7 +175,7 @@ export function NoteView({ wide }: { wide: boolean }) {
             <button onClick={() => app.toggleBookmark(current)}>{marked ? t('★ 북마크 해제') : t('☆ 북마크')}</button>
             <button onClick={rename}>{t('이름 바꾸기')}</button>
             {/^\s*[-*+]\s+\[ \]\s+\S/m.test(file.content) && <button onClick={() => useWorkUi.getState().openTidy(current)}>{t('업무 정리')}</button>}
-            <button onClick={() => app.go('graph')}>{t('그래프에서 보기')}</button>
+            <button onClick={() => app.drillTo('graph')}>{t('그래프에서 보기')}</button>
             <button onClick={() => copyNoteLink(current)}>{t('링크 복사')}</button>
             <button className="danger" onClick={remove}>{t('삭제')}</button>
           </div>

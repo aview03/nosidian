@@ -92,7 +92,7 @@ export function InfoPanel({ path, onScroll }: { path: string; onScroll(line: num
 
       <div className="mini-graph-head">
         <span>{t('로컬 그래프')}</span>
-        <button className="link-btn" onClick={() => useApp.getState().go('graph')}>{t('크게 보기')}</button>
+        <button className="link-btn" onClick={() => useApp.getState().drillTo('graph')}>{t('크게 보기')}</button>
       </div>
       <Graph local mini />
     </div>

@@ -29,5 +29,5 @@ export function copyNoteLink(path: string) {
 export function showInGraph(path: string) {
   const app = useApp.getState()
   app.openNote(path)
-  app.go('graph')
+  app.drillTo('graph') // 뒤로 가면 이 노트로 돌아온다
 }

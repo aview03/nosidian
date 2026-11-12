@@ -30,6 +30,11 @@ export function HostConnectDialog({ onClose }: { onClose: () => void }) {
   const [choices, setChoices] = useState<Record<string, Choice>>({})
   const [busy, setBusy] = useState(false)
   useBackClose(true, () => { if (!busy) onClose() }) // 진행 중에는 바깥을 눌러도 닫히지 않는 것과 같다
+  useEffect(() => {
+    const f = (e: KeyboardEvent) => e.key === 'Escape' && !busy && onClose() // 다른 창들처럼 Esc 로 닫는다(진행 중에는 닫지 않는다)
+    window.addEventListener('keydown', f)
+    return () => window.removeEventListener('keydown', f)
+  }, [busy, onClose])
   const [err, setErr] = useState('')
   const [done, setDone] = useState<string | null>(null)
 

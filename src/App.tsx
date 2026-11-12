@@ -2,8 +2,7 @@ import { Fragment, useEffect, useState } from 'react'
 import { t } from './lib/i18n'
 import { Capacitor } from '@capacitor/core'
 import { App as CapApp } from '@capacitor/app'
-import { homeTab, useApp, type Tab } from './lib/app'
-import { useDialog } from './lib/dialog'
+import { useApp, type Tab } from './lib/app'
 import { FileTree } from './components/FileTree'
 import { MemoTab, memoBack } from './components/MemoTab'
 import { settingsBack } from './components/Settings'
@@ -27,7 +26,6 @@ import { ProposalReview } from './components/ProposalReview'
 import { PcFilesSheet } from './components/PcFilesCard'
 import { AiPanel } from './components/AiPanel'
 import { startAiThread, useAiThread } from './lib/aiThread'
-import { runBack } from './lib/backStack'
 import { startAutomation, useAutomation } from './lib/automation'
 import { startRelayBridge } from './lib/relayBridge'
 import { autoInboxCount } from './components/AutoSettings'
@@ -41,6 +39,7 @@ import { Icon } from './components/Icon'
 import { VaultSheet } from './components/VaultSheet'
 import { listenExternalFiles } from './lib/importFiles'
 import { SYNC_LABEL } from './lib/types'
+import { androidBack } from './lib/androidBack'
 
 function useWide() {
   const [w, setW] = useState(() => window.matchMedia('(min-width: 900px)').matches)
@@ -127,7 +126,7 @@ export default function App() {
       const q = new URL(url).searchParams
       const d = q.get('date')
       if (d && /^\d{4}-\d{2}-\d{2}$/.test(d)) useCal.getState().select(d)
-      useApp.getState().go('calendar')
+      useApp.getState().drillTo('calendar') // 위젯·알림으로 연 화면에서 뒤로 가면 보던 화면으로(예전엔 홈으로 갔다)
       if (q.get('add')) setTimeout(() => useCal.getState().focus(), 350)
     }
     void CapApp.getLaunchUrl().then((l) => l?.url && handle(l.url))
@@ -176,20 +175,7 @@ export default function App() {
   // 안드로이드 뒤로가기
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return
-    const h = CapApp.addListener('backButton', () => {
-      const app = useApp.getState()
-      if (useDialog.getState().kind) return useDialog.setState({ kind: null })
-      if (runBack()) return // 열려 있는 시트·창(스스로 등록한 것)을 가장 나중에 연 것부터 닫는다 — 안 그러면 뒤쪽 화면만 물러난다(F46)
-      if (app.vaultSheet) return app.setVaultSheet(false)
-      if (app.palette) return app.setPalette(null)
-      if (app.sheet) return app.setSheet(null)
-      if (useAiThread.getState().open && !desktop()) return useAiThread.getState().setOpen(false) // 폰: AI 시트가 열려 있으면 먼저 닫는다
-      if (app.tab === 'note' && app.backScreen()) return // 이번에 따라온 노트들을 한 칸씩 → 노트를 연 화면(검색·캘린더·허브·메모…)으로
-      if (app.tab === 'files' && memoBack()) return // 메모 탭: 선택 해제 → 위 폴더로
-      if (app.tab === 'settings' && settingsBack()) return // 설정: 그룹 안 → 그룹 목록(바로 들어온 경우는 들어온 화면)
-      if (app.tab !== homeTab()) return app.go(homeTab()) // 홈(PC: 캘린더 / 모바일: 오늘)으로 한 번 돌아간 뒤 종료
-      void CapApp.exitApp()
-    })
+    const h = CapApp.addListener('backButton', () => androidBack({ memoBack, settingsBack, exit: () => void CapApp.exitApp(), desktop: () => !!desktop() }))
     return () => void h.then((x) => x.remove())
   }, [])
 

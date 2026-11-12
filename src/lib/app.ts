@@ -48,6 +48,18 @@ function restoreScreen(s: Screen, go: (t: Tab) => void) {
   screenAdapters.get(s.tab)?.restore(s.state ?? {})
   go(s.tab)
 }
+/**
+ * 노트에서 태그(검색)·그래프 같은 "들여다보는 화면"으로 들어갈 때 적어 두는 한 단계 — 뒤로 가면 그 노트(와 그 노트 흐름)로 돌아온다.
+ * returnTo 는 "노트를 연 화면" 하나뿐이라, 노트 → 검색 → 다른 노트로 가면 처음 흐름의 돌아갈 곳을 잃기 때문에 여기에 함께 보관한다.
+ */
+export interface Drill {
+  /** 들어오기 전 화면(노트가 지워졌을 때 돌아갈 곳) */
+  screen: Screen
+  current: string | null
+  returnTo: Screen | null
+  noteBase: number
+}
+
 /** 적어 둔 화면으로 간다(세부 상태까지 되살린다) */
 export function goScreen(s: Screen) {
   restoreScreen(s, (t) => useApp.getState().go(t))
@@ -105,6 +117,8 @@ interface AppState {
   returnTo: Screen | null
   /** 이번에 들어온 노트 흐름의 첫 노트 위치(history). 이보다 뒤에서만 "이전 노트"로 돌아간다 */
   noteBase: number
+  /** 노트에서 검색(태그)·그래프로 들어왔을 때 돌아올 곳. 탭을 직접 누르면 잊는다 */
+  drillFrom: Drill | null
   mode: 'read' | 'edit'
   sheet: null | 'info'
   palette: null | 'switcher' | 'command'
@@ -126,13 +140,20 @@ interface AppState {
   /** 다른 창이 쓴 변경을 IndexedDB 에서 다시 읽어 합친다 */
   reloadFromDb(): Promise<void>
   patchSettings(p: Partial<Settings>): void
-  go(tab: Tab): void
+  /** keepDrill: 돌아가는 이동이라 "들어온 노트" 기록을 지우지 않는다 */
+  go(tab: Tab, keepDrill?: boolean): void
+  /** 노트에서 태그·그래프 같은 화면으로 "들어간다" — 뒤로 가면 그 노트로 돌아온다 */
+  drillTo(tab: Tab): void
   openNote(path: string, anchor?: string | null, opts?: { replace?: boolean; edit?: boolean }): void
   openLink(target: string, anchor?: string | null): void
   back(): boolean
   forward(): void
   /** 화면 뒤로 가기(안드로이드 뒤로 키·노트 화면의 ← 버튼): 이번에 들어온 노트 흐름의 이전 노트 → 온 곳. 갈 곳이 없으면 false */
   backScreen(): boolean
+  /** 드릴로 들어온 노트로 돌아간다(없으면 false) */
+  popDrill(): boolean
+  /** 노트 화면의 ← : 안드로이드 뒤로 가기와 같은 곳으로(이전 노트 → 노트를 연 화면 → 들어온 노트 → 없으면 홈). 예전엔 마지막이 메모 목록이라 뒤로 가기 키와 달랐다 */
+  backOrHome(): void
   /** 설정 등 다른 곳이 "지금 화면"을 돌아갈 곳으로 적어 둔다 */
   setReturn(from: Tab | null): void
   /** 돌아갈 곳이 적혀 있으면 거기로 가고 true */
@@ -306,6 +327,7 @@ export const useApp = create<AppState>((set, get) => {
       hpos: -1,
       returnTo: null,
       noteBase: 0,
+      drillFrom: null,
       anchor: null,
       sheet: null,
       palette: null,
@@ -339,6 +361,7 @@ export const useApp = create<AppState>((set, get) => {
     hpos: -1,
     returnTo: null,
     noteBase: 0,
+    drillFrom: null,
     mode: 'read',
     sheet: null,
     palette: null,
@@ -406,8 +429,13 @@ export const useApp = create<AppState>((set, get) => {
       })
       saveSettings()
     },
-    go(tab) {
-      set({ tab, sheet: null })
+    go(tab, keepDrill = false) {
+      set({ tab, sheet: null, ...(keepDrill ? {} : { drillFrom: null }) }) // 탭을 직접 눌러 옮겨 가면 "들어온 노트"는 잊는다
+    },
+    drillTo(tab) {
+      const s = get()
+      if (s.tab === tab) return set({ sheet: null }) // 이미 그 화면이면 돌아올 곳을 새로 적지 않는다(뒤로 가기를 두 번 눌러야 하는 일을 막는다)
+      set({ drillFrom: { screen: captureScreen(s.tab), current: s.current, returnTo: s.returnTo, noteBase: s.noteBase }, tab, sheet: null })
     },
     say(msg) {
       set({ toast: msg, toastUndo: null })
@@ -474,7 +502,26 @@ export const useApp = create<AppState>((set, get) => {
         if (s.hpos > s.noteBase) return get().back() // 이번 흐름에서 링크로 따라온 노트들: 한 칸씩 되돌아간다
         return get().goReturn()
       }
+      if (s.drillFrom) return get().popDrill()
       return false
+    },
+    backOrHome() {
+      if (!get().backScreen()) get().go(homeTab())
+    },
+    /** 태그·그래프에서 들어온 노트(흐름 전체)로 돌아간다. 그 노트가 지워졌으면 들어오기 전 화면으로 */
+    popDrill() {
+      const d = get().drillFrom
+      if (!d) return false
+      set({ drillFrom: null })
+      const f = d.current ? get().files[d.current] : null
+      if (d.screen.tab === 'note' && d.current && f && !f.deleted) {
+        get().openNote(d.current, null, { replace: true })
+        const i = get().history.lastIndexOf(d.current)
+        set({ returnTo: d.returnTo, noteBase: d.noteBase, ...(i >= 0 ? { hpos: i } : {}) }) // 처음 흐름(노트를 연 화면·이전 노트)이 그대로 이어진다
+      } else {
+        restoreScreen(d.screen, (t) => get().go(t))
+      }
+      return true
     },
     setReturn(from) {
       set({ returnTo: from ? captureScreen(from) : null })
@@ -483,7 +530,7 @@ export const useApp = create<AppState>((set, get) => {
       const r = get().returnTo
       if (!r || r.tab === get().tab) return false
       set({ returnTo: null })
-      restoreScreen(r, get().go)
+      restoreScreen(r, (t) => get().go(t, true)) // 검색 결과에서 연 노트에서 돌아와도 "들어온 노트"를 잃지 않는다
       return true
     },
     setMode: (mode) => set({ mode }),

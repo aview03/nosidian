@@ -92,7 +92,7 @@ export function Editor({ path, initial, onChange, externalContent }: Props) {
         open: (t, a) => useApp.getState().openLink(t, a),
         openTag: (t) => {
           useApp.getState().setSearch('tag:' + t)
-          useApp.getState().go('search')
+          useApp.getState().drillTo('search') // 뒤로 가면 이 노트로 돌아온다
         },
       }),
       EditorView.updateListener.of((u) => {

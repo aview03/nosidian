@@ -9,7 +9,7 @@ const FILES = Object.fromEntries(['a.md', 'b.md', 'c.md'].map((p) => [p, note(p)
 
 const app = () => useApp.getState()
 const reset = (tab: Tab = 'work') =>
-  useApp.setState({ files: FILES, tab, current: null, history: [], hpos: -1, returnTo: null, noteBase: 0, ready: true })
+  useApp.setState({ files: FILES, tab, current: null, history: [], hpos: -1, returnTo: null, noteBase: 0, drillFrom: null, ready: true })
 
 beforeEach(() => {
   reset()
@@ -113,5 +113,98 @@ describe('설정: 그룹 안에서 뒤로 가면 설정 목록, 바로 들어왔
     openSettingsGroup('ai')
     expect(settingsBack()).toBe(true)
     expect(app().tab).toBe('work')
+  })
+})
+
+describe('노트에서 태그·그래프로 들어갔다가 뒤로 가면 그 노트로 (7번)', () => {
+  it.each<Tab>(['search', 'graph'])('노트 → %s → 뒤로 = 그 노트, 한 번 더 = 노트를 연 화면', (tab) => {
+    reset('calendar')
+    app().openNote('a.md')
+    app().drillTo(tab)
+    expect(app().tab).toBe(tab)
+    expect(app().backScreen()).toBe(true)
+    expect(app().tab).toBe('note')
+    expect(app().current).toBe('a.md')
+    expect(app().backScreen()).toBe(true) // 원래 흐름이 그대로 이어진다
+    expect(app().tab).toBe('calendar')
+  })
+  it('태그 검색 결과에서 다른 노트를 열었다가 뒤로 가면: 검색 → 처음 노트 → 노트를 연 화면', () => {
+    reset('calendar')
+    app().openNote('a.md')
+    app().drillTo('search')
+    app().openNote('b.md') // 검색 결과
+    expect(app().backScreen()).toBe(true)
+    expect(app().tab).toBe('search')
+    expect(app().backScreen()).toBe(true)
+    expect(app().tab).toBe('note')
+    expect(app().current).toBe('a.md')
+    expect(app().backScreen()).toBe(true)
+    expect(app().tab).toBe('calendar') // 처음 흐름의 "돌아갈 화면"을 잃지 않는다
+    expect(app().backScreen()).toBe(false)
+  })
+  it('탭 바로 직접 옮겨 가면 "들어온 노트"는 잊는다(엉뚱한 노트로 돌아가지 않게)', () => {
+    reset('calendar')
+    app().openNote('a.md')
+    app().drillTo('search')
+    app().go('files') // 사용자가 탭을 직접 눌렀다
+    expect(app().backScreen()).toBe(false)
+  })
+  it('들어갔던 노트가 그 사이 지워졌으면 들어오기 전 화면으로', () => {
+    reset('calendar')
+    app().openNote('a.md')
+    app().drillTo('search')
+    useApp.setState({ files: { ...FILES, 'a.md': { ...FILES['a.md'], deleted: true } } })
+    expect(app().backScreen()).toBe(true)
+    expect(app().tab).not.toBe('search')
+  })
+  it('드릴 화면이 아닐 때(홈 등)는 backScreen 이 아무것도 하지 않는다', () => {
+    reset('work')
+    expect(app().backScreen()).toBe(false)
+  })
+})
+
+describe('노트 화면의 ← 는 안드로이드 뒤로 가기와 같은 곳으로 (7번)', () => {
+  it('노트를 연 화면이 있으면 거기로', () => {
+    reset('calendar')
+    app().openNote('a.md')
+    app().backOrHome()
+    expect(app().tab).toBe('calendar')
+  })
+  it('돌아갈 곳이 없으면 홈으로(예전: 메모 목록 — 뒤로 가기 키는 홈이라 서로 달랐다)', () => {
+    reset('work')
+    useApp.setState({ tab: 'note', current: 'a.md', history: ['a.md'], hpos: 0, returnTo: null, noteBase: 0, drillFrom: null })
+    app().backOrHome()
+    expect(app().tab).toBe('work')
+  })
+  it('태그에서 들어온 노트도 ← 로 돌아온다', () => {
+    reset('files')
+    app().openNote('a.md')
+    app().drillTo('search')
+    app().backOrHome()
+    expect(app().tab).toBe('note')
+    expect(app().current).toBe('a.md')
+  })
+})
+
+describe('위젯·알림 딥링크로 연 화면에서 뒤로 가면 보던 화면으로 (7번)', () => {
+  it('노트를 보다가 열렸으면 그 노트로', () => {
+    reset('files')
+    app().openNote('a.md')
+    app().drillTo('calendar')
+    expect(app().backScreen()).toBe(true)
+    expect(app().tab).toBe('note')
+    expect(app().current).toBe('a.md')
+  })
+  it('다른 탭에서 열렸으면 그 탭으로', () => {
+    reset('files')
+    app().drillTo('calendar')
+    expect(app().backScreen()).toBe(true)
+    expect(app().tab).toBe('files')
+  })
+  it('이미 그 화면이면 돌아올 곳을 새로 적지 않는다(같은 화면으로 "돌아가는" 헛걸음 방지)', () => {
+    reset('calendar')
+    app().drillTo('calendar')
+    expect(app().drillFrom).toBeNull()
+    expect(app().backScreen()).toBe(false)
   })
 })
