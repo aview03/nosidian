@@ -706,8 +706,8 @@ html.popup-win .ee { max-width: none; max-height: none; height: 100%; border-rad
 .wrk-projrow:hover { background: var(--bg2); }
 .wrk-pname { font-weight: 600; }
 .wrk-pmeta { display: flex; gap: 10px; font-size: 12.5px; color: var(--muted); } .wrk-pmeta em { font-style: normal; color: var(--accent); }
-.wrk-guide { margin: 24px 8px; padding: 14px 16px; background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r); }
-.wrk-guide h3 { margin: 0 0 6px; font-size: 15px; } .wrk-guide p { margin: 0 0 8px; color: var(--muted); font-size: 14px; }
+.wrk-guide { margin: 8px 0 16px; padding: 20px 16px; text-align: center; background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r); }
+.wrk-guide h3 { margin: 0 0 12px; font-size: 15px; } .wrk-guide p { margin: 0 0 8px; color: var(--muted); font-size: 14px; }
 .wrk-guide pre { margin: 0; padding: 10px 12px; background: var(--code-bg); border-radius: var(--r); font-size: 13px; overflow-x: auto; }
 .wrk-clear { text-align: center; }
 
@@ -1882,3 +1882,8 @@ body.board-dragging, body.board-dragging * { cursor: grabbing !important; user-s
 .pcf-up { border-bottom: 1px solid var(--line, rgba(128,128,128,.25)); }
 .sheet-foot { position: sticky; bottom: 0; display: flex; justify-content: flex-end; padding: 10px 16px calc(10px + var(--safe-b, 0px)); background: var(--bg); border-top: 1px solid var(--line, rgba(128,128,128,.25)); }
 .pcf-close { min-width: 120px; min-height: 48px; padding: 0 22px; border: 1px solid var(--text); border-radius: var(--r); background: var(--bg); color: var(--text); font: inherit; font-weight: 700; cursor: pointer; }
+
+/* 노트와 동기화: 연결 글 붙여 넣기 입력 — 글자가 테두리에 붙지 않게 */
+.stack > input.inline.wide { width: 100%; box-sizing: border-box; height: 44px; padding: 0 14px; border: 1px solid var(--border); border-radius: var(--r); background: var(--bg); color: var(--text); font-size: 15px; }
+.stack > input.inline.wide:focus { outline: none; border-color: var(--accent); }
+.stack > input.inline.wide::placeholder { color: var(--muted); }

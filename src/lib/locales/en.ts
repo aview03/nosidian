@@ -746,6 +746,7 @@ const dict: Record<string, string> = {
   '{n}건을 함께 반영했어요': 'Applied {n} proposals together',
   '정리 계획을 실행하는 변경은 최종 승인이 필요해요': 'Changes from a cleanup plan need your final approval',
   '프로젝트를 만들어 시작해 보세요': 'Start by creating a project',
+  '홈에서 프로젝트를 만들어 시작해 보세요': 'Start by creating a project from Home',
   '프로젝트를 만들면 할 일, 문서, 일정이 한곳에 모여요. 템플릿을 고르면 바로 시작할 수 있어요.': 'A project keeps your tasks, documents and schedule in one place. Pick a template and you can start right away.',
   '새 프로젝트 만들기': 'Create a new project',
   '노트에 직접 적어서 시작하려면': 'To start by writing a note yourself',

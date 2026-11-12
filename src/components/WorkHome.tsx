@@ -11,7 +11,6 @@ import { Icon } from './Icon'
 import { Select } from './Select'
 import { TileAdder, TileArranger } from './TileArranger'
 import { desktop } from '../lib/externalIO'
-import { Orb } from './Orb'
 import { useAiThread } from '../lib/aiThread'
 import { ProposalBanner } from './ProposalReview'
 import { openMyNameSetting } from './Settings'
@@ -385,6 +384,13 @@ export function WorkHome() {
             </p>
           )}
 
+          {empty && !editing && (
+            <div className="wrk-guide">
+              <h3>{t('홈에서 프로젝트를 만들어 시작해 보세요')}</h3>
+              <button className="primary" onClick={() => useWorkUi.setState({ wizard: true })}>{t('새 프로젝트 만들기')}</button>
+            </div>
+          )}
+
           {editing ? (
             <>
               <div className="arr-title">{t('켜 둔 타일')}</div>
@@ -417,19 +423,6 @@ export function WorkHome() {
             <button className="wrk-newproj" onClick={() => useWorkUi.setState({ wizard: true })}>+ {t('새 프로젝트')}</button>
           )}
 
-          {empty && (
-            <div className="wrk-guide">
-              <div className="wrk-guide-orb"><Orb size={64} className="ob-orb" /></div>
-              <h3>{t('프로젝트를 만들어 시작해 보세요')}</h3>
-              <p>{t('프로젝트를 만들면 할 일, 문서, 일정이 한곳에 모여요. 템플릿을 고르면 바로 시작할 수 있어요.')}</p>
-              <div className="wrk-guide-actions"><button className="primary" onClick={() => useWorkUi.setState({ wizard: true })}>{t('새 프로젝트 만들기')}</button></div>
-              <details className="wrk-guide-adv">
-                <summary>{t('노트에 직접 적어서 시작하려면')}</summary>
-                <p>{t('노트 맨 위에 프로젝트 표시를 넣고, 할 일은 체크박스 줄로 적으면 여기에 모여요. 마감일과 담당자는 줄 끝에 적어요.')}</p>
-                <pre>{`---\ntype: project\nstatus: active\n---\n\n- [ ] 견적서 수정 due:2026-11-12 owner:홍길동\n- [ ] 확인 요청 status:waiting due:2026-11-14`}</pre>
-              </details>
-            </div>
-          )}
         </div>
       </div>
       {!editing && <div className="wrk-foot"><QuickAdd date={today} /></div>}
