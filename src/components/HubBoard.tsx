@@ -14,14 +14,11 @@ import { loadBoardSort, saveBoardSort, type BoardSort } from '../lib/hubViews'
 import { uiStateOf, type Task, type UiState } from '../lib/work'
 import { moveTask, reorderTask, useWorkUi, withUndo } from '../lib/workOps'
 import { TitleText, openTitleLink } from './TitleText'
+import { useProjectWords } from './useProjectWords'
 
 type Col = UiState | 'done'
-const COLS: { key: Col; title: string }[] = [
-  { key: 'todo', title: '할 일' },
-  { key: 'doing', title: '진행 중' },
-  { key: 'waiting', title: '대기' },
-  { key: 'done', title: '완료' },
-]
+/** 열 순서(제목은 프로젝트가 정한 상태 이름 — useProjectWords) */
+const COLS: { key: Col }[] = [{ key: 'todo' }, { key: 'doing' }, { key: 'waiting' }, { key: 'done' }]
 const colOf = (tk: Task): Col => (tk.done ? 'done' : uiStateOf(tk))
 const short = (s: string) => (s.length > 18 ? s.slice(0, 18) + '…' : s)
 const byDue = (a: Task, b: Task) => (a.due ?? '9999').localeCompare(b.due ?? '9999') || (a.p ?? 9) - (b.p ?? 9)
@@ -63,6 +60,7 @@ function scrollParents(el: HTMLElement | null): HTMLElement[] {
 }
 
 export function Board({ tasks, project }: { tasks: Task[]; project: string }) {
+  const words = useProjectWords(project)
   const [sort, setSortState] = useState<BoardSort>(() => loadBoardSort(project))
   useEffect(() => setSortState(loadBoardSort(project)), [project])
   const setSort = (s: BoardSort) => {
@@ -82,7 +80,7 @@ export function Board({ tasks, project }: { tasks: Task[]; project: string }) {
       return
     }
     const name = short(tk.title)
-    const toTitle = t(COLS.find((c) => c.key === to)!.title)
+    const toTitle = words[to]
     const msg = colChanged ? t('"{name}" 을(를) "{to}"(으)로 옮겼어요', { name, to: toTitle }) : t('"{name}" 순서를 바꿨어요', { name })
     withUndo(tk, msg, () => {
       let ok = true
@@ -269,7 +267,7 @@ export function Board({ tasks, project }: { tasks: Task[]; project: string }) {
           const list = items(c.key)
           return (
             <section key={c.key} data-col={c.key} className={`board-col${target?.col === c.key ? ' over' : ''}`}>
-              <h3>{t(c.title)}<span className="wrk-count">{list.length}</span></h3>
+              <h3>{words[c.key]}<span className="wrk-count">{list.length}</span></h3>
               {list.map((tk) => (
                 <div
                   key={tk.id}

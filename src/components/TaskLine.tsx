@@ -4,8 +4,10 @@ import { todayYmd } from '../lib/calendar'
 import { uiStateOf, type Task } from '../lib/work'
 import { toggleOrClose, useWorkUi } from '../lib/workOps'
 import { TitleText, openTitleLink } from './TitleText'
+import { useProjectWords } from './useProjectWords'
 
 export function TaskLine({ tk, showProject }: { tk: Task; showProject?: string }) {
+  const words = useProjectWords(tk.project)
   const ui = uiStateOf(tk)
   const today = todayYmd()
   const late = !tk.done && ui !== 'dropped' && !!tk.due && tk.due < today
@@ -22,7 +24,7 @@ export function TaskLine({ tk, showProject }: { tk: Task; showProject?: string }
             {tk.conclusion && <span className="wrk-concl">→ {tk.conclusion}</span>}
           </span>
         </span>
-        {ui !== 'todo' && !tk.done && <em className={`wrk-why ${ui}`}>{ui === 'doing' ? t('진행 중') : ui === 'waiting' ? t('대기') : t('취소됨')}</em>}
+        {ui !== 'todo' && !tk.done && <em className={`wrk-why ${ui}`}>{ui === 'doing' ? words.doing : ui === 'waiting' ? words.waiting : words.dropped}</em>}
         {late && ui === 'todo' && <em className="wrk-why overdue">{t('기한 지남')}</em>}
       </button>
     </div>

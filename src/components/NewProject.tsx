@@ -5,7 +5,7 @@ import { getLang, t } from '../lib/i18n'
 import { projectsRoot } from '../lib/defaultFolders'
 import { todayYmd } from '../lib/calendar'
 import { parseMe } from '../lib/work'
-import { builtinTemplates, planProject, vaultTemplates } from '../lib/projectTemplates'
+import { builtinTemplates, planProject, vaultTemplates, defaultTemplateId } from '../lib/projectTemplates'
 import { useWorkUi } from '../lib/workOps'
 import { Icon } from './Icon'
 import { useBackClose } from '../lib/backStack'
@@ -22,7 +22,8 @@ function Wizard() {
   const myName = useApp((s) => s.settings.myName)
   const files = useApp((x) => x.files)
   const templates = useMemo(() => [...builtinTemplates(), ...vaultTemplates(files)], [files])
-  const [tpl, setTpl] = useState(templates[0].id)
+  const persona = useApp((s) => s.settings.persona)
+  const [tpl, setTpl] = useState(() => defaultTemplateId(persona, templates.map((x) => x.id))) // 역할에 맞는 틀을 먼저 골라 둔다(바꿀 수 있다)
   const [name, setName] = useState('')
   const [due, setDue] = useState('')
   const [owner, setOwner] = useState(parseMe(myName)[0] ?? '')

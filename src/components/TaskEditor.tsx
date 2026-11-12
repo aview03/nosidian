@@ -5,6 +5,7 @@ import { t } from '../lib/i18n'
 import { confirmAsk } from '../lib/dialog'
 import { fmtDay, todayYmd } from '../lib/calendar'
 import { addDaysYmd, parseMe, tokensForState, uiStateOf, type Task, type UiState } from '../lib/work'
+import { useProjectWords } from './useProjectWords'
 import { addTask, deleteTask, updateTask, useWorkUi } from '../lib/workOps'
 import { Icon } from './Icon'
 import { Select } from './Select'
@@ -26,6 +27,7 @@ const STATES: [UiState, string][] = [
 
 function Form({ task, project, closing }: { task?: Task; project: string | null; closing: boolean }) {
   const work = useWork()
+  const words = useProjectWords(task?.project ?? project) // 프로젝트가 정한 상태 이름(예: 디자인 — 시안 중·검토 요청)
   const myName = useApp((s) => s.settings.myName)
   const close = () => useWorkUi.getState().closeEditor()
   useBackClose(true, close)
@@ -120,7 +122,7 @@ function Form({ task, project, closing }: { task?: Task; project: string | null;
             <div className="ee-field">
               <span>{t('상태')}</span>
               <div className="ee-days te-states">
-                {STATES.map(([v, l]) => <button key={v} className={ui === v ? 'on' : ''} onClick={() => setUi(v)}>{t(l)}</button>)}
+                {STATES.map(([v]) => <button key={v} className={ui === v ? 'on' : ''} onClick={() => setUi(v)}>{words[v]}</button>)}
               </div>
             </div>
           )}

@@ -1,4 +1,4 @@
-# Nosidian 이어서 시작하기 (2026-11-12 기준 · v1.43.6)
+# Nosidian 이어서 시작하기 (2026-11-12 기준 · v1.43.7)
 
 > 새 세션을 시작할 때 이 문서를 그대로 붙여 넣으세요. Claude 는 이 문서를 읽은 뒤, 아래 "첫 행동"을 하고 사용자에게 다음 작업을 확인합니다.
 > 상세 기억은 `C:\Users\USER\.claude\projects\C--Users-USER-Desktop-MD-Reader\memory\nosidian-project-state.md`(자동 메모리)에도 있습니다. 둘이 다르면 **저장소의 코드·git 로그가 사실**입니다.
@@ -9,8 +9,8 @@
 - 노트는 IndexedDB(Vault)에 있고, 동기화는 GitHub·Google Drive·OneDrive(클라우드) **또는** 이 PC 를 호스트로 쓰는 "내 PC" 방식(클라우드 없이)이 있다.
 
 ## 2. 현재 상태
-- 원격 `origin/main` = **v1.43.5 (`fd35fe3`)** 까지 푸시됨. **v1.43.6(6번 4항: 자동 동기화·휴지통 복구·삭제 전파, 7번 PC `Alt+←`)은 로컬 커밋만 있고 아직 푸시·PC 설치 파일 빌드 전**일 수 있다 — `git status -sb` 로 확인.
-- 테스트 **1267개 통과**(`npm test`, 96개 파일), `npx tsc -b` 오류 없음. 설치 파일 `release/Nosidian-Setup-1.43.5.exe`(~125MB, 코드 서명 없음)까지 빌드됨(1.43.6 은 미빌드) — **설치해서 실행해 보지는 않았다**. 폰에는 v1.43.6 디버그 APK 설치됨(시스템 `versionName`/`versionCode` 는 `package.json` 을 따른다: 1.43.6 / 14306).
+- 원격 `origin/main` = **v1.43.6 (`e5a708b`)** 까지 푸시됨. **v1.43.7(프로젝트 깊이·용어 첫 걸음)은 로컬 커밋만 있고 아직 푸시·PC 설치 파일 빌드 전**일 수 있다 — `git status -sb` 로 확인.
+- 테스트 **1290개 통과**(`npm test`, 98개 파일), `npx tsc -b` 오류 없음. 설치 파일 `release/Nosidian-Setup-1.43.6.exe`(~125MB, 코드 서명 없음)까지 빌드됨(1.43.7 은 미빌드) — **설치해서 실행해 보지는 않았다**. 폰에는 v1.43.6 디버그 APK 설치됨(1.43.7 APK 는 빌드만 했고 **폰이 USB 에서 분리돼 설치·확인하지 못했다**).
 - 폰: Android(삼성 One UI 추정), USB 연결, 화면 꺼짐 30초(시험할 때만 `svc power stayon true`). **PIN 잠금이 걸려 있어 잠기면 CDP 가 멈춘다 → 폰 시험 전에 사용자에게 "잠금 풀어 주세요" 요청.**
 
 ## 3. 반드시 지킬 규칙 (사용자 지시)
@@ -23,7 +23,7 @@
 7. UX 선호: 설명문은 짧게, 계층·그룹이 보이게, 버튼은 또렷하게(옅은 유리 느낌 금지), 모바일에선 PC 전용 항목 숨김. 기존 클라우드 동기화와 AI 문서 정책·승인 기능은 건드리지 않는다.
 8. **폰 시험 안전 규칙(2026-11-12 사고에서 생김)**: `adb shell input tap` 전에 항상 `dumpsys window | grep mCurrentFocus` 로 앞에 있는 앱이 `com.amsidian.app` 인지 확인한다(아니면 탭하지 않는다). 시험 중 `KEYCODE_BACK` 은 앱을 종료해 홈 화면을 노출할 수 있다. **스크린샷에 개인 정보(연락처·사진·결제 화면·다른 앱)가 찍히면 즉시 삭제하고 기록에 옮기지 않는다.** 시험이 끝나면 `scratchpad` 의 캡처를 지운다.
 
-## 4. 최근 작업 지도 (v1.32 → v1.43.6) — 문서 위치
+## 4. 최근 작업 지도 (v1.32 → v1.43.7) — 문서 위치
 | 버전 | 내용 | 문서 |
 | --- | --- | --- |
 | v1.32~1.33 | 모바일 AI 패널, 폰이 PC 의 AI(Ollama·API 키 모델·Claude 구독)를 QR/코드로 연결(LAN 중계) | `docs/RELAY.md` |
@@ -34,7 +34,7 @@
 | v1.40 | PC 호스트 저장 계층(manifest·rev·삭제 기록·원자적 저장 복구·외부 변경 감지·스냅샷) + "내 PC 폴더" Provider | `docs/HOST-STORE.md` |
 | v1.41 | 호스트 동기화 서버: 기기별 쓰기 권한·조건부 쓰기·실행 파일 거부 | `docs/HOST-SERVER.md` |
 | v1.42 | 폰의 "내 PC" 연결(클라우드 없이 폰↔PC 동기화) | `docs/HOST-PHONE.md` |
-| v1.43.x | 페르소나(6역할) 점검에서 나온 수정 F1~F47: 노트 "업무 정리"(담당·마감·결정을 한 번에, 모르는 이름 제안), 이미지 붙여넣기, 코드 복사·어두운 테마 문법 색, 홈 종일 체크리스트, 빠른 입력 미리보기에 기간·요일, 받은 파일 `열기`/`공유·저장`(네이티브 `OpenFile.view`), 동기화 점은 저장소 연결 시에만, 안드로이드 뒤로 가기 스택(`lib/backStack.ts`), 5-c 폰의 `연결 해제`가 PC 목록에도 반영(`POST /unpair` + 공통 `ForgetLink`, v1.43.3), 7번 화면 이동 규칙(`drillTo`·`androidBack`, `docs/NAV.md`, v1.43.4), 바이너리 충돌 선택(v1.43.5), 자동 동기화·휴지통 복구·삭제 전파·PC `Alt+←`(v1.43.6) 등 | `docs/personas/FINDINGS.md` · `docs/SHARE.md` · `docs/IMAGES.md` |
+| v1.43.x | 페르소나(6역할) 점검에서 나온 수정 F1~F47: 노트 "업무 정리"(담당·마감·결정을 한 번에, 모르는 이름 제안), 이미지 붙여넣기, 코드 복사·어두운 테마 문법 색, 홈 종일 체크리스트, 빠른 입력 미리보기에 기간·요일, 받은 파일 `열기`/`공유·저장`(네이티브 `OpenFile.view`), 동기화 점은 저장소 연결 시에만, 안드로이드 뒤로 가기 스택(`lib/backStack.ts`), 5-c 폰의 `연결 해제`가 PC 목록에도 반영(`POST /unpair` + 공통 `ForgetLink`, v1.43.3), 7번 화면 이동 규칙(`drillTo`·`androidBack`, `docs/NAV.md`, v1.43.4), 바이너리 충돌 선택(v1.43.5), 자동 동기화·휴지통 복구·삭제 전파·PC `Alt+←`(v1.43.6), 프로젝트 깊이·용어와 템플릿 `디자인 일정`·`기획 정식`(v1.43.7, `docs/PROJECT-DEPTH.md`) 등 | `docs/personas/FINDINGS.md` · `docs/SHARE.md` · `docs/IMAGES.md` |
 
 주요 코드: `electron/{hostStore,hostServer,hostIpc,fileShare,aiRelay}.cjs`, `src/lib/{pcHost,hostConnect,phoneSnapshot,secureStore,pinnedHttp}.ts`, `src/lib/sync/{host,pchost}.ts`, `src/components/{HostConnect,HostPlan,PcHostConnect}.tsx`, 네이티브 `android/.../{PinnedHttpPlugin,SecureStorePlugin}.java`.
 
@@ -156,6 +156,6 @@ node scripts/dev/shot.cjs 9333 MAIN out.png 1200 760
 
 ## 9. 첫 행동 (Claude 가 새 세션에서 할 일)
 1. `cd /c/Users/USER/Desktop/MD_Reader/app && git status -sb && git log --oneline -5` 로 위 "현재 상태"가 맞는지 확인(다르면 사용자에게 알린다).
-2. `npx tsc -b` 와 `npm test` 를 돌려 기준선이 1267개 통과인지 확인(1회 불안정은 재실행).
+2. `npx tsc -b` 와 `npm test` 를 돌려 기준선이 1290개 통과인지 확인(1회 불안정은 재실행).
 3. 사용자에게 한 줄로 현재 상태를 요약하고, 위 "다음 작업 후보" 중 무엇을 할지 묻는다(5-c·7번·2번·6번 4항은 2026-11-12 끝남. 남은 것은 위 "미확인/미완"과 사용자 결정이 필요한 것들 — 예: 폰의 삭제 허용을 PC 에서 켜 보고 실사용 확인, 클라우드 실계정 시험, 폰 카메라 QR).
 4. 폰 시험이 필요한 작업이면 먼저 "폰 잠금을 풀어 주세요"라고 요청한다.

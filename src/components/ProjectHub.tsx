@@ -22,6 +22,8 @@ import { openNewNote } from './NewNote'
 import { HubInfo, levelText } from './HubInfo'
 import { filterTasks } from '../lib/projectViews'
 import { HUB_VIEWS, loadHubView, saveHubView, type HubView } from '../lib/hubViews'
+import { depthOf, wordsOf, type Depth } from '../lib/projectKind'
+import { setFmKey } from '../lib/docrules'
 import { useHealth, useWork } from './WorkHome'
 
 export { TaskLine }
@@ -69,7 +71,7 @@ export function ProjectHub() {
   const files = useApp((s) => s.files)
   const index = useApp((s) => s.index)
   const cal = useCalMap()
-  const [tab, setTab] = useState<Tab>('tasks')
+  const [tabState, setTab] = useState<Tab>('tasks')
   // 보기(보드·타임라인…): 프로젝트마다 마지막에 쓴 것을 기억한다
   const [view, setViewState] = useState<HubView>(() => loadHubView(path ?? ''))
   useEffect(() => setViewState(loadHubView(path ?? '')), [path])
@@ -82,11 +84,14 @@ export function ProjectHub() {
   const me = useMemo(() => parseMe(myName), [myName])
   const [mineOnly, setMineOnly] = useState(false)
   const [showDone, setShowDone] = useState(false)
+  const project = work.projects.find((p) => p.path === path)
+  // 프로젝트 깊이(개요 노트의 depth 속성): 가볍게(light)면 문서·문서 점검 탭을 숨긴다. 보이지 않는 탭이 골라져 있으면 할 일로
+  const depth = depthOf(project?.fm)
+  const tab: Tab = depth === 'light' && (tabState === 'docs' || tabState === 'check') ? 'tasks' : tabState
   const chips = useRef<HTMLDivElement>(null)
   useEffect(() => {
     chips.current?.querySelector<HTMLElement>('[aria-selected="true"]')?.scrollIntoView?.({ inline: 'nearest', block: 'nearest' })
   }, [view, tab])
-  const project = work.projects.find((p) => p.path === path)
   const tasks = useMemo(() => (project ? work.byProject.get(project.path) ?? [] : []), [work, project])
 
   // 이 프로젝트의 노트들 (프로젝트 폴더 아래 + 프로젝트 노트)
@@ -111,6 +116,15 @@ export function ProjectHub() {
     app.say(t('"{name}" 템플릿으로 저장했어요. 새 프로젝트에서 고를 수 있어요.', { name: out.name }))
   }
 
+  /** 가볍게/표준 전환: 개요 노트의 depth 속성만 바꾼다(데이터는 그대로) */
+  const setDepth = (d: Depth) => {
+    const app = useApp.getState()
+    const f = project ? app.files[project.path] : null
+    if (!project || !f) return
+    app.setContent(project.path, setFmKey(f.content, 'depth', d === 'light' ? 'light' : null))
+    app.say(d === 'light' ? t('가볍게 보기로 바꿨어요. 문서·문서 점검 탭을 숨겨요(내용은 그대로예요).') : t('문서·문서 점검 탭을 다시 보여요.'))
+  }
+
   if (!project) {
     return (
       <div className="work">
@@ -120,14 +134,15 @@ export function ProjectHub() {
     )
   }
 
+  const words = wordsOf(project.fm) // 프로젝트가 정한 상태 이름(예: 디자인 — 시안 중·검토 요청)
   const open = tasks.filter((x) => !x.done && uiStateOf(x) !== 'dropped')
   const decisions = open.filter((x) => x.kind === 'decision')
   const rest = open.filter((x) => x.kind !== 'decision')
   const groups: { key: string; title: string; items: Task[] }[] = [
     { key: 'decision', title: t('결정할 일'), items: decisions },
-    { key: 'doing', title: t('진행 중'), items: rest.filter((x) => uiStateOf(x) === 'doing') },
-    { key: 'todo', title: t('할 일'), items: rest.filter((x) => uiStateOf(x) === 'todo') },
-    { key: 'waiting', title: t('대기'), items: rest.filter((x) => uiStateOf(x) === 'waiting') },
+    { key: 'doing', title: words.doing, items: rest.filter((x) => uiStateOf(x) === 'doing') },
+    { key: 'todo', title: words.todo, items: rest.filter((x) => uiStateOf(x) === 'todo') },
+    { key: 'waiting', title: words.waiting, items: rest.filter((x) => uiStateOf(x) === 'waiting') },
   ]
   const finished = tasks.filter((x) => x.done || uiStateOf(x) === 'dropped')
   const byDue = (a: Task, b: Task) => (a.due ?? '9999').localeCompare(b.due ?? '9999') || (a.p ?? 9) - (b.p ?? 9)
@@ -155,6 +170,7 @@ export function ProjectHub() {
           <HubMenu items={[
             { label: t('노트로 열기'), run: () => useApp.getState().openNote(project.path) },
             { label: t('템플릿으로 저장'), run: () => void saveAsTemplate() },
+            depth === 'light' ? { label: t('문서·점검 탭 보이기'), run: () => setDepth('standard') } : { label: t('가볍게 보기 (문서·점검 숨김)'), run: () => setDepth('light') },
           ]} />
         </div>
       </div>
@@ -164,8 +180,12 @@ export function ProjectHub() {
         <button role="tab" tabIndex={tab === 'views' ? 0 : -1} aria-selected={tab === 'views'} className={tab === 'views' ? 'on' : ''} onClick={() => setTab('views')}>{t('보기')}</button>
         <span className="hub-tab-sep" aria-hidden="true" />
         <button role="tab" tabIndex={tab === 'info' ? 0 : -1} aria-selected={tab === 'info'} className={tab === 'info' ? 'on' : ''} onClick={() => setTab('info')}>{t('기본 정보')}</button>
-        <button role="tab" tabIndex={tab === 'docs' ? 0 : -1} aria-selected={tab === 'docs'} className={tab === 'docs' ? 'on' : ''} onClick={() => setTab('docs')}>{t('문서')}</button>
-        <button role="tab" tabIndex={tab === 'check' ? 0 : -1} aria-selected={tab === 'check'} className={tab === 'check' ? 'on' : ''} onClick={() => setTab('check')}>{t('문서 점검')}</button>
+        {depth !== 'light' && (
+          <>
+          <button role="tab" tabIndex={tab === 'docs' ? 0 : -1} aria-selected={tab === 'docs'} className={tab === 'docs' ? 'on' : ''} onClick={() => setTab('docs')}>{t('문서')}</button>
+          <button role="tab" tabIndex={tab === 'check' ? 0 : -1} aria-selected={tab === 'check'} className={tab === 'check' ? 'on' : ''} onClick={() => setTab('check')}>{t('문서 점검')}</button>
+          </>
+        )}
       </div>
       {tab === 'views' && (
         <div className="hub-views" role="tablist" aria-label={t('보기')} ref={chips} onKeyDown={arrowNav}>

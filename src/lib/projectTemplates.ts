@@ -43,6 +43,26 @@ const KO: ProjectTemplate[] = [
       '할 일.md': '# 할 일\n\n- [ ] 기획안 작성 owner:{{owner}} due:{{due-21}} p:1\n- [ ] 초안 제작 due:{{due-14}}\n- [ ] 내부 검수 due:{{due-7}}\n- [ ] 수정 반영 due:{{due-3}}\n- [ ] 배포 due:{{due}}\n- [ ] 성과 확인 due:{{due+7}}\n',
     },
   },
+  {
+    id: 'design', name: '디자인 일정', desc: '시안 일정과 검토 받은 날만 가볍게 적는 틀(문서·점검 탭은 숨겨요)',
+    files: {
+      '프로젝트 개요.md': '---\ntype: project\nstatus: 진행 중\nowner: {{owner}}\ndue: {{due}}\ndepth: light\nwords: design\n---\n# {{name}}\n\n무엇을 언제까지 만드는지만 적어요. 같은 폴더의 [[할 일]] 노트에 적은 체크리스트가 **내 업무**에 모입니다.\n\n상태 이름은 시작 전 → 시안 중 → 검토 요청 → 확정으로 보여요. 문서·점검이 필요해지면 프로젝트 화면의 ⋯ 메뉴에서 "문서·점검 탭 보이기"를 누르세요.\n',
+      '할 일.md': '# 할 일\n\n- [ ] 시안 1차 owner:{{owner}} start:{{due-21}} due:{{due-14}}\n- [ ] 1차 검토 받기 owner:{{owner}} start:{{due-14}} due:{{due-10}}\n- [ ] 수정 반영 owner:{{owner}} start:{{due-10}} due:{{due-5}}\n- [ ] 최종 확정 owner:{{owner}} due:{{due}}\n',
+    },
+  },
+  {
+    id: 'planning', name: '기획 정식', desc: 'PRD·정책서·기능설계서·IA·결정 기록·일정(간트)이 있는 기획용 틀',
+    files: {
+      '프로젝트 개요.md': OVERVIEW(true) + '## 목표\n\n\n## 범위\n\n\n## 이해관계자\n\n\n같은 폴더의 [[할 일]] 노트에 적은 체크리스트가 **내 업무**에 모입니다. 결정이 필요한 안건은 [[결정 기록]] 에, 문서는 아래 틀을 채워 가세요: [[PRD]] · [[정책서]] · [[기능설계서]] · [[IA 구조도]]\n',
+      'PRD.md': '# PRD\n\n## 배경과 문제\n\n\n## 목표와 성공 지표\n\n\n## 사용자와 시나리오\n\n\n## 요구사항\n\n| 번호 | 요구사항 | 우선순위 | 비고 |\n| --- | --- | --- | --- |\n|  |  |  |  |\n\n## 범위 밖\n\n\n## 일정\n\n\n## 열린 질문\n\n',
+      '정책서.md': '# 정책서\n\n## 적용 범위\n\n\n## 정책\n\n| 번호 | 정책 | 예외 | 근거 |\n| --- | --- | --- | --- |\n|  |  |  |  |\n\n## 변경 이력\n\n',
+      '기능설계서.md': '# 기능설계서\n\n## 기능 개요\n\n\n## 사용자 흐름\n\n\n## 화면별 동작\n\n\n## 예외·오류 처리\n\n\n## 연관 정책\n\n[[정책서]]\n',
+      'IA 구조도.md': '# IA 구조도\n\n## 메뉴 구조\n\n- 홈\n  - \n- \n\n## 화면 목록\n\n| 화면 | 진입 경로 | 설명 |\n| --- | --- | --- |\n|  |  |  |\n',
+      '결정 기록.md': '# 결정 기록\n\n결정이 필요한 안건은 아래처럼 적으면 **결정할 일** 목록에 모이고, 결정하면 결론을 한 줄 적어 닫아요.\n\n- [ ] 핵심 지표 정의 kind:decision owner:{{owner}} due:{{due-21}}\n',
+      '할 일.md': '# 할 일\n\n- [ ] 요구사항 정리 owner:{{owner}} start:{{due-60}} due:{{due-45}} p:1\n- [ ] PRD 초안 owner:{{owner}} start:{{due-45}} due:{{due-35}}\n- [ ] 정책 확정 owner:{{owner}} start:{{due-35}} due:{{due-28}}\n- [ ] 기능설계서 작성 owner:{{owner}} start:{{due-28}} due:{{due-14}}\n- [ ] 이해관계자 검토 owner:{{owner}} start:{{due-14}} due:{{due-7}}\n- [ ] 최종 확정 owner:{{owner}} due:{{due}}\n',
+      '회의록.md': '# 회의록\n\n## {{today}}\n\n- 참석:\n- 결정:\n- 할 일:\n',
+    },
+  },
 ]
 
 const EN: ProjectTemplate[] = [
@@ -68,7 +88,33 @@ const EN: ProjectTemplate[] = [
       'Tasks.md': '# Tasks\n\n- [ ] Write the brief owner:{{owner}} due:{{due-21}} p:1\n- [ ] First draft due:{{due-14}}\n- [ ] Internal review due:{{due-7}}\n- [ ] Apply feedback due:{{due-3}}\n- [ ] Publish due:{{due}}\n- [ ] Check results due:{{due+7}}\n',
     },
   },
+  {
+    id: 'design', name: 'Design schedule', desc: 'Just the draft schedule and review dates (hides the Docs and Check tabs)',
+    files: {
+      'Project Overview.md': '---\ntype: project\nstatus: In progress\nowner: {{owner}}\ndue: {{due}}\ndepth: light\nwords: design\n---\n# {{name}}\n\nJust write what is due when. Checklists in the [[Tasks]] note of this folder appear in **My work**.\n\nStatus names read Not started → Drafting → In review → Final. When you need docs and checks, use the ⋯ menu on the project screen: "Show docs & check tabs".\n',
+      'Tasks.md': '# Tasks\n\n- [ ] First draft owner:{{owner}} start:{{due-21}} due:{{due-14}}\n- [ ] Get first review owner:{{owner}} start:{{due-14}} due:{{due-10}}\n- [ ] Apply feedback owner:{{owner}} start:{{due-10}} due:{{due-5}}\n- [ ] Final sign-off owner:{{owner}} due:{{due}}\n',
+    },
+  },
+  {
+    id: 'planning', name: 'Planning (full)', desc: 'PRD, policy, feature spec, IA, decision log and a schedule (Gantt)',
+    files: {
+      'Project Overview.md': OVERVIEW(false) + '## Goal\n\n\n## Scope\n\n\n## Stakeholders\n\n\nChecklists in the [[Tasks]] note appear in **My work**. Put open decisions in the [[Decision Log]] and fill in the docs: [[PRD]] · [[Policy]] · [[Feature Spec]] · [[IA Map]]\n',
+      'PRD.md': '# PRD\n\n## Background and problem\n\n\n## Goals and success metrics\n\n\n## Users and scenarios\n\n\n## Requirements\n\n| No. | Requirement | Priority | Notes |\n| --- | --- | --- | --- |\n|  |  |  |  |\n\n## Out of scope\n\n\n## Schedule\n\n\n## Open questions\n\n',
+      'Policy.md': '# Policy\n\n## Scope\n\n\n## Policies\n\n| No. | Policy | Exceptions | Rationale |\n| --- | --- | --- | --- |\n|  |  |  |  |\n\n## Change history\n\n',
+      'Feature Spec.md': '# Feature Spec\n\n## Overview\n\n\n## User flow\n\n\n## Behavior per screen\n\n\n## Errors and edge cases\n\n\n## Related policy\n\n[[Policy]]\n',
+      'IA Map.md': '# IA Map\n\n## Menu structure\n\n- Home\n  - \n- \n\n## Screen list\n\n| Screen | Entry path | Description |\n| --- | --- | --- |\n|  |  |  |\n',
+      'Decision Log.md': '# Decision Log\n\nWrite open decisions like this and they collect under **Decisions**; when decided, add the conclusion on one line and close it.\n\n- [ ] Define the key metric kind:decision owner:{{owner}} due:{{due-21}}\n',
+      'Tasks.md': '# Tasks\n\n- [ ] Gather requirements owner:{{owner}} start:{{due-60}} due:{{due-45}} p:1\n- [ ] PRD draft owner:{{owner}} start:{{due-45}} due:{{due-35}}\n- [ ] Settle policies owner:{{owner}} start:{{due-35}} due:{{due-28}}\n- [ ] Write the feature spec owner:{{owner}} start:{{due-28}} due:{{due-14}}\n- [ ] Stakeholder review owner:{{owner}} start:{{due-14}} due:{{due-7}}\n- [ ] Final sign-off owner:{{owner}} due:{{due}}\n',
+      'Meeting Notes.md': '# Meeting Notes\n\n## {{today}}\n\n- Attendees:\n- Decisions:\n- To do:\n',
+    },
+  },
 ]
+
+/** 새 프로젝트 마법사에서 처음 골라 둘 템플릿: 역할이 디자이너면 디자인 일정, 기획자면 기획 정식, 그 밖에는 첫 번째(일반). 고를 수 있는 것만 */
+export function defaultTemplateId(persona: string | null | undefined, ids: string[]): string {
+  const want = persona === 'designer' ? 'design' : persona === 'planner' ? 'planning' : null
+  return want && ids.includes(want) ? want : ids[0]
+}
 
 export const builtinTemplates = (): ProjectTemplate[] => (getLang() === 'ko' ? KO : EN)
 
@@ -77,7 +123,7 @@ export interface Fill { name: string; owner: string; due: string; today: string 
 /** 자리표시자를 채운다. 마감일·담당자가 없으면 그 꼬리표(와 빈 머리글 줄)를 지운다 */
 export function fillTemplate(text: string, f: Fill): string {
   let s = text
-  if (!f.due) s = s.replace(/ ?due:\{\{due[+-]\d+\}\}/g, '').replace(/ ?due:\{\{due\}\}/g, '').replace(/^due: *\{\{due\}\}\n/m, '')
+  if (!f.due) s = s.replace(/ ?(?:due|start):\{\{due[+-]\d+\}\}/g, '').replace(/ ?due:\{\{due\}\}/g, '').replace(/^due: *\{\{due\}\}\n/m, '')
   if (!f.owner) s = s.replace(/ ?owner:\{\{owner\}\}/g, '').replace(/^owner: *\{\{owner\}\}\n/m, '')
   s = s.replace(/\{\{due([+-])(\d+)\}\}/g, (_, sign: string, n: string) => addDaysYmd(f.due, (sign === '-' ? -1 : 1) * Number(n)))
   return s.replace(/\{\{name\}\}/g, f.name).replace(/\{\{owner\}\}/g, f.owner).replace(/\{\{due\}\}/g, f.due).replace(/\{\{today\}\}/g, f.today)
@@ -151,11 +197,14 @@ function taskLineToTemplate(line: string, project: Pick<Project, 'due' | 'owner'
   let rest = m[2]
   rest = rest.replace(/\s+=>\s.*$/, '') // 결론
   rest = rest.replace(/(?:^|\s)(?:status|side):\S+/g, '')
-  rest = rest.replace(/(?:^|\s)due:(\d{4}-\d{2}-\d{2})(?=\s|$)/g, (_all, d: string) => {
-    if (!project.due) return ''
-    const n = diffDays(project.due, d)
-    return ` due:${n === 0 ? '{{due}}' : n > 0 ? `{{due-${n}}}` : `{{due+${-n}}}`}`
-  })
+  // 날짜 꼬리표(마감일·시작일)는 프로젝트 마감일 기준 {{due±N}} 로(프로젝트 마감이 없으면 뺀다)
+  for (const key of ['due', 'start']) {
+    rest = rest.replace(new RegExp(String.raw`(?:^|\s)${key}:(\d{4}-\d{2}-\d{2})(?=\s|$)`, 'g'), (_all, d: string) => {
+      if (!project.due) return ''
+      const n = diffDays(project.due, d)
+      return ` ${key}:${n === 0 ? '{{due}}' : n > 0 ? `{{due-${n}}}` : `{{due+${-n}}}`}`
+    })
+  }
   rest = rest.replace(/(?:^|\s)owner:(?:"([^"]+)"|(\S+))(?=\s|$)/g, (all, q: string | undefined, w: string | undefined) => {
     const who = (q ?? w ?? '').trim()
     return project.owner.length && project.owner.some((o) => o.toLowerCase() === who.toLowerCase()) ? ' owner:{{owner}}' : all

@@ -149,3 +149,77 @@ describe('프로젝트를 템플릿으로 저장', () => {
     expect(o.files['Templates/T/할 일.md']).toBe('- [ ] a\n')
   })
 })
+
+describe('프로젝트 템플릿: 시작일(start:)과 새 템플릿 (첫 걸음)', () => {
+  const all = (lang: 'ko' | 'en', due: string) => {
+    setLang(lang)
+    const out = builtinTemplates().map((tpl) => ({ tpl, plan: planProject(tpl, { ...F, due }, 'Projects', []) }))
+    setLang('ko')
+    return out
+  }
+  for (const lang of ['ko', 'en'] as const) {
+    it(`(${lang}) 마감일이 없으면 start: 꼬리표도 줄에서 빠진다(예전: start:NaN-NaN-NaN 이 생겼다)`, () => {
+      for (const { plan } of all(lang, '')) {
+        const text = JSON.stringify(plan.files)
+        expect(text).not.toMatch(/start:(?!\d{4}-\d{2}-\d{2})/)
+        expect(text).not.toContain('NaN')
+      }
+    })
+    it(`(${lang}) 마감일이 있으면 start: 는 모두 올바른 날짜이고 같은 줄의 due 보다 늦지 않다`, () => {
+      for (const { plan } of all(lang, '2026-12-09')) {
+        for (const content of Object.values(plan.files)) {
+          for (const line of content.split('\n')) {
+            const st = /start:(\d{4}-\d{2}-\d{2})/.exec(line)?.[1]
+            const du = /due:(\d{4}-\d{2}-\d{2})/.exec(line)?.[1]
+            if (st && du) expect(st <= du).toBe(true)
+          }
+        }
+      }
+    })
+  }
+  it('디자인 일정·기획 정식 템플릿이 있다', () => {
+    for (const lang of ['ko', 'en'] as const) {
+      expect(all(lang, '2026-12-09').map((x) => x.tpl.id)).toEqual(['general', 'event', 'content', 'design', 'planning'])
+    }
+  })
+  it('디자인 일정: 개요에 depth: light · words: design 이 있고, 문서 틀 없이 일정 업무만 있다', () => {
+    const { tpl, plan } = all('ko', '2026-12-09').find((x) => x.tpl.id === 'design')!
+    const overview = plan.files[plan.overview]
+    expect(overview).toMatch(/^depth: light$/m)
+    expect(overview).toMatch(/^words: design$/m)
+    expect(Object.keys(tpl.files)).toEqual(['프로젝트 개요.md', '할 일.md'])
+  })
+  it('기획 정식: PRD·정책서·기능설계서·IA 구조도·결정 기록 문서 틀과 일정 업무가 있고, 결정 안건이 결정 업무로 읽힌다', () => {
+    const { plan } = all('ko', '2026-12-09').find((x) => x.tpl.id === 'planning')!
+    const names = Object.keys(plan.files).map((p) => p.split('/').pop())
+    expect(names).toEqual(expect.arrayContaining(['PRD.md', '정책서.md', '기능설계서.md', 'IA 구조도.md', '결정 기록.md', '할 일.md']))
+    const files = Object.fromEntries(Object.entries(plan.files).map(([path, content]) => [path, { path, content, sha: null, dirty: false, mtime: 0 } as NoteFile]))
+    const w = buildWork(files)
+    expect(w.tasks.some((x) => x.kind === 'decision')).toBe(true)
+    expect(w.tasks.filter((x) => x.start && x.due).length).toBeGreaterThanOrEqual(5) // 간트에 막대로 보인다
+    expect(plan.files[plan.overview]).not.toMatch(/^depth:/m) // 표준(모든 탭)
+  })
+  it('프로젝트를 템플릿으로 저장할 때 start: 도 마감일 기준 {{due±N}} 로 바뀐다(절대 날짜가 남지 않는다)', () => {
+    const files: Record<string, NoteFile> = {
+      'P/개요.md': { path: 'P/개요.md', content: '---\ntype: project\nowner: 민수\ndue: 2026-12-09\n---\n# P\n', sha: null, dirty: false, mtime: 0 },
+      'P/할 일.md': { path: 'P/할 일.md', content: '# 할 일\n\n- [x] 시안 start:2026-11-18 due:2026-11-25 owner:민수\n', sha: null, dirty: false, mtime: 0 },
+    }
+    const w = buildWork(files)
+    const out = templateFromProject(w.projects[0], files, '시안틀', Object.keys(files))
+    const text = JSON.stringify(out.files)
+    expect(text).toContain('start:{{due-21}}')
+    expect(text).toContain('due:{{due-14}}')
+    expect(text).not.toContain('2026-11-18')
+  })
+  it('새 템플릿은 만들자마자 "담당자 없는 일"로 주의가 뜨지 않도록 모든 업무 줄에 담당자가 있다(담당자를 넣었을 때)', () => {
+    for (const lang of ['ko', 'en'] as const) {
+      for (const { tpl, plan } of all(lang, '2026-12-09')) {
+        if (tpl.id !== 'design' && tpl.id !== 'planning') continue
+        const tasksNote = Object.entries(plan.files).find(([p]) => /(할 일|Tasks)\.md$/.test(p))![1]
+        const lines = tasksNote.split('\n').filter((l) => /^- \[ \]/.test(l))
+        expect(lines.length).toBeGreaterThanOrEqual(4)
+        for (const l of lines) expect(l).toContain('owner:민수')
+      }
+    }
+  })
+})
