@@ -1117,6 +1117,7 @@ const dict: Record<string, string> = {
   'PC가 응답을 마치지 않고 끊었어요': "The PC stopped before finishing.",
   '눌러서 받기': "Tap to download",
   '받는 중…': "Downloading…",
+  '파일을 누르면 폰으로 받은 뒤, 열거나 저장할 앱을 고르는 창이 떠요.': "Tap a file to download it, then pick an app to open or save it.",
   '받기': "Download",
   '파일을 받지 못했어요: {why}': "Could not download the file: {why}",
   '저장소에 연결돼 있지 않아요': "Not connected to a storage",

@@ -139,6 +139,7 @@ export function PcFilesSheet() {
               <span className="row-sub">{busy === f.path ? t('받는 중…') : formatSize(f.size)}</span>
             </button>
           ))}
+          {phone && view.files.length > 0 && <p className="hint small pad">{t('파일을 누르면 폰으로 받은 뒤, 열거나 저장할 앱을 고르는 창이 떠요.')}</p>}
           {truncated && <p className="hint small pad">{t('파일이 많아 일부만 보여요')}</p>}
         </div>
         <div className="sheet-foot">
