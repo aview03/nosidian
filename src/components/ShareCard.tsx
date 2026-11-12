@@ -63,7 +63,7 @@ export function ShareCard() {
           {adding && (
             <PairModal
               title={t('휴대폰 연결')}
-              where={t('휴대폰 앱 > 설정 > 노트와 동기화 > 내 PC 폴더 보기')}
+              where={t('휴대폰 앱 > 설정 > 노트와 동기화 > PC 폴더 보기')}
               source={{ get: async () => shareState(await api.get()), issue: async () => shareState(await api.newCode()), revoke: async () => { await api.revokeCode() } }}
               onClose={() => { setAdding(false); void refresh() }}
             />

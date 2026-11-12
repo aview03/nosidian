@@ -13,6 +13,8 @@ export interface Pending {
 export const OpenFile = registerPlugin<{
   getPending(): Promise<Pending>
   save(o: { uri: string; content: string }): Promise<void>
+  /** 받아 둔 파일(앱 임시 폴더 안)을 그 형식의 기본 앱으로 연다. 열 앱이 없으면 'noapp' 로 거절 */
+  view(o: { uri: string; mime: string }): Promise<void>
   addListener(ev: 'fileOpened', cb: () => void): Promise<{ remove(): void }>
 }>('OpenFile')
 

@@ -38,6 +38,7 @@ export function FileTree() {
   const files = useApp((s) => s.files)
   const current = useApp((s) => s.current)
   const bookmarks = useApp((s) => s.settings.bookmarks)
+  const synced = useApp((s) => !!s.settings.remote) // 동기화 대기 점은 저장소를 연결했을 때만 의미가 있다(로컬 전용 보관함은 모든 노트가 '대기'라 오류처럼 보였다 — F33)
   const recent = useApp((s) => s.settings.recent)
   const showRecent = useApp((s) => s.settings.showRecent)
   const app = useApp.getState()
@@ -66,7 +67,7 @@ export function FileTree() {
       return (
         <button key={n.path} className={`tree-row file ${current === n.path ? 'on' : ''}`} style={pad} onClick={() => app.openNote(n.path)} {...nm.bind(n.path)}>
           <span className="tree-name">{baseName(n.path)}</span>
-          {f?.conflict ? <span className="dot warn" /> : f?.dirty ? <span className="dot" /> : null}
+          {f?.conflict ? <span className="dot warn" /> : f?.dirty && synced ? <span className="dot" /> : null}
         </button>
       )
     }

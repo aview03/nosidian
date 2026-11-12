@@ -1,4 +1,4 @@
-// 휴대폰(웹·앱, PC 앱 제외): "내 PC 폴더 보기". PC 앱이 공유한 폴더의 파일을 읽기 전용으로 보고, 눌러서 받는다.
+// 휴대폰(웹·앱, PC 앱 제외): "PC 폴더 보기 (읽기 전용)"(노트를 맞추는 "내 PC" 연결과 이름이 헷갈리지 않게 "내"를 뺐다). PC 앱이 공유한 폴더의 파일을 읽기 전용으로 보고, 눌러서 받는다.
 // 연결은 PC 화면의 QR 스캔 또는 복사한 연결 문자열로만 한다(인증서 지문이 들어 있어 가로채기를 막는다).
 import { useCallback, useEffect, useState } from 'react'
 import { Capacitor } from '@capacitor/core'
@@ -6,7 +6,7 @@ import { t } from '../lib/i18n'
 import { desktop } from '../lib/externalIO'
 import { useApp } from '../lib/app'
 import { confirmAsk } from '../lib/dialog'
-import { formatSize, gate, gateMessage, handOver } from '../lib/attachments'
+import { askHandMode, formatSize, gate, gateMessage, handOver, noAppMessage } from '../lib/attachments'
 import { entriesIn, forgetPcShare, getShareFile, listShare, pairShare, parseSharePairing, shareErrorText, usePcFilesUi, type PcShare, type ShareEntry, type SharePairing } from '../lib/pcFiles'
 import { Icon } from './Icon'
 import { QrScan } from './QrScan'
@@ -35,7 +35,7 @@ export function PcFilesCard() {
 
   return (
     <section className="card pcfiles">
-      <h3>{t('내 PC 폴더 보기')}</h3>
+      <h3>{t('PC 폴더 보기 (읽기 전용)')}</h3>
       {link ? (
         <>
           <p className="hint">{t('{name} 의 "{dir}" 폴더를 읽기 전용으로 볼 수 있어요.', { name: link.name, dir: link.dirName ?? '…' })}</p>
@@ -98,9 +98,11 @@ export function PcFilesSheet() {
     const g = gate(f.name, f.size, phone)
     if (g.ok === false) return useApp.getState().say(gateMessage(g, f.name, f.size))
     if (g.ok === 'confirm' && !(await confirmAsk(f.name, gateMessage(g, f.name, f.size), t('받기')))) return
+    const how = await askHandMode(f.name)
+    if (!how) return
     setBusy(f.path)
     try {
-      await handOver(f.name, await getShareFile(link, f.path))
+      if ((await handOver(f.name, await getShareFile(link, f.path), how)) === 'noapp') useApp.getState().say(noAppMessage())
     } catch (e) {
       useApp.getState().say(e instanceof Error ? e.message : shareErrorText(e))
     } finally {
@@ -141,7 +143,7 @@ export function PcFilesSheet() {
               <span className="row-sub">{busy === f.path ? t('받는 중…') : formatSize(f.size)}</span>
             </button>
           ))}
-          {phone && view.files.length > 0 && <p className="hint small pad">{t('파일을 누르면 폰으로 받은 뒤, 열거나 저장할 앱을 고르는 창이 떠요.')}</p>}
+          {phone && view.files.length > 0 && <p className="hint small pad">{t('파일을 누르면 열지 공유·저장할지 고르고, 폰으로 받아요.')}</p>}
           {truncated && <p className="hint small pad">{t('파일이 많아 일부만 보여요')}</p>}
         </div>
         <div className="sheet-foot">

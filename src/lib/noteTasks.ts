@@ -32,6 +32,20 @@ function dateOf(part: string, today: string): string | null {
  *  - 아는 이름(known)이거나 같은 괄호에 날짜가 있으면 이름으로 본다. `@이름` 은 명시적이라 그대로 읽는다.
  *  - 괄호 밖의 `…까지` 날짜(`11/18까지`, `금요일까지`)도 읽는다.
  */
+/**
+ * 제목 끝의 괄호 안에 모르는 한글 이름이 하나뿐일 때 그 이름(`케이터링 견적 받기 (지현)`).
+ * 자동으로 읽지는 않고(`(참고)`·`(초안)` 같은 말머리일 수 있다) 화면이 "담당으로 쓸까요?" 하고 제안하면 사람이 눌러 적용한다.
+ * 이미 아는 이름·말머리·영문은 제안하지 않는다(아는 이름은 extractHints 가 이미 읽는다).
+ */
+export function suggestOwner(title: string, known: Set<string>): { name: string; title: string } | null {
+  const m = /\s*[(（[]\s*([가-힣]{2,4})\s*[)）\]]\s*$/.exec(title)
+  if (!m) return null
+  const name = m[1]
+  if (RESERVED.has(name) || known.has(name)) return null
+  const rest = title.slice(0, m.index).trim()
+  return rest ? { name, title: rest } : null
+}
+
 export function extractHints(title: string, known: Set<string>, today: string): Hints {
   let rest = title
   const owner: string[] = []

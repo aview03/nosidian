@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useApp } from '../lib/app'
 import { t } from '../lib/i18n'
 import { todayYmd } from '../lib/calendar'
-import { applyDecisions, applyRows, buildDecisionRows, buildRows, rowChanged, type DecisionRow, type TaskRow } from '../lib/noteTasks'
+import { applyDecisions, applyRows, buildDecisionRows, buildRows, rowChanged, suggestOwner, type DecisionRow, type TaskRow } from '../lib/noteTasks'
 import { parseMe } from '../lib/work'
 import { useWorkUi, withUndo } from '../lib/workOps'
 import { baseName } from '../lib/links'
@@ -99,6 +99,15 @@ function Sheet({ path }: { path: string }) {
                     <input className="nt-due" type="date" aria-label={t('마감')} value={r.due ?? ''} onChange={(e) => set(r.line, { due: e.target.value || undefined })} />
                     <button className={`nt-dec${r.decision ? ' on' : ''}`} aria-pressed={r.decision} title={t('결정이 필요한 안건')} onClick={() => set(r.line, { decision: !r.decision })}>{t('결정')}</button>
                   </div>
+                  {(() => {
+                    const sg = (ownerText[r.line] ?? '').trim() ? null : suggestOwner(r.title, known)
+                    return sg ? (
+                      <p className="nt-suggest">
+                        <span>{t('"{name}"을(를) 담당으로 쓸까요?', { name: sg.name })}</span>
+                        <button onClick={() => { setOwnerText((o) => ({ ...o, [r.line]: sg.name })); set(r.line, { title: sg.title, owner: [sg.name] }) }}>{t('담당으로 쓰기')}</button>
+                      </p>
+                    ) : null
+                  })()}
                   {r.hinted && (
                     <p className="nt-hint">
                       <b>{t('제목에서 읽었어요')}</b> · {t('원문')}: {r.init.title}

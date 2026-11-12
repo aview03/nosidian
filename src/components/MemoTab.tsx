@@ -16,7 +16,7 @@ import { getLang } from '../lib/i18n'
 import { importFromPicker } from '../lib/importFiles'
 import { Capacitor } from '@capacitor/core'
 import { deleteOther, fetchOther, moveOther, replaceOther, uploadOthers } from '../lib/app'
-import { formatSize, gate, gateMessage, handOver, othersIn, renamedPath, uploadPath, type OtherFile } from '../lib/attachments'
+import { askHandMode, formatSize, gate, gateMessage, handOver, noAppMessage, othersIn, renamedPath, uploadPath, type OtherFile } from '../lib/attachments'
 import { Icon } from './Icon'
 import { openNewFolder } from './NewNote'
 import { useActiveVault } from './VaultSheet'
@@ -326,9 +326,11 @@ export function MemoTab({ sync }: { sync?: ReactNode }) {
     const g = gate(f.path, f.size, Capacitor.isNativePlatform())
     if (g.ok === false) return app.say(gateMessage(g, f.name, f.size))
     if (g.ok === 'confirm' && !(await confirmAsk(f.name, gateMessage(g, f.name, f.size), t('받기')))) return
+    const how = await askHandMode(f.name)
+    if (!how) return
     setBusyFile(f.path)
     try {
-      await handOver(f.path, await fetchOther(f.path))
+      if ((await handOver(f.path, await fetchOther(f.path), how)) === 'noapp') app.say(noAppMessage())
     } catch (e) {
       app.say(t('파일을 받지 못했어요: {why}', { why: e instanceof Error ? e.message : String(e) }))
     } finally {

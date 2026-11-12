@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
-import { applyRows, buildRows, extractHints, rowChanged } from './noteTasks'
+import { applyRows, buildRows, extractHints, rowChanged, suggestOwner } from './noteTasks'
 import { buildWork } from './work'
 import type { NoteFile } from './types'
 
@@ -162,5 +162,22 @@ describe('결정 사항 → 결정 기록 (F26)', () => {
     ]
     const t = buildWork(Object.fromEntries(files.map((f) => [f.path, f]))).tasks.find((x) => x.title === '행사 날짜')!
     expect(t).toMatchObject({ done: true, kind: 'decision', conclusion: '12월 9일로 확정' })
+  })
+})
+
+describe('모르는 이름 제안(자동으로 읽지는 않는다)', () => {
+  it('제목 끝 괄호의 모르는 한글 이름 하나를 제안한다', () => {
+    expect(suggestOwner('케이터링 견적 3곳 받기 (지현)', new Set())).toEqual({ name: '지현', title: '케이터링 견적 3곳 받기' })
+    expect(suggestOwner('시안 확인 [수진]', new Set())).toEqual({ name: '수진', title: '시안 확인' })
+  })
+  it('아는 이름(자동으로 읽는다)·말머리·영문·긴 글·제목이 비는 경우는 제안하지 않는다', () => {
+    expect(suggestOwner('견적 (지현)', new Set(['지현']))).toBeNull()
+    expect(suggestOwner('보고서 (참고)', new Set())).toBeNull()
+    expect(suggestOwner('보고서 (draft)', new Set())).toBeNull()
+    expect(suggestOwner('발표 자료 (지난 회의 참고)', new Set())).toBeNull()
+    expect(suggestOwner('(지현)', new Set())).toBeNull()
+  })
+  it('자동 읽기는 그대로다: 모르는 이름만 있는 괄호는 읽지 않는다', () => {
+    expect(extractHints('자료 정리 (새사람)', new Set(), TODAY)).toMatchObject({ found: false, title: '자료 정리 (새사람)' })
   })
 })

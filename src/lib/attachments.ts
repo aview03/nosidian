@@ -4,6 +4,8 @@ import { Capacitor } from '@capacitor/core'
 import { Directory, Filesystem } from '@capacitor/filesystem'
 import { Share } from '@capacitor/share'
 import { t } from './i18n'
+import { choose } from './dialog'
+import { OpenFile } from './externalIO'
 import { isOther } from './sync/types'
 
 /** 이보다 크면 받기 전에 한 번 더 확인한다 */
@@ -89,20 +91,50 @@ const baseName = (p: string) => p.split('/').pop()!.replace(/[\\/:*?"<>|]/g, '_'
 /** 사용자가 공유 창을 닫아서 생긴 오류인가(플러그인이 'Share canceled' 로 던진다) */
 export const isShareCancel = (e: unknown): boolean => /cancel/i.test(e instanceof Error ? e.message : String(e))
 
+export type HandMode = 'open' | 'share'
+
 /**
- * base64 로 받은 파일을 사용자에게 건넨다. 폰: 임시 폴더에 쓰고 공유 시트(다른 앱으로 열기·저장)를, PC·웹: 브라우저 다운로드.
+ * 폰에서 파일을 눌렀을 때, 받은 뒤 어떻게 할지 묻는다(연구자 P3 F44: 공유 창만 떠서 PDF 를 바로 읽을 방법이 안 보였다).
+ * 열기 = 그 형식의 기본 앱(PDF 뷰어 등)으로 바로, 공유·저장 = 공유 창(드라이브·카카오톡·파일에 저장 등). 닫으면 null(받지 않는다).
+ * 폰이 아니면 묻지 않는다(브라우저 다운로드).
  */
-export async function handOver(path: string, b64: string): Promise<void> {
+export async function askHandMode(name: string): Promise<HandMode | null> {
+  if (!Capacitor.isNativePlatform()) return 'share'
+  const v = await choose(name, t('받은 뒤 어떻게 할까요?'), [
+    { value: 'open', label: t('열기') },
+    { value: 'share', label: t('공유·저장') },
+  ])
+  return v === 'open' || v === 'share' ? v : null
+}
+
+/** 열 수 있는 앱이 없을 때의 안내(호출한 쪽이 알린다) */
+export const noAppMessage = () => t('열 수 있는 앱이 없어서 공유 창으로 열어요')
+
+/**
+ * base64 로 받은 파일을 사용자에게 건넨다. 폰: 임시 폴더에 쓰고 mode 에 따라 기본 앱으로 열거나 공유 시트를, PC·웹: 브라우저 다운로드.
+ * 돌려주는 값: 'opened' 앱으로 열었다 / 'shared' 공유 창(또는 다운로드) / 'noapp' 열 앱이 없어 공유 창으로 넘겼다
+ */
+export async function handOver(path: string, b64: string, mode: HandMode = 'share'): Promise<'opened' | 'shared' | 'noapp'> {
   const name = baseName(path)
   if (Capacitor.isNativePlatform()) {
     const w = await Filesystem.writeFile({ path: `nosidian-files/${Date.now()}/${name}`, data: b64, directory: Directory.Cache, recursive: true })
+    let noapp = false
+    if (mode === 'open') {
+      try {
+        await OpenFile.view({ uri: w.uri, mime: mimeOf(name) })
+        return 'opened'
+      } catch (e) {
+        if (!/noapp/i.test(e instanceof Error ? e.message : String(e))) throw e
+        noapp = true // 열 앱이 없다 → 공유 창으로
+      }
+    }
     try {
       await Share.share({ title: name, url: w.uri, dialogTitle: name })
     } catch (e) {
-      if (isShareCancel(e)) return // 공유 창을 그냥 닫은 것은 오류가 아니다(연구자 P3: 영어 'Share canceled' 알림이 떴다)
+      if (isShareCancel(e)) return noapp ? 'noapp' : 'shared' // 공유 창을 그냥 닫은 것은 오류가 아니다(연구자 P3: 영어 'Share canceled' 알림이 떴다)
       throw e
     }
-    return
+    return noapp ? 'noapp' : 'shared'
   }
   const bin = atob(b64)
   const bytes = new Uint8Array(bin.length)
@@ -114,6 +146,7 @@ export async function handOver(path: string, b64: string): Promise<void> {
   a.click()
   a.remove()
   setTimeout(() => URL.revokeObjectURL(a.href), 4000)
+  return 'shared'
 }
 
 /** 올릴 수 없는 파일이면 이유(문장), 올려도 되면 null */

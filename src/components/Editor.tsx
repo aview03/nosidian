@@ -270,14 +270,14 @@ export function Editor({ path, initial, onChange, externalContent }: Props) {
         <button onClick={linePrefix('- ')} title={t('목록')}>•</button>
         <button onClick={linePrefix('## ')} title={t('제목')}>H</button>
         <button onClick={wrapSel('**')} title={t('굵게')}><b>B</b></button>
+        <button onClick={codeBtn} title={t('코드 (여러 줄이나 빈 줄이면 코드 블록)')}>{'</>'}</button>
         <button onClick={wrapSel('*')} title={t('기울임')}><i>I</i></button>
         <button onClick={wrapSel('==')} title={t('하이라이트')}>▮</button>
-        <button onClick={codeBtn} title={t('코드 (여러 줄이나 빈 줄이면 코드 블록)')}>{'</>'}</button>
         <button onClick={linePrefix('> ')} title={t('인용')}>❝</button>
         <button onClick={() => fileIn.current?.click()} title={t('이미지')} aria-label={t('이미지')}>🖼</button>
         <button onClick={run((v) => import('@codemirror/commands').then((m) => m.undo(v)))} title={t('실행 취소')}>↶</button>
         <button onClick={run((v) => import('@codemirror/commands').then((m) => m.redo(v)))} title={t('다시 실행')}>↷</button>
-        <button onClick={() => setHelp((h) => !h)} aria-pressed={help} title={t('마크다운 도움')} aria-label={t('마크다운 도움')}>?</button>
+        <button className="tb-help" onClick={() => setHelp((h) => !h)} aria-pressed={help} title={t('마크다운 도움')} aria-label={t('마크다운 도움')}>?</button>
       </div>
     </div>
   )

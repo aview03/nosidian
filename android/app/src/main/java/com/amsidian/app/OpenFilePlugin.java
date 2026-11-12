@@ -1,5 +1,6 @@
 package com.amsidian.app;
 
+import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.database.Cursor;
 import android.net.Uri;
@@ -11,7 +12,9 @@ import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
+import androidx.core.content.FileProvider;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
@@ -41,6 +44,38 @@ public class OpenFilePlugin extends Plugin {
         JSObject r = pending != null ? pending : new JSObject();
         pending = null;
         call.resolve(r);
+    }
+
+    /**
+     * 받아 둔 파일을 그 형식을 여는 기본 앱(PDF 뷰어 등)으로 바로 연다. 공유 창을 거치지 않는다.
+     * 앱이 내려받아 둔 임시 폴더(cache/nosidian-files) 안의 파일만 열 수 있다(다른 앱 파일을 JS 가 열게 하지 않는다).
+     * 열 수 있는 앱이 없으면 reject("noapp") — 호출한 쪽이 공유 창으로 넘어간다.
+     */
+    @PluginMethod
+    public void view(PluginCall call) {
+        String uriStr = call.getString("uri");
+        String mime = call.getString("mime");
+        if (uriStr == null) {
+            call.reject("잘못된 요청");
+            return;
+        }
+        try {
+            String p = Uri.parse(uriStr).getPath();
+            if (p == null) throw new Exception("잘못된 파일");
+            File f = new File(p).getCanonicalFile();
+            File root = new File(getContext().getCacheDir(), "nosidian-files").getCanonicalFile();
+            if (!f.getPath().startsWith(root.getPath() + File.separator) || !f.isFile()) throw new Exception("열 수 없는 파일");
+            Uri u = FileProvider.getUriForFile(getContext(), getContext().getPackageName() + ".fileprovider", f);
+            Intent i = new Intent(Intent.ACTION_VIEW);
+            i.setDataAndType(u, mime == null || mime.isEmpty() ? "*/*" : mime);
+            i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
+            getContext().startActivity(i);
+            call.resolve();
+        } catch (ActivityNotFoundException e) {
+            call.reject("noapp");
+        } catch (Exception e) {
+            call.reject(e.getMessage() == null ? "열기 실패" : e.getMessage());
+        }
     }
 
     /** 열어 본 문서를 원본 uri 에 덮어쓴다 (파일 관리자가 쓰기 권한을 주지 않았으면 실패) */

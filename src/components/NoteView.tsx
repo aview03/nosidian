@@ -36,6 +36,7 @@ export function NoteView({ wide }: { wide: boolean }) {
   const mode = useApp((s) => s.mode)
   const index = useApp((s) => s.index)
   const bookmarks = useApp((s) => s.settings.bookmarks)
+  const synced = useApp((s) => !!s.settings.remote) // 저장소가 없으면 '동기화 대기' 점을 보이지 않는다(F33)
   const rightOpen = useApp((s) => s.settings.rightOpen)
   const aiOpen = useAiThread((s) => s.open)
   const findOpen = useApp((s) => s.findOpen)
@@ -154,7 +155,7 @@ export function NoteView({ wide }: { wide: boolean }) {
           </>
         )}
         <div className="note-title" onClick={rename}>
-          <span className="t"><span className="tn">{baseName(current)}</span>{file.dirty && <span className="dot" title={t('동기화 대기')} />}</span>
+          <span className="t"><span className="tn">{baseName(current)}</span>{file.dirty && synced && <span className="dot" title={t('동기화 대기')} />}</span>
           {current.includes('/') && <span className="p">{current.slice(0, current.lastIndexOf('/'))}</span>}
         </div>
         <button className={`mode-btn ${mode === 'edit' ? 'on' : ''}`} onClick={() => app.setMode(mode === 'edit' ? 'read' : 'edit')}>

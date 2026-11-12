@@ -200,6 +200,8 @@ input.task { width: 1.1em; height: 1.1em; vertical-align: -0.15em; accent-color:
 .cm-completionDetail { margin-left: 8px; color: var(--muted); font-style: normal; font-size: 0.85em; }
 .edit-toolbar { display: flex; overflow-x: auto; gap: 4px; padding: 6px 8px calc(6px + var(--safe-b)); border-top: 1px solid var(--border); background: var(--bg2); flex: none; scrollbar-width: none; }
 .edit-toolbar button { flex: none; min-width: 42px; min-height: 40px; padding: 0 10px; border: none; background: var(--bg); border-radius: var(--r); font-size: 15px; }
+/* 마크다운 도움(?)은 폰에서 옆으로 밀지 않아도 늘 보이게 오른쪽 끝에 붙여 둔다(F41) */
+.edit-toolbar .tb-help { position: sticky; right: 0; margin-left: auto; box-shadow: -10px 0 8px -2px var(--bg2); }
 
 /* ── 정보 패널 / 시트 ── */
 .info { padding-bottom: 20px; }
@@ -1815,6 +1817,8 @@ body.board-dragging, body.board-dragging * { cursor: grabbing !important; user-s
 .nt-name { margin-left: 8px; color: var(--muted); font-size: 13px; font-weight: 500; }
 .nt-intro { margin: 2px 0 4px; }
 .nt-row { display: flex; flex-direction: column; gap: 6px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.nt-suggest { margin: 0; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
+.nt-suggest button { min-height: 36px; padding: 0 12px; }
 .nt-row.changed { border-left: 3px solid var(--accent, #4c8dff); padding-left: 10px; }
 .nt-title { width: 100%; height: 44px; padding: 0 12px; border: 1px solid var(--border); border-radius: var(--r); background: var(--bg); color: var(--text); font-size: 15px; font-weight: 600; }
 .nt-title:focus, .nt-owner:focus, .nt-due:focus { outline: none; border-color: var(--accent); }
