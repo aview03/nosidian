@@ -481,6 +481,18 @@ export function eventLine(q: Quick, done = false, withAt = false) {
   return parts.join(' ')
 }
 
+/**
+ * 빠른 입력창 아래 미리보기 한 줄. 저장될 내용과 같아야 한다 —
+ * 며칠에 걸친 일정은 마지막 날까지, 매주 요일 반복은 요일까지 보여 준다(마케터 P2: 해석은 되는데 미리보기에는 안 보였다).
+ */
+export function quickPreview(q: Quick): string {
+  const days = q.repeat === 'weekly' && q.repeatDays?.length ? ' ' + [...q.repeatDays].sort().map((d) => weekdayLabels()[d]).join('·') : ''
+  const span = q.endDate && q.endDate > q.date ? ` ~ ${fmtDay(q.endDate)}` : ''
+  const time = q.start ? ` · ${q.start}${q.end ? '–' + q.end : ''}` : ''
+  const rep = q.repeat ? ` · ${t(REPEAT_LABEL[q.repeat])}${days}` : ''
+  return `${fmtDay(q.date)}${span}${time}${rep} · ${q.title}`
+}
+
 /** 편집기에 채울 값 (반복 복제본·연속일이어도 원본 기준) */
 export function quickOf(ev: CalEvent): Quick {
   return { title: ev.title, date: ev.origDate ?? ev.date, endDate: ev.span?.[1], start: ev.start, end: ev.end, repeat: ev.repeat, repeatDays: ev.repeatDays, until: ev.until }

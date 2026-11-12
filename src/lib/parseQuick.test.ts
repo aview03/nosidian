@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { eventLine, parseQuick } from './calendar'
+import { eventLine, parseQuick, quickPreview } from './calendar'
+import { setLang } from './i18n'
 
 const BASE = '2026-11-11' // 수요일
 
@@ -108,5 +109,24 @@ describe('빠른 입력: 마감("까지")·매월 N일·이번/다음 달·요�
   })
   it('쓰는 줄: 요일 목록·시각 범위가 그대로 적힌다', () => {
     expect(eventLine(parseQuick('매주 화,목 3시~5시 수업', BASE))).toBe('- [ ] 15:00-17:00 수업 repeat:weekly:tue,thu')
+  })
+})
+
+describe('빠른 입력 미리보기는 저장될 내용과 같다', () => {
+  beforeEach(() => setLang('ko'))
+  it('며칠에 걸친 일정은 마지막 날까지 보인다', () => {
+    const p = quickPreview(parseQuick('11월 20일부터 11월 22일까지 워크숍', BASE))
+    expect(p).toContain('~')
+    expect(p).toContain('22')
+    expect(p).toContain('워크숍')
+  })
+  it('매주 요일 반복은 요일이 보인다', () => {
+    const p = quickPreview(parseQuick('매주 화,목 10시 스탠드업', BASE))
+    expect(p).toContain('화·목')
+    expect(p).toContain('10:00')
+  })
+  it('하루짜리·요일 없는 반복은 그대로(군더더기 없음)', () => {
+    expect(quickPreview(parseQuick('내일 3시 치과', BASE))).not.toContain('~')
+    expect(quickPreview(parseQuick('매월 5일 정산', BASE))).toBe('12월 5일 (토) · 매월 · 정산')
   })
 })

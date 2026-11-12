@@ -7,7 +7,7 @@ import { Editor } from './Editor'
 import { holidayOf, lunarLabel } from '../lib/holidays'
 import {
   buildDayColors, DAY_COLORS, setDayColor, parseYmd, REPEAT_LABEL,
-  isWidgetWindow, fmtShort, weekOf, addDays, openPath, openDay, addEvent, buildCalendar, dailyPath, ensureDaily, fmtDay, fmtMonth, monthGrid, parseQuick, range,
+  isWidgetWindow, fmtShort, weekOf, addDays, openPath, openDay, addEvent, buildCalendar, dailyPath, ensureDaily, fmtDay, fmtMonth, monthGrid, parseQuick, quickPreview, range,
   todayYmd, useCal, weekdayLabels, type CalEvent,
 } from '../lib/calendar'
 
@@ -97,7 +97,7 @@ function QuickAddInput({ date }: { date: string }) {
       />
       <button className="detail" onClick={() => useCal.getState().openEditor(q?.date ?? date)} title={t('시간·반복·기간을 골라서 추가')}>{t('상세')}</button>
       <button className="primary" onClick={submit} disabled={!q} aria-label={t('추가')}><Icon name="plus" /></button>
-      {q && <div className="quick-preview">{fmtDay(q.date)}{q.start ? ` · ${q.start}${q.end ? '–' + q.end : ''}` : ''}{q.repeat ? ` · ${t(REPEAT_LABEL[q.repeat])}` : ''} · {q.title}</div>}
+      {q && <div className="quick-preview">{quickPreview(q)}</div>}
     </div>
   )
 }
