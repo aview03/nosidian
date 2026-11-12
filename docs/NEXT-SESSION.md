@@ -9,8 +9,8 @@
 - 노트는 IndexedDB(Vault)에 있고, 동기화는 GitHub·Google Drive·OneDrive(클라우드) **또는** 이 PC 를 호스트로 쓰는 "내 PC" 방식(클라우드 없이)이 있다.
 
 ## 2. 현재 상태
-- 원격 `origin/main` = **v1.43.6 (`e5a708b`)** 까지 푸시됨. **v1.43.7(프로젝트 깊이·용어 첫 걸음)은 로컬 커밋만 있고 아직 푸시·PC 설치 파일 빌드 전**일 수 있다 — `git status -sb` 로 확인.
-- 테스트 **1290개 통과**(`npm test`, 98개 파일), `npx tsc -b` 오류 없음. 설치 파일 `release/Nosidian-Setup-1.43.6.exe`(~125MB, 코드 서명 없음)까지 빌드됨(1.43.7 은 미빌드) — **설치해서 실행해 보지는 않았다**. 폰에는 v1.43.6 디버그 APK 설치됨(1.43.7 APK 는 빌드만 했고 **폰이 USB 에서 분리돼 설치·확인하지 못했다**).
+- 원격 `origin/main` = **v1.43.7 (`2979a64`)** 까지 푸시됨. (이 문서를 고친 커밋이 로컬에 더 있을 수 있음 — `git status -sb` 로 확인)
+- 테스트 **1290개 통과**(`npm test`, 98개 파일), `npx tsc -b` 오류 없음. 설치 파일 `release/Nosidian-Setup-1.43.7.exe`(~125MB, 코드 서명 없음)까지 빌드됨 — **설치해서 실행해 보지는 않았다**. 폰에는 v1.43.7 디버그 APK 설치됨(시스템 `versionName`/`versionCode` 는 `package.json` 을 따른다: 1.43.7 / 14307). **주의**: APK 를 빌드할 때는 `npm run build` 뒤에 반드시 `npx cap sync android` 를 해야 웹 자산이 갱신된다(이번에 한 번 놓쳐서 옛 자산이 든 APK 가 설치될 뻔했다).
 - 폰: Android(삼성 One UI 추정), USB 연결, 화면 꺼짐 30초(시험할 때만 `svc power stayon true`). **PIN 잠금이 걸려 있어 잠기면 CDP 가 멈춘다 → 폰 시험 전에 사용자에게 "잠금 풀어 주세요" 요청.**
 
 ## 3. 반드시 지킬 규칙 (사용자 지시)
