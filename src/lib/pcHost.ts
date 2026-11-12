@@ -8,6 +8,7 @@ import { clearSecretRecord, readSecretRecord, registerSecret, writeSecretRecord,
 import { t } from './i18n'
 import { SyncError } from './sync/types'
 import { clientId } from './deviceId'
+import { notifyUnpair, UNPAIR_TIMEOUT_MS } from './unpair'
 
 const KEY = 'nosidian.pchost'
 const SECRET: SecretSpec = { storageKey: KEY, field: 'token', secretName: 'pchost.token', required: true }
@@ -38,6 +39,9 @@ export function savePcHost(l: PcHostLink | null) {
   else clearSecretRecord(SECRET)
 }
 export const forgetPcHost = () => savePcHost(null)
+
+/** PC 에 이 휴대폰의 해제를 알린다(연결 정보는 지우지 않는다 — 노트 쪽 정리는 leaveHost). 반환: PC 목록에서도 빠졌나(꺼져 있으면 false) */
+export const unpairHost = (link: PcHostLink): Promise<boolean> => notifyUnpair(() => callHost(link, '/unpair', {}, UNPAIR_TIMEOUT_MS))
 
 export interface HostPairing {
   host: string

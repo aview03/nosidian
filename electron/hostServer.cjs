@@ -197,6 +197,17 @@ function createHostServer(deps) {
     send(res, 200, { rev: r.rev, seq: r.seq })
   }
 
+  function revokeDevice(id) {
+    state.devices = state.devices.filter((d) => d.id !== id)
+    writeLog.delete(id)
+    save()
+    try {
+      getHost().removeDevice(id) // 해제한 기기는 삭제 기록 정리에서 더 기다리지 않는다
+    } catch {
+      /* 호스트 폴더가 없으면 건너뛴다 */
+    }
+  }
+
   async function handle(req, res) {
     const remote = String(req.socket.remoteAddress || '').replace(/^::ffff:/, '')
     try {
@@ -212,6 +223,10 @@ function createHostServer(deps) {
         return send(res, 401, { error: 'unauthorized' })
       }
       dev.lastSeen = now()
+      if (req.method === 'POST' && url.pathname === '/unpair') {
+        revokeDevice(dev.id)
+        return send(res, 200, { ok: true })
+      }
       if (req.method !== 'POST') return send(res, 404, { error: 'not found' })
       switch (url.pathname) {
         case '/ping': {
@@ -324,14 +339,7 @@ function createHostServer(deps) {
       return true
     },
     revoke(id) {
-      state.devices = state.devices.filter((d) => d.id !== id)
-      writeLog.delete(id)
-      save()
-      try {
-        getHost().removeDevice(id) // 해제한 기기는 삭제 기록 정리에서 더 기다리지 않는다
-      } catch {
-        /* 호스트 폴더가 없으면 건너뛴다 */
-      }
+      revokeDevice(id)
     },
     setError(e) {
       error = e

@@ -15,7 +15,7 @@ import { useApp, uploadOthers } from './app'
 import { setLang } from './i18n'
 import { setPinnedTransport, type PinnedReq, type PinnedRes } from './pinnedHttp'
 import { setSnapshotBackend, listVaultSnapshots, type SnapshotBackend } from './phoneSnapshot'
-import { forgetPcHost, hostErrorText, loadPcHost, pairHost, parseHostPairing, pingHost, callHost, savePcHost, type PcHostLink } from './pcHost'
+import { forgetPcHost, hostErrorText, loadPcHost, pairHost, parseHostPairing, pingHost, callHost, savePcHost, unpairHost, type PcHostLink } from './pcHost'
 import { applyHostConnect, leaveHost, phoneHostIO, planHostConnect, previewHostConnect, restoreVaultFromSnapshot, type Choice } from './hostConnect'
 
 setLang('ko')
@@ -440,5 +440,19 @@ describe('최초 연결(폰): 미리보기 → 승인 → 스냅샷 → 반영',
     const plan = await planHostConnect(useApp.getState().files, await phoneHostIO(link, true).list())
     expect(plan.pcOnly).toEqual(['gone.md'])
     expect(plan.revived).toEqual(['gone.md'])
+  })
+})
+
+describe('폰에서 해제하면 PC 의 목록에서도 빠진다 (5-c)', () => {
+  it('unpairHost: PC 의 호스트 기기 목록에서 빠지고 그 토큰은 더 쓸 수 없다', async () => {
+    const link = await connect()
+    expect(server.state().devices).toHaveLength(1)
+    expect(await unpairHost(link)).toBe(true)
+    expect(server.state().devices).toHaveLength(0)
+    await expect(callHost(link, '/list', {})).rejects.toBeTruthy()
+  })
+  it('닿지 않는 PC 면 false(폰의 연결은 호출한 쪽이 끊는다)', async () => {
+    const link = await connect()
+    expect(await unpairHost({ ...link, host: '127.0.0.1', hosts: ['127.0.0.1'], port: 1 })).toBe(false)
   })
 })

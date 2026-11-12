@@ -263,6 +263,11 @@ function createRelay(deps) {
     send(res, 200, { ok: true })
   }
 
+  function revokeDevice(id) {
+    state.devices = state.devices.filter((d) => d.id !== id)
+    save()
+  }
+
   async function handle(req, res) {
     const remote = String(req.socket.remoteAddress || '').replace(/^::ffff:/, '')
     try {
@@ -272,6 +277,11 @@ function createRelay(deps) {
       const dev = authDevice(req)
       if (!dev) return send(res, 401, { error: 'unauthorized' })
       dev.lastSeen = now()
+      // 휴대폰이 스스로 연결을 해제한다(자기 자신만 — 토큰으로 인증된 기기). 폰에서 해제해도 이 PC 의 "연결된 휴대폰" 목록에 남던 것을 막는다(5-c)
+      if (req.method === 'POST' && url.pathname === '/unpair') {
+        revokeDevice(dev.id)
+        return send(res, 200, { ok: true })
+      }
       if (req.method === 'GET' && url.pathname === '/ping') {
         const first = firstPublic()
         return send(res, 200, { name: deps.hostName || 'PC', upstream: first ? { kind: first.kind, model: first.model } : null, upstreams: upsPublic(), claude: !!claude.ready(), busy: !!claude.busy() })
@@ -326,8 +336,7 @@ function createRelay(deps) {
       save()
     },
     revoke(id) {
-      state.devices = state.devices.filter((d) => d.id !== id)
-      save()
+      revokeDevice(id)
     },
     setError(e) {
       error = e

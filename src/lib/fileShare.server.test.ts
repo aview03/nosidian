@@ -301,3 +301,23 @@ describe('기기 하나에 연결 링크 하나 (폴더 공유)', () => {
     expect(b.s.state().devices).toHaveLength(1)
   })
 })
+
+describe('/unpair — 폰이 스스로 연결을 해제한다 (5-c)', () => {
+  it('해제하면 PC 의 기기 목록에서 빠지고 그 토큰은 즉시 401, 다른 기기는 그대로', async () => {
+    const s = await start()
+    const r2 = await req(s.port, '/pair', { code: s.s.codeNow().value, name: '태블릿' })
+    const t2 = r2.json.token as string
+    expect(s.s.state().devices).toHaveLength(2)
+    expect((await req(s.port, '/unpair', {}, s.token)).status).toBe(200)
+    expect(s.s.state().devices.map((d: { name: string }) => d.name)).toEqual(['태블릿'])
+    expect((await req(s.port, '/list', {}, s.token)).status).toBe(401)
+    expect((await req(s.port, '/list', {}, t2)).status).toBe(200)
+    expect((await req(s.port, '/unpair', {}, s.token)).status).toBe(401) // 이미 해제됨
+  })
+  it('토큰이 없거나 틀리면 해제할 수 없다(401)', async () => {
+    const s = await start()
+    expect((await req(s.port, '/unpair', {})).status).toBe(401)
+    expect((await req(s.port, '/unpair', {}, 'a'.repeat(48))).status).toBe(401)
+    expect(s.s.state().devices).toHaveLength(1)
+  })
+})

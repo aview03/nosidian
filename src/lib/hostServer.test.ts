@@ -453,3 +453,24 @@ describe('기기 하나에 연결 링크 하나 (호스트)', () => {
     expect((await req(b.port, '/ping', {}, c.token)).status).toBe(200)
   })
 })
+
+describe('/unpair — 폰이 스스로 연결을 해제한다 (5-c)', () => {
+  it('해제하면 호스트의 기기 목록에서도 빠지고 그 토큰은 즉시 401, 다른 기기는 그대로', async () => {
+    const b = await boot()
+    const a = await pairDevice(b, '내 폰')
+    const c = await pairDevice(b, '태블릿')
+    expect((await req(b.port, '/unpair', {}, a.token)).status).toBe(200)
+    expect(b.s.state().devices.map((d: { id: string }) => d.id)).toEqual([c.id])
+    expect(host.devices().map((x: { id: string }) => x.id)).not.toContain(a.id)
+    expect((await req(b.port, '/list', {}, a.token)).status).toBe(401)
+    expect((await req(b.port, '/list', {}, c.token)).status).toBe(200)
+    expect((await req(b.port, '/unpair', {}, a.token)).status).toBe(401) // 이미 해제됨
+  })
+  it('토큰이 없거나 틀리면 해제할 수 없다(401)', async () => {
+    const b = await boot()
+    await pairDevice(b)
+    expect((await req(b.port, '/unpair', {})).status).toBe(401)
+    expect((await req(b.port, '/unpair', {}, 'a'.repeat(48))).status).toBe(401)
+    expect(b.s.state().devices).toHaveLength(1)
+  })
+})

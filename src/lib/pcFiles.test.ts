@@ -7,7 +7,7 @@ import path from 'node:path'
 import mod from '../../electron/fileShare.cjs'
 import { setLang } from './i18n'
 import { setPinnedTransport, pinnedRequest, type PinnedReq, type PinnedRes } from './pinnedHttp'
-import { entriesIn, forgetPcShare, getShareFile, listShare, loadPcShare, pairShare, parseSharePairing, sha256Hex, usePcFilesUi } from './pcFiles'
+import { entriesIn, forgetPcShare, getShareFile, listShare, loadPcShare, pairShare, parseSharePairing, sha256Hex, unpairShare, usePcFilesUi } from './pcFiles'
 
 setLang('ko')
 const { createShare, makeTls } = mod as { createShare(d: unknown): any; makeTls(): Promise<{ key: string; cert: string; fp: string }> }
@@ -159,5 +159,23 @@ describe('HTTPS 페어링 → 목록 → 받기(지문 고정 연결)', () => {
     expect(loadPcShare()).toBeNull()
     expect(usePcFilesUi.getState().link).toBeNull()
     expect(await sha256Hex(new TextEncoder().encode('abc'))).toBe('ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad')
+  })
+})
+
+describe('폰에서 해제하면 PC 의 목록에서도 빠진다 (5-c)', () => {
+  it('unpairShare: PC 에 알리고(기기 목록에서 빠짐) 이 폰의 연결 정보도 지운다', async () => {
+    const b = await boot()
+    await pairShare(parseSharePairing(b.pairing)!, '내 폰')
+    expect(b.s.state().devices).toHaveLength(1)
+    expect(await unpairShare()).toBe(true)
+    expect(b.s.state().devices).toHaveLength(0)
+    expect(loadPcShare()).toBeNull()
+  })
+  it('이미 PC 에서 해제한 기기가 해제하면 401 이어도 성공으로 본다', async () => {
+    const b = await boot()
+    await pairShare(parseSharePairing(b.pairing)!, '내 폰')
+    b.s.revoke(b.s.state().devices[0].id)
+    expect(await unpairShare()).toBe(true)
+    expect(loadPcShare()).toBeNull()
   })
 })

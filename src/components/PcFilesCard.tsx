@@ -7,10 +7,11 @@ import { desktop } from '../lib/externalIO'
 import { useApp } from '../lib/app'
 import { confirmAsk } from '../lib/dialog'
 import { askHandMode, formatSize, gate, gateMessage, handOver, noAppMessage } from '../lib/attachments'
-import { entriesIn, forgetPcShare, getShareFile, listShare, pairShare, parseSharePairing, shareErrorText, usePcFilesUi, type PcShare, type ShareEntry, type SharePairing } from '../lib/pcFiles'
+import { entriesIn, getShareFile, listShare, pairShare, parseSharePairing, shareErrorText, unpairShare, usePcFilesUi, type PcShare, type ShareEntry, type SharePairing } from '../lib/pcFiles'
 import { Icon } from './Icon'
 import { QrScan } from './QrScan'
 import { useBackClose } from '../lib/backStack'
+import { ForgetLink } from './ForgetLink'
 
 export function PcFilesCard() {
   const link = usePcFilesUi((s) => s.link)
@@ -40,7 +41,7 @@ export function PcFilesCard() {
         <>
           <p className="hint">{t('{name} 의 "{dir}" 폴더를 읽기 전용으로 볼 수 있어요.', { name: link.name, dir: link.dirName ?? '…' })}</p>
           <button className="primary big" onClick={() => usePcFilesUi.setState({ open: true })}>{t('파일 보기')}</button>
-          <button className="btn-link" onClick={() => { forgetPcShare(); setMsg({ kind: 'idle', text: '' }) }}>{t('연결 해제')}</button>
+          <ForgetLink kind="share" pcName={link.name} onForget={async () => { const ok = await unpairShare(); setMsg({ kind: 'idle', text: '' }); return ok }} />
         </>
       ) : (
         <div className="stack">

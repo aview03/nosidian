@@ -262,6 +262,11 @@ function createShare(deps) {
     }
   }
 
+  function revokeDevice(id) {
+    state.devices = state.devices.filter((d) => d.id !== id)
+    save()
+  }
+
   async function handle(req, res) {
     const remote = String(req.socket.remoteAddress || '').replace(/^::ffff:/, '')
     try {
@@ -277,6 +282,11 @@ function createShare(deps) {
         return send(res, 401, { error: 'unauthorized' })
       }
       dev.lastSeen = now()
+      // 휴대폰이 스스로 연결을 해제한다(자기 자신만 — 토큰으로 인증된 기기). 폰에서 해제해도 이 PC 의 "연결된 휴대폰" 목록에 남던 것을 막는다(5-c)
+      if (req.method === 'POST' && url.pathname === '/unpair') {
+        revokeDevice(dev.id)
+        return send(res, 200, { ok: true })
+      }
       if (req.method === 'POST' && url.pathname === '/ping') return send(res, 200, { name: deps.hostName || 'PC', dirName: state.dir ? path.basename(state.dir) : null, shared: !!state.dir })
       if (req.method === 'POST' && url.pathname === '/list') return await list(res)
       if (req.method === 'POST' && url.pathname === '/get') return await get(req, res)
@@ -345,8 +355,7 @@ function createShare(deps) {
       return null
     },
     revoke(id) {
-      state.devices = state.devices.filter((d) => d.id !== id)
-      save()
+      revokeDevice(id)
     },
     setError(e) {
       error = e

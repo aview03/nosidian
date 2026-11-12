@@ -5,12 +5,13 @@ import { t } from '../lib/i18n'
 import { useApp } from '../lib/app'
 import { confirmAsk } from '../lib/dialog'
 import { applyHostConnect, leaveHost, phoneHostIO, previewHostConnect, restoreVaultFromSnapshot, type Choice, type ConnectPlan } from '../lib/hostConnect'
-import { forgetPcHost, hostErrorText, loadPcHost, pairHost, parseHostPairing, pingHost, type HostPairing, type PcHostLink, type PcHostPing } from '../lib/pcHost'
+import { forgetPcHost, hostErrorText, loadPcHost, pairHost, parseHostPairing, pingHost, unpairHost, type HostPairing, type PcHostLink, type PcHostPing } from '../lib/pcHost'
 import { listVaultSnapshots, type PhoneSnapshot } from '../lib/phoneSnapshot'
 import { Icon } from './Icon'
 import { HostPlanView } from './HostPlan'
 import { QrScan } from './QrScan'
 import { useBackClose } from '../lib/backStack'
+import { ForgetLink } from './ForgetLink'
 
 const errText = (e: unknown) => {
   const x = e as { message?: string; status?: number; code?: string }
@@ -119,7 +120,7 @@ export function PcHostConnectDialog({ onClose }: { onClose: () => void }) {
                   <PermLine perms={ping?.perms ?? null} />
                   <div className="btn-row">
                     <button disabled={busy} onClick={() => void refresh(link)}>{t('다시 확인')}</button>
-                    <button className="danger-link" disabled={busy} onClick={() => { forgetPcHost(); setLink(null); setPing(null); setPlan(null) }}>{t('다른 PC에 연결')}</button>
+                    <button className="danger-link" disabled={busy} onClick={async () => { await unpairHost(link); forgetPcHost(); setLink(null); setPing(null); setPlan(null) }}>{t('다른 PC에 연결')}</button>
                   </div>
                   {ping && !plan && <button className="primary big" disabled={busy} onClick={() => void preview()}>{busy ? t('확인하는 중…') : t('차이 미리 보기')}</button>}
                   {plan && ping && <HostPlanView plan={plan} choices={choices} setChoices={setChoices} busy={busy} side="phone" canWrite={ping.perms.write} onStart={() => void start()} />}
@@ -188,14 +189,7 @@ export function PcHostPanel() {
           </ul>
         </details>
       )}
-      <button
-        className="danger-link"
-        onClick={async () => {
-          if (await confirmAsk(t('PC 연결을 끊을까요?'), t('이 휴대폰의 노트는 그대로 남아요. 연결 정보만 지워요. PC 앱에서도 이 휴대폰을 해제해 주세요. 올리지 않은 변경은 노트에 남아 있어요.'), t('끊기'), true)) leaveHost()
-        }}
-      >
-        {t('PC 연결 끊기 (노트는 그대로)')}
-      </button>
+      <ForgetLink kind="host" pcName={link.name} className="danger-link" onForget={async () => { const ok = await unpairHost(link); leaveHost(); return ok }} />
     </div>
   )
 }

@@ -12,12 +12,13 @@ import { modelList, refreshModels, refreshStaleModels } from '../lib/aiModels'
 import { ask, confirmAsk } from '../lib/dialog'
 import { LlmCard } from './LlmSettings'
 import { startAnalysis } from '../lib/autoRunner'
-import { adoptUpstream, forgetPc, loadPcLink, pairWithPc, parsePairing, runClaudeViaPc, syncPcUpstreams, type Pairing } from '../lib/pcLink'
+import { adoptUpstream, loadPcLink, unpairPc, pairWithPc, parsePairing, runClaudeViaPc, syncPcUpstreams, type Pairing } from '../lib/pcLink'
 import { useAiConfigVersion } from '../lib/useAiConfig'
 import { QrScan } from './QrScan'
 import { KEY_PROVIDERS, LOCAL_PROVIDERS, aiSummary, connectionBadge, connectionSub, connectionTitle, countConnected, isInUse, pickModel, type WizardWay } from '../lib/aiWizard'
 import { Orb } from './Orb'
 import { Select } from './Select'
+import { ForgetLink } from './ForgetLink'
 
 type Step = 'home' | 'pick' | WizardWay | 'done'
 type Check = { kind: 'idle' } | { kind: 'busy'; text?: string } | { kind: 'ok'; text: string } | { kind: 'err'; text: string }
@@ -143,7 +144,7 @@ export function AiWizard() {
           )}
           <button className={n ? 'big' : 'primary big'} onClick={startAdd}>{n ? t('+ AI 연결 추가') : t('AI 연결하기')}</button>
           {n > 0 && <button className="btn-link" onClick={() => useAiThread.getState().setOpen(true)}>{t('AI 패널 열기')}</button>}
-          {mobile && pc && <button className="btn-link" onClick={() => { forgetPc(); setPc(null); setConns(loadAllLlmConfigs()) }}>{t('이 PC 연결 해제 ({name})', { name: pc.name })}</button>}
+          {mobile && pc && <ForgetLink kind="ai" pcName={pc.name} label={t('이 PC 연결 해제 ({name})', { name: pc.name })} onForget={async () => { const ok = await unpairPc(); setPc(null); setConns(loadAllLlmConfigs()); return ok }} />}
         </>
       )}
       {step === 'pick' && (

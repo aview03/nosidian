@@ -7,6 +7,7 @@ import { pinnedRequest } from './pinnedHttp'
 import { clearSecretRecord, onSecretsReady, readSecretRecord, registerSecret, writeSecretRecord, type SecretSpec } from './secureStore'
 import { t } from './i18n'
 import { clientId } from './deviceId'
+import { notifyUnpair, UNPAIR_TIMEOUT_MS } from './unpair'
 
 const KEY = 'nosidian.pcshare'
 /** 파일 공유 토큰은 안드로이드 보안 저장소(Keystore)에 둔다 */
@@ -158,6 +159,14 @@ export async function getShareFile(l: PcShare, path: string): Promise<string> {
   const bytes = b64ToBytes(b64)
   if (bytes.length !== j.size || (await sha256Hex(bytes)) !== j.sha256) throw new ShareError(shareErrorText(new Error('integrity')), 0)
   return b64
+}
+
+/** PC 에 이 휴대폰의 해제를 알린 뒤 연결 정보를 지운다. 반환: PC 목록에서도 빠졌나(꺼져 있으면 false) */
+export async function unpairShare(): Promise<boolean> {
+  const l = loadPcShare()
+  const notified = l ? await notifyUnpair(() => call(l, '/unpair', {}, UNPAIR_TIMEOUT_MS)) : false
+  forgetPcShare()
+  return notified
 }
 
 export function forgetPcShare() {

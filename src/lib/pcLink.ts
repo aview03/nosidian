@@ -11,6 +11,7 @@ import { callTool } from './mcpTools'
 import type { ClaudeEvent } from './externalIO'
 import { t } from './i18n'
 import { clientId } from './deviceId'
+import { notifyUnpair, UNPAIR_TIMEOUT_MS } from './unpair'
 
 export const DEFAULT_RELAY_PORT = 47410
 const KEY = 'nosidian.pc'
@@ -212,6 +213,14 @@ export const _resetSync = () => {
 }
 
 /** 연결 해제(폰 쪽): 토큰을 지우고, PC 를 통한 AI 연결 설정도 지운다 */
+/** PC 에 이 휴대폰의 해제를 알린 뒤 연결 정보를 지운다. 반환: PC 목록에서도 빠졌나(꺼져 있으면 false) */
+export async function unpairPc(): Promise<boolean> {
+  const l = loadPcLink()
+  const notified = l ? await notifyUnpair(() => call(l, '/unpair', {}, 'POST', AbortSignal.timeout(UNPAIR_TIMEOUT_MS))) : false
+  forgetPc()
+  return notified
+}
+
 export function forgetPc() {
   savePcLink(null)
   for (const c of loadAllLlmConfigs()) if (c.viaPc && c.id) removeConnection(c.id) // PC 를 거치는 연결은 모두 함께 지운다(내가 직접 연결한 다른 AI 는 그대로)

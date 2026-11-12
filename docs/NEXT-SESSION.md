@@ -1,4 +1,4 @@
-# Nosidian 이어서 시작하기 (2026-11-12 기준 · v1.43.2)
+# Nosidian 이어서 시작하기 (2026-11-12 기준 · v1.43.3)
 
 > 새 세션을 시작할 때 이 문서를 그대로 붙여 넣으세요. Claude 는 이 문서를 읽은 뒤, 아래 "첫 행동"을 하고 사용자에게 다음 작업을 확인합니다.
 > 상세 기억은 `C:\Users\USER\.claude\projects\C--Users-USER-Desktop-MD-Reader\memory\nosidian-project-state.md`(자동 메모리)에도 있습니다. 둘이 다르면 **저장소의 코드·git 로그가 사실**입니다.
@@ -9,8 +9,8 @@
 - 노트는 IndexedDB(Vault)에 있고, 동기화는 GitHub·Google Drive·OneDrive(클라우드) **또는** 이 PC 를 호스트로 쓰는 "내 PC" 방식(클라우드 없이)이 있다.
 
 ## 2. 현재 상태
-- 원격 `origin/main` = **v1.43.2 (`6daabed`)** 까지 푸시됨. (이 문서를 고친 커밋이 로컬에 더 있을 수 있음 — `git status -sb` 로 확인)
-- 테스트 **1153개 통과**(`npm test`, 88개 파일), `npx tsc -b` 오류 없음. 설치 파일 `release/Nosidian-Setup-1.43.2.exe`(~125MB, 코드 서명 없음) 빌드됨 — **설치해서 실행해 보지는 않았다**. 폰에는 v1.43.2 디버그 APK 설치됨(시스템 `versionName`/`versionCode` 는 이제 `package.json` 을 따른다: 1.43.2 / 14302).
+- 원격 `origin/main` = **v1.43.2 (`6b2c4f9`)** 까지 푸시됨. **v1.43.3(5-c: 폰의 연결 해제가 PC 목록에도 반영)은 로컬 커밋만 있고 아직 푸시·PC 설치 파일 빌드 전**일 수 있다 — `git status -sb` 로 확인.
+- 테스트 **1173개 통과**(`npm test`, 90개 파일), `npx tsc -b` 오류 없음. 설치 파일 `release/Nosidian-Setup-1.43.2.exe`(~125MB, 코드 서명 없음)까지 빌드됨(1.43.3 은 미빌드) — **설치해서 실행해 보지는 않았다**. 폰에는 v1.43.2 디버그 APK 설치됨(시스템 `versionName`/`versionCode` 는 이제 `package.json` 을 따른다: 1.43.2 / 14302).
 - 폰: Android(삼성 One UI 추정), USB 연결, 화면 꺼짐 30초(시험할 때만 `svc power stayon true`). **PIN 잠금이 걸려 있어 잠기면 CDP 가 멈춘다 → 폰 시험 전에 사용자에게 "잠금 풀어 주세요" 요청.**
 
 ## 3. 반드시 지킬 규칙 (사용자 지시)
@@ -23,7 +23,7 @@
 7. UX 선호: 설명문은 짧게, 계층·그룹이 보이게, 버튼은 또렷하게(옅은 유리 느낌 금지), 모바일에선 PC 전용 항목 숨김. 기존 클라우드 동기화와 AI 문서 정책·승인 기능은 건드리지 않는다.
 8. **폰 시험 안전 규칙(2026-11-12 사고에서 생김)**: `adb shell input tap` 전에 항상 `dumpsys window | grep mCurrentFocus` 로 앞에 있는 앱이 `com.amsidian.app` 인지 확인한다(아니면 탭하지 않는다). 시험 중 `KEYCODE_BACK` 은 앱을 종료해 홈 화면을 노출할 수 있다. **스크린샷에 개인 정보(연락처·사진·결제 화면·다른 앱)가 찍히면 즉시 삭제하고 기록에 옮기지 않는다.** 시험이 끝나면 `scratchpad` 의 캡처를 지운다.
 
-## 4. 최근 작업 지도 (v1.32 → v1.43.2) — 문서 위치
+## 4. 최근 작업 지도 (v1.32 → v1.43.3) — 문서 위치
 | 버전 | 내용 | 문서 |
 | --- | --- | --- |
 | v1.32~1.33 | 모바일 AI 패널, 폰이 PC 의 AI(Ollama·API 키 모델·Claude 구독)를 QR/코드로 연결(LAN 중계) | `docs/RELAY.md` |
@@ -34,7 +34,7 @@
 | v1.40 | PC 호스트 저장 계층(manifest·rev·삭제 기록·원자적 저장 복구·외부 변경 감지·스냅샷) + "내 PC 폴더" Provider | `docs/HOST-STORE.md` |
 | v1.41 | 호스트 동기화 서버: 기기별 쓰기 권한·조건부 쓰기·실행 파일 거부 | `docs/HOST-SERVER.md` |
 | v1.42 | 폰의 "내 PC" 연결(클라우드 없이 폰↔PC 동기화) | `docs/HOST-PHONE.md` |
-| v1.43.x | 페르소나(6역할) 점검에서 나온 수정 F1~F47: 노트 "업무 정리"(담당·마감·결정을 한 번에, 모르는 이름 제안), 이미지 붙여넣기, 코드 복사·어두운 테마 문법 색, 홈 종일 체크리스트, 빠른 입력 미리보기에 기간·요일, 받은 파일 `열기`/`공유·저장`(네이티브 `OpenFile.view`), 동기화 점은 저장소 연결 시에만, 안드로이드 뒤로 가기 스택(`lib/backStack.ts`) 등 | `docs/personas/FINDINGS.md` · `docs/SHARE.md` · `docs/IMAGES.md` |
+| v1.43.x | 페르소나(6역할) 점검에서 나온 수정 F1~F47: 노트 "업무 정리"(담당·마감·결정을 한 번에, 모르는 이름 제안), 이미지 붙여넣기, 코드 복사·어두운 테마 문법 색, 홈 종일 체크리스트, 빠른 입력 미리보기에 기간·요일, 받은 파일 `열기`/`공유·저장`(네이티브 `OpenFile.view`), 동기화 점은 저장소 연결 시에만, 안드로이드 뒤로 가기 스택(`lib/backStack.ts`), 5-c 폰의 `연결 해제`가 PC 목록에도 반영(`POST /unpair` + 공통 `ForgetLink`, v1.43.3) 등 | `docs/personas/FINDINGS.md` · `docs/SHARE.md` · `docs/IMAGES.md` |
 
 주요 코드: `electron/{hostStore,hostServer,hostIpc,fileShare,aiRelay}.cjs`, `src/lib/{pcHost,hostConnect,phoneSnapshot,secureStore,pinnedHttp}.ts`, `src/lib/sync/{host,pchost}.ts`, `src/components/{HostConnect,HostPlan,PcHostConnect}.tsx`, 네이티브 `android/.../{PinnedHttpPlugin,SecureStorePlugin}.java`.
 
@@ -87,7 +87,7 @@
    - **5-a. "연결 바꾸기"라서 AI 를 1개만 연결할 수 있는 것처럼 보인다.** 사용자가 원하는 것: 내 구독 계정(Claude Code)·내 컴퓨터에서 돌리기(Ollama·내 서버)·API 키 연결이 **각각 연결돼 있으면 모두 쓸 수 있어야** 한다. 원인(코드로 확인): `AiWizard.tsx:56` 홈 버튼이 연결돼 있으면 `연결 바꾸기`(→ 방식 고르기 → 하나를 고르면 `saveLlmConfig` 가 `nosidian.llm` **한 칸을 덮어쓴다**), 상태 표시 `aiSummary()`(`lib/aiWizard.ts:16`)도 한 줄(엔진 하나)만 요약한다. 저장 구조상 로컬/API 키 연결은 한 개(`LlmConfig`)이고, Claude 는 CLI 감지로 따로라서 "Claude + 로컬 1개"까지만 패널 엔진 선택에 나온다.
      - 방향 후보: 연결을 **목록**으로 저장(`nosidian.llm` → `[{id, kind, 이름, baseUrl, model, keyStored…}]`, 키는 기존 secureStore 에 연결별로)하고 설정 화면은 "연결된 AI" 카드 목록 + `+ 연결 추가`(구독 계정/내 컴퓨터/API 키) + 각 카드의 `고치기·해제`. 요약 한 줄(`aiSummary`)은 "N개 연결됨" 으로. 기존 한 칸 설정은 첫 실행 때 목록 1개로 이전(되돌릴 수 있게). **저장 형식이 바뀌므로 `relayBridge`(폰 중계가 PC 의 어떤 연결을 쓰는지)·`aiThread`/`automation` 의 엔진 선택·`mcp`/동기화 제외(키는 기기 밖으로 안 나감)를 함께 점검.**
    - **5-b. 쓸 수 있는 모델이 목록으로 보여야 한다.** 지금은 연결 시 고른 모델 하나(`cfg.model`)만 저장하고 보여 준다. 방향: 연결마다 서버가 알려 주는 모델 목록(`listModels`, 이미 마법사가 사용)을 가져와 카드에서 모델을 고르게 하고, **AI 패널의 엔진 선택을 "연결 › 모델" 두 단계(또는 묶음 목록)** 로. 도구 호출을 못 하는 모델(`supportsTools`)은 표시만 하고 비활성 + 이유. 목록 조회 실패(오프라인·키 오류)는 마지막 성공 목록을 보여 주고 "새로 고침" 제공.
-   - **5-c. 연결된 기기 관리.** PC 쪽 AI 중계(`RelayCard.tsx`)에는 기기 목록·해제가 이미 있는 것으로 보이나(이번에 화면으로 다시 확인하지 않음), **세 곳(AI 중계 `RelayCard`·폴더 공유 `ShareCard`·호스트 동기화 `HostConnect`의 `HostServerSection`)이 같은 모양으로 기기 이름·마지막 접속·권한·해제를 보여 주는지** 점검하고 한 컴포넌트로 맞출 것. 폰 쪽에서도 "이 PC 연결 해제"가 있는지(AI 만 있음 `AiWizard.tsx:58`) 확인.
+   - **5-c. 연결된 기기 관리 — 2026-11-12 끝남(v1.43.3, `docs/personas/FINDINGS.md` "5-c")**: PC 쪽은 이미 공통 `DeviceList`, 폰 쪽은 공통 `ForgetLink` + 서버 `POST /unpair`(폰의 해제가 PC 목록에도 반영). 아래는 당시 점검 요구사항 기록.  PC 쪽 AI 중계(`RelayCard.tsx`)에는 기기 목록·해제가 이미 있는 것으로 보이나(이번에 화면으로 다시 확인하지 않음), **세 곳(AI 중계 `RelayCard`·폴더 공유 `ShareCard`·호스트 동기화 `HostConnect`의 `HostServerSection`)이 같은 모양으로 기기 이름·마지막 접속·권한·해제를 보여 주는지** 점검하고 한 컴포넌트로 맞출 것. 폰 쪽에서도 "이 PC 연결 해제"가 있는지(AI 만 있음 `AiWizard.tsx:58`) 확인.
    - **5-d. QR 은 사용자가 요청할 때만 만든다 (보안).** 지금은 서버를 켜면 연결 QR·6자리 코드가 **카드에 계속 떠 있다**(`RelayCard.tsx:60`, `ShareCard.tsx:76`, `HostConnect.tsx:231`). 코드 자체는 메인 프로세스에서 5분·1회용(`electron/aiRelay.cjs:12`, `fileShare.cjs:16`, `hostServer.cjs:17` 의 `CODE_TTL_MS`)이지만, 화면에는 상시 노출되고 만료된 코드가 남아 있을 수 있다.
      - 요구: ① 평소엔 QR 을 숨기고 `기기 추가` 버튼만. ② 누르면 **모달**이 열리고 그때 코드를 새로 만들어 QR+코드+남은 시간(5분 카운트다운)을 보여 준다. ③ 5분이 지나면 코드를 폐기하고 모달에 "만료됐어요 · 새로 만들기". ④ **연결이 성사되면 모달이 자동으로 닫힌다**(+ "기기 이름 연결됨" 알림). ⑤ 모달을 닫으면 코드를 즉시 폐기(`newCode`가 아니라 `revokeCode` 필요 — 서버에 없으면 추가). ⑥ **기기 하나에 연결 링크(토큰) 하나** — 같은 기기가 다시 연결하면 기존 것을 교체하고 목록에 중복이 안 생기게(지금 AI 중계는 5기기 상한, 기기 식별 방식 확인 필요).
      - 공통 컴포넌트 `PairModal`(서버 종류·코드 생성/폐기 함수·상태 구독을 받음)로 세 곳에 같이 적용. 연결 성사 신호는 서버 상태 폴링(`api.status`)에서 기기 수 증가를 감지하거나 IPC 이벤트 추가. 시험: 만료(시간 모킹)·성사 시 자동 닫힘·모달 닫기 시 코드 폐기·재연결 시 기기 중복 없음·폐기된 코드로 접속 401.
@@ -155,6 +155,6 @@ node scripts/dev/shot.cjs 9333 MAIN out.png 1200 760
 
 ## 9. 첫 행동 (Claude 가 새 세션에서 할 일)
 1. `cd /c/Users/USER/Desktop/MD_Reader/app && git status -sb && git log --oneline -5` 로 위 "현재 상태"가 맞는지 확인(다르면 사용자에게 알린다).
-2. `npx tsc -b` 와 `npm test` 를 돌려 기준선이 1153개 통과인지 확인(1회 불안정은 재실행).
-3. 사용자에게 한 줄로 현재 상태를 요약하고, 위 "다음 작업 후보" 중 무엇을 할지 묻는다(추천: 7번 화면 이동 일관성 점검의 나머지, 5-c 기기 관리 통일, 2번 바이너리 충돌 화면).
+2. `npx tsc -b` 와 `npm test` 를 돌려 기준선이 1173개 통과인지 확인(1회 불안정은 재실행).
+3. 사용자에게 한 줄로 현재 상태를 요약하고, 위 "다음 작업 후보" 중 무엇을 할지 묻는다(추천: 7번 화면 이동 일관성 점검의 나머지, 2번 바이너리 충돌 화면. 5-c 는 2026-11-12 끝남).
 4. 폰 시험이 필요한 작업이면 먼저 "폰 잠금을 풀어 주세요"라고 요청한다.

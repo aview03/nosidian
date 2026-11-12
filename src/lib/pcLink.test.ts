@@ -4,7 +4,7 @@ import mod from '../../electron/aiRelay.cjs'
 import { useApp } from './app'
 import { setLang } from './i18n'
 import { chat } from './llmNet'
-import { adoptUpstream, forgetPc, llmConfigVia, loadPcLink, parsePairing, pairWithPc, pingPc, runClaudeViaPc, savePcLink, type PcLink } from './pcLink'
+import { adoptUpstream, forgetPc, llmConfigVia, loadPcLink, parsePairing, pairWithPc, pingPc, runClaudeViaPc, savePcLink, unpairPc, type PcLink } from './pcLink'
 import { loadLlmConfig } from './llm'
 import type { ClaudeEvent } from './externalIO'
 
@@ -183,5 +183,24 @@ describe('Claude 구독 중계(폰이 도구를 실행)', () => {
     await new Promise((r) => setTimeout(r, 150)) // 취소 요청은 기다리지 않고 보낸다
     expect(b.cancel).toHaveBeenCalled()
     expect(events.at(-1)).toMatchObject({ type: 'error', code: 'cancelled' })
+  })
+})
+
+describe('폰에서 해제하면 PC 의 목록에서도 빠진다 (5-c)', () => {
+  it('unpairPc: PC 에 알리고(기기 목록에서 빠짐) 이 폰의 연결 정보도 지운다', async () => {
+    const b = await boot()
+    await pairNow(b)
+    expect(b.r.state().devices).toHaveLength(1)
+    expect(await unpairPc()).toBe(true)
+    expect(b.r.state().devices).toHaveLength(0)
+    expect(loadPcLink()).toBeNull()
+  })
+  it('PC 가 꺼져 있어도 폰의 연결 정보는 지운다(false = PC 앱에서 직접 해제 안내)', async () => {
+    const b = await boot()
+    const link = await pairNow(b)
+    await b.r.close()
+    savePcLink({ ...link, port: 1 }) // 닿지 않는 주소
+    expect(await unpairPc()).toBe(false)
+    expect(loadPcLink()).toBeNull()
   })
 })

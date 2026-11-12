@@ -404,3 +404,24 @@ describe('AI 여러 개 중계(연결별 경로)', () => {
     expect(req.headers.authorization).toBe(`Bearer {{KEY:${O.id}}}`)
   })
 })
+
+describe('/unpair — 폰이 스스로 연결을 해제한다 (5-c)', () => {
+  const get = (base: string, path: string, token: string) => fetch(base + path, { headers: { authorization: `Bearer ${token}`, Connection: 'close' } })
+  it('해제하면 PC 의 기기 목록에서 빠지고 그 토큰은 즉시 401, 다른 기기는 그대로', async () => {
+    const s = await paired()
+    const r2 = await post(s.base, '/pair', { code: s.relay.codeNow().value, name: '태블릿' })
+    const t2 = ((await r2.json()) as { token: string }).token
+    expect(s.relay.state().devices).toHaveLength(2)
+    expect((await post(s.base, '/unpair', {}, s.token)).status).toBe(200)
+    expect(s.relay.state().devices.map((d: { name: string }) => d.name)).toEqual(['태블릿'])
+    expect((await get(s.base, '/ping', s.token)).status).toBe(401)
+    expect((await get(s.base, '/ping', t2)).status).toBe(200)
+    expect((await post(s.base, '/unpair', {}, s.token)).status).toBe(401) // 이미 해제됨
+  })
+  it('토큰이 없거나 틀리면 해제할 수 없다(401) — 남의 기기를 해제하는 길이 없다', async () => {
+    const s = await paired()
+    expect((await post(s.base, '/unpair', {})).status).toBe(401)
+    expect((await post(s.base, '/unpair', {}, 'a'.repeat(48))).status).toBe(401)
+    expect(s.relay.state().devices).toHaveLength(1)
+  })
+})
