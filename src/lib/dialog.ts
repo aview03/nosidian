@@ -13,6 +13,8 @@ interface DialogState {
   /** 본문 아래 작은 안내 */
   note?: string
   choices?: { value: string; label: string }[]
+  /** choice 창에서 첫 선택지를 강조(primary)하지 않는다 — 기본 선택이 없어야 하는 창(바이너리 충돌)용 */
+  plain?: boolean
   resolve?: (v: string | boolean | null) => void
 }
 
@@ -37,8 +39,8 @@ export function confirmAsk(title: string, message?: string, okLabel = t('확인'
 }
 
 /** 여러 선택지 중 하나를 고르게 한다. 취소하면 null */
-export function choose(title: string, message: string, choices: { value: string; label: string }[]): Promise<string | null> {
+export function choose(title: string, message: string, choices: { value: string; label: string }[], opts?: { plain?: boolean }): Promise<string | null> {
   return new Promise((resolve) =>
-    useDialog.setState({ kind: 'choice', title, message, value: '', okLabel: '', danger: false, cancelLabel: undefined, note: undefined, choices, resolve: resolve as never }),
+    useDialog.setState({ kind: 'choice', title, message, value: '', okLabel: '', danger: false, cancelLabel: undefined, note: undefined, choices, plain: opts?.plain, resolve: resolve as never }),
   )
 }

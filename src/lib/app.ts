@@ -2,9 +2,10 @@ import { create } from 'zustand'
 import { store as db, onDbChange } from './db'
 import { buildIndex, baseName, dirName, type LinkIndex } from './links'
 import { DEFAULT_SETTINGS, DEFAULT_VAULT_ID, SYNC_LABEL, defaultVaultName, type CloudCfg, type NoteFile, type RemoteCfg, type Settings, type VaultMeta } from './types'
-import { createProvider, isNote, bytesToB64, type Provider, type RemoteEntry } from './sync'
+import { createProvider, isNote, bytesToB64, conflictOf, type Provider, type RemoteEntry } from './sync'
 import { assetsDirOf, imageFileName, imageMarkdown, imageProblem, isGenericName, pastedName, prepareImage } from './images'
 import { MAX_MOVE_BYTES, MAX_UPLOAD_BYTES, formatSize, uploadPath, uploadProblem } from './attachments'
+import { askConflict, conflictCopyPath } from './otherConflict'
 import { resumeWebAuth } from './sync/oauth'
 import { demoNotes } from './demo'
 import { t, setLang, resolveLang, getLang } from './i18n'
@@ -1054,12 +1055,59 @@ const assetUrls = new Map<string, Promise<string | null>>()
  * 파일들을 vault 저장소의 dir 폴더에 올린다(노트가 아닌 파일). 하나씩 올려서 실패한 것만 따로 알린다.
  * 반환: 올린 경로들과 실패(이름·이유)
  */
-export async function uploadOthers(list: File[], dir: string): Promise<{ done: string[]; failed: { name: string; why: string }[] }> {
+/** 올린(또는 바꾼) 파일을 목록·저장소 기록에 반영한다 */
+function recordOther(path: string, rev: string | null, size: number) {
+  useApp.setState((s) => ({ assets: { ...s.assets, [path]: { sha: rev, size } } }))
+  void db.putAsset({ path, sha: rev, size })
+}
+
+type OtherPush = { kind: 'done'; path: string; rev: string | null; renamed?: boolean } | { kind: 'kept' }
+
+/**
+ * 노트가 아닌 파일 하나를 올린다. PC 호스트 폴더처럼 조건부 쓰기를 하는 저장소에서 PC 가 먼저 바뀌었거나 지워졌으면(409)
+ * 자동으로 덮어쓰지 않고 사용자에게 고르게 한다(`askConflict`: 새 이름으로 보관 / PC 것 유지 / 덮어쓰기, 기본 선택 없음). 설계 docs/SYNC-HOST.md §7.
+ * baseRev: 내가 마지막으로 본 rev(새 파일이면 null). 클라우드는 이 값을 무시한다.
+ */
+async function pushOther(prov: Provider, o: { path: string; b64: string; baseRev: string | null; message: string; size: number }): Promise<OtherPush> {
+  const put = async (path: string, baseRev: string | null) => (await prov.push([{ path, content: '', b64: o.b64, baseRev }], o.message)).get(path) ?? null
+  try {
+    return { kind: 'done', path: o.path, rev: await put(o.path, o.baseRev) }
+  } catch (e) {
+    const c = conflictOf(e)
+    if (!c) throw e
+    const choice = await askConflict(o.path.split('/').pop()!, c, o.baseRev === null)
+    if (choice === 'overwrite') return { kind: 'done', path: o.path, rev: await put(o.path, c.currentRev) } // 그새 또 바뀌면 다시 409 로 실패한다 — 말없이 덮어쓰지 않는다
+    if (choice === 'rename') {
+      const st = useApp.getState()
+      const taken = new Set([...Object.keys(st.assets), ...Object.keys(st.files)])
+      const first = conflictCopyPath(o.path, taken)
+      try {
+        return { kind: 'done', path: first, rev: await put(first, null), renamed: true }
+      } catch (e2) {
+        if (!conflictOf(e2)) throw e2 // PC 에만 있는 같은 이름이 있었다 → 시각을 넣은 이름으로 한 번 더
+        const second = conflictCopyPath(o.path, new Set([...taken, first]), new Date().toISOString().slice(0, 16).replace(/[-:T]/g, ''))
+        return { kind: 'done', path: second, rev: await put(second, null), renamed: true }
+      }
+    }
+    // PC 것 유지(또는 창을 닫음): 이 폰의 파일은 올리지 않는다. 목록은 PC 의 현재 상태로 맞춘다
+    useApp.setState((s) => {
+      const next = { ...s.assets }
+      if (c.deleted) delete next[o.path]
+      else if (next[o.path]) next[o.path] = { ...next[o.path], sha: c.currentRev }
+      return { assets: next }
+    })
+    if (c.deleted) void db.delAsset(o.path)
+    return { kind: 'kept' }
+  }
+}
+
+export async function uploadOthers(list: File[], dir: string): Promise<{ done: string[]; failed: { name: string; why: string }[]; kept: string[] }> {
   const { settings } = useApp.getState()
   if (!settings.remote) throw new Error(t('저장소에 연결돼 있지 않아요'))
   const prov = providerOf(settings.remote)
   const done: string[] = []
   const failed: { name: string; why: string }[] = []
+  const kept: string[] = [] // PC 에 있는 것을 그대로 두기로 해서 올리지 않은 파일
   for (const f of list) {
     const why = uploadProblem(f.name, f.size)
     if (why) {
@@ -1070,17 +1118,18 @@ export async function uploadOthers(list: File[], dir: string): Promise<{ done: s
       const st = useApp.getState()
       const path = uploadPath(dir, f.name, new Set([...Object.keys(st.assets), ...Object.keys(st.files)]))
       const b64 = bytesToB64(await f.arrayBuffer())
-      const revs = await prov.push([{ path, content: '', b64 }], t('파일 추가: {name}', { name: path.split('/').pop()! }))
-      const rev = revs.get(path) ?? null
-      const a = { sha: rev, size: f.size }
-      useApp.setState((s) => ({ assets: { ...s.assets, [path]: a } }))
-      void db.putAsset({ path, sha: rev, size: f.size })
-      done.push(path)
+      const out = await pushOther(prov, { path, b64, baseRev: null, message: t('파일 추가: {name}', { name: path.split('/').pop()! }), size: f.size })
+      if (out.kind === 'kept') {
+        kept.push(f.name)
+        continue
+      }
+      recordOther(out.path, out.rev, f.size)
+      done.push(out.path)
     } catch (e) {
       failed.push({ name: f.name, why: e instanceof Error ? e.message : String(e) })
     }
   }
-  return { done, failed }
+  return { done, failed, kept }
 }
 
 /**
@@ -1131,18 +1180,21 @@ export async function uploadAiFile(path: string, content: string): Promise<void>
   void db.putAsset({ path, sha: rev, size: bytes.length })
 }
 
-/** 올린 파일의 내용을 고른 파일(새 버전)로 바꾼다. 같은 경로에 덮어쓴다 */
-export async function replaceOther(path: string, file: File): Promise<void> {
+/**
+ * 올린 파일의 내용을 고른 파일(새 버전)로 바꾼다. 같은 경로에 덮어쓴다 — 단, 마지막으로 본 rev 를 같이 보내서 PC 에서 먼저 바뀌었으면 묻는다.
+ * 돌려주는 값: replaced(바꿈) · renamed(PC 것은 두고 내 것을 새 이름으로 올림, path 가 새 경로) · kept(바꾸지 않음)
+ */
+export async function replaceOther(path: string, file: File): Promise<{ outcome: 'replaced' | 'renamed' | 'kept'; path: string }> {
   const { settings, assets } = useApp.getState()
   if (!settings.remote) throw new Error(t('저장소에 연결돼 있지 않아요'))
   if (!assets[path]) throw new Error(t('목록에 없는 파일이에요'))
   if (file.size === 0) throw new Error(t('빈 파일은 올릴 수 없어요'))
   if (file.size > MAX_UPLOAD_BYTES) throw new Error(t('{name}은(는) 너무 커요(최대 {max})', { name: file.name, max: formatSize(MAX_UPLOAD_BYTES) }))
   const b64 = bytesToB64(await file.arrayBuffer())
-  const revs = await providerOf(settings.remote).push([{ path, content: '', b64 }], t('파일 교체: {name}', { name: path.split('/').pop()! }))
-  const rev = revs.get(path) ?? null
-  useApp.setState((s) => ({ assets: { ...s.assets, [path]: { sha: rev, size: file.size } } }))
-  void db.putAsset({ path, sha: rev, size: file.size })
+  const out = await pushOther(providerOf(settings.remote), { path, b64, baseRev: assets[path].sha ?? null, message: t('파일 교체: {name}', { name: path.split('/').pop()! }), size: file.size })
+  if (out.kind === 'kept') return { outcome: 'kept', path }
+  recordOther(out.path, out.rev, file.size)
+  return { outcome: out.renamed ? 'renamed' : 'replaced', path: out.path }
 }
 
 /**
@@ -1160,7 +1212,7 @@ export async function moveOther(path: string, newPath: string): Promise<void> {
   if (a.size != null && a.size > MAX_MOVE_BYTES) throw new Error(t('파일이 커서({size}) 이름 바꾸기·이동을 지원하지 않아요', { size: formatSize(a.size) }))
   const prov = providerOf(settings.remote)
   const b64 = await fetchOther(path)
-  const revs = await prov.push([{ path: newPath, content: '', b64 }, { path, content: null }], t('파일 이동: {name}', { name: newPath }))
+  const revs = await prov.push([{ path: newPath, content: '', b64, baseRev: null }, { path, content: null, baseRev: a.sha ?? null }], t('파일 이동: {name}', { name: newPath }))
   const rev = revs.get(newPath) ?? null
   useApp.setState((s) => {
     const next = { ...s.assets }
@@ -1178,7 +1230,7 @@ export async function deleteOther(path: string): Promise<void> {
   if (!settings.remote) throw new Error(t('저장소에 연결돼 있지 않아요'))
   if (!assets[path]) return
   const prov = providerOf(settings.remote)
-  await prov.push([{ path, content: null }], t('파일 삭제: {name}', { name: path.split('/').pop()! }))
+  await prov.push([{ path, content: null, baseRev: assets[path].sha ?? null }], t('파일 삭제: {name}', { name: path.split('/').pop()! }))
   useApp.setState((s) => {
     const next = { ...s.assets }
     delete next[path]

@@ -48,7 +48,7 @@ export function Dialogs() {
             {v.kind === 'choice' ? (
               <div className="modal-actions choice">
                 {v.choices?.map((c, i) => (
-                  <button key={c.value} type="button" className={i === 0 ? 'primary' : ''} onClick={() => close(c.value)}>{c.label}</button>
+                  <button key={c.value} type="button" className={i === 0 && !v.plain ? 'primary' : ''} onClick={() => close(c.value)}>{c.label}</button>
                 ))}
                 <button type="button" onClick={() => close(null)}>{t('취소')}</button>
               </div>

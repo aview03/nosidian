@@ -12,7 +12,7 @@ type Res<T> = ({ ok: true } & T) | { ok: false; status: number; code?: string; e
 function unwrap<T>(r: Res<T>): T {
   if (!r.ok) {
     const friendly = r.code === 'noFolder' ? t('호스트 폴더가 지정돼 있지 않아요') : r.code === 'busy' ? t('호스트 폴더를 다른 프로그램이 쓰고 있어요') : r.code === 'noSpace' ? t('저장 공간이 부족해요') : r.error
-    throw Object.assign(new SyncError(friendly, r.status), { code: r.code, currentRev: r.currentRev })
+    throw Object.assign(new SyncError(friendly, r.status), { code: r.code, currentRev: r.currentRev, deleted: r.deleted })
   }
   return r
 }

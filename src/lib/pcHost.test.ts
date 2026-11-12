@@ -11,7 +11,10 @@ import hostServerMod from '../../electron/hostServer.cjs'
 import hostStoreMod from '../../electron/hostStore.cjs'
 // @ts-expect-error 메인 프로세스용 CommonJS 파일이라 타입 선언이 없다
 import shareMod from '../../electron/fileShare.cjs'
-import { useApp, uploadOthers } from './app'
+import { useApp, uploadOthers, replaceOther } from './app'
+import { useDialog } from './dialog'
+import { conflictOf } from './sync/types'
+import { conflictCopyPath } from './otherConflict'
 import { setLang } from './i18n'
 import { setPinnedTransport, type PinnedReq, type PinnedRes } from './pinnedHttp'
 import { setSnapshotBackend, listVaultSnapshots, type SnapshotBackend } from './phoneSnapshot'
@@ -454,5 +457,152 @@ describe('폰에서 해제하면 PC 의 목록에서도 빠진다 (5-c)', () => 
   it('닿지 않는 PC 면 false(폰의 연결은 호출한 쪽이 끊는다)', async () => {
     const link = await connect()
     expect(await unpairHost({ ...link, host: '127.0.0.1', hosts: ['127.0.0.1'], port: 1 })).toBe(false)
+  })
+})
+
+describe('바이너리 파일 충돌: 새 이름으로 보관 / PC 것 유지 / 덮어쓰기 (2번)', () => {
+  const REL = '자료/r.docx'
+  const bytesOf = (rel: string) => [...fs.readFileSync(hf(rel))]
+  const revOf = (rel: string) => host.list().entries.find((e: { path: string }) => e.path === rel).rev as string
+  /** 선택·확인 창이 뜨기를 기다렸다가 답한다(창이 뜬 순간의 제목·선택지를 돌려준다) */
+  const answer = async (kind: 'choice' | 'confirm', v: string | boolean | null) => {
+    for (let i = 0; i < 400 && useDialog.getState().kind !== kind; i++) await new Promise((r) => setTimeout(r, 5))
+    const d = useDialog.getState()
+    expect(d.kind).toBe(kind)
+    const seen = { plain: d.plain === true, title: d.title, message: d.message ?? '', labels: (d.choices ?? []).map((c) => c.label), values: (d.choices ?? []).map((c) => c.value) }
+    d.resolve?.(v)
+    useDialog.setState({ kind: null })
+    return seen
+  }
+  const setup = async () => {
+    host.put(REL, Buffer.from([1, 2, 3, 4]), null)
+    await connect(true)
+    await sync() // 폰이 PC 의 rev 를 안다
+    host.put(REL, Buffer.from([7, 7]), revOf(REL)) // 그 뒤 PC 에서 먼저 고쳤다
+  }
+  const mine = () => new File([new Uint8Array([9, 9, 9, 9, 9])], 'r.docx')
+
+  it('PC 에서 아무도 안 바꿨으면 새 버전으로 바꾸기가 그냥 성공한다(예전: baseRev 없이 보내 항상 409 였다)', async () => {
+    host.put(REL, Buffer.from([1, 2, 3, 4]), null)
+    await connect(true)
+    await sync()
+    const r = await replaceOther(REL, mine())
+    expect(r).toEqual({ outcome: 'replaced', path: REL })
+    expect(bytesOf(REL)).toEqual([9, 9, 9, 9, 9])
+    expect(useDialog.getState().kind).toBeNull() // 묻지 않았다
+  })
+  it('PC 에서 먼저 바뀌었으면 선택 창이 뜬다 — 세 선택지, 기본 선택 없음, 창이 뜨는 동안 아무것도 바뀌지 않는다', async () => {
+    await setup()
+    const p = replaceOther(REL, mine())
+    const seen = await answer('choice', null) // 창을 닫는다
+    expect(seen.values).toEqual(['rename', 'keep', 'overwrite'])
+    expect(seen.plain).toBe(true) // 기본 선택이 없다 — 어느 것도 강조하지 않는다
+    expect(seen.title).toContain('r.docx')
+    expect(seen.title).toContain('먼저 바뀌었어요')
+    expect(bytesOf(REL)).toEqual([7, 7]) // 고르기 전에는 PC 것 그대로
+    expect((await p).outcome).toBe('kept') // 닫으면 아무것도 바꾸지 않는다
+    expect(bytesOf(REL)).toEqual([7, 7])
+  })
+  it('PC 것을 그대로 두기: PC 파일은 그대로이고, 이 폰의 목록은 PC 의 현재 rev 로 맞춰진다', async () => {
+    await setup()
+    const p = replaceOther(REL, mine())
+    await answer('choice', 'keep')
+    expect(await p).toEqual({ outcome: 'kept', path: REL })
+    expect(bytesOf(REL)).toEqual([7, 7])
+    expect(useApp.getState().assets[REL]?.sha).toBe(revOf(REL))
+    expect(fs.existsSync(hf('자료/r (내 것).docx'))).toBe(false)
+  })
+  it('내 것을 새 이름으로 보관: PC 파일은 그대로, 내 파일은 `이름 (내 것).확장자` 로 올라간다', async () => {
+    await setup()
+    const p = replaceOther(REL, mine())
+    await answer('choice', 'rename')
+    const r = await p
+    expect(r).toEqual({ outcome: 'renamed', path: '자료/r (내 것).docx' })
+    expect(bytesOf(REL)).toEqual([7, 7]) // PC 것은 건드리지 않았다
+    expect(bytesOf('자료/r (내 것).docx')).toEqual([9, 9, 9, 9, 9])
+    expect(useApp.getState().assets['자료/r (내 것).docx']).toBeTruthy()
+  })
+  it('내 것으로 덮어쓰기: 한 번 더 확인하고, 확인하면 PC 파일이 내 것으로 바뀐다', async () => {
+    await setup()
+    const p = replaceOther(REL, mine())
+    await answer('choice', 'overwrite')
+    const c = await answer('confirm', true)
+    expect(c.title).toContain('덮어쓸까요')
+    expect(await p).toEqual({ outcome: 'replaced', path: REL })
+    expect(bytesOf(REL)).toEqual([9, 9, 9, 9, 9])
+  })
+  it('덮어쓰기를 골랐다가 확인에서 취소하면 아무것도 바뀌지 않는다', async () => {
+    await setup()
+    const p = replaceOther(REL, mine())
+    await answer('choice', 'overwrite')
+    await answer('confirm', false)
+    expect((await p).outcome).toBe('kept')
+    expect(bytesOf(REL)).toEqual([7, 7])
+  })
+  it('PC 에서 지워졌으면: 문구가 달라지고(다시 올리기), 고르기 전에는 되살아나지 않는다', async () => {
+    host.put(REL, Buffer.from([1, 2, 3, 4]), null)
+    await connect(true)
+    await sync()
+    host.del(REL, revOf(REL)) // PC 에서 지웠다
+    const p = replaceOther(REL, mine())
+    const seen = await answer('choice', null)
+    expect(seen.title).toContain('지워졌어요')
+    expect(seen.labels).toContain('내 것을 다시 올리기')
+    expect((await p).outcome).toBe('kept')
+    expect(fs.existsSync(hf(REL))).toBe(false) // 고르기 전에는 되살아나지 않았다
+  })
+  it('PC 에서 지워진 파일을 "다시 올리기"로 고르면 확인 뒤 되살아난다', async () => {
+    host.put(REL, Buffer.from([1, 2, 3, 4]), null)
+    await connect(true)
+    await sync()
+    host.del(REL, revOf(REL))
+    const p = replaceOther(REL, mine())
+    await answer('choice', 'overwrite')
+    const c = await answer('confirm', true)
+    expect(c.title).toContain('다시 올릴까요')
+    expect((await p).outcome).toBe('replaced')
+    expect(bytesOf(REL)).toEqual([9, 9, 9, 9, 9])
+  })
+  it('같은 이름의 파일이 PC 에만 새로 생겼으면: 올리기(uploadOthers)도 묻고, 새 이름으로 올릴 수 있다', async () => {
+    await connect(true)
+    await sync() // PC 가 비어 있다고 알고 있다
+    host.put('새자료.pdf', Buffer.from([5, 5]), null) // 그 뒤 PC 에 같은 이름이 생겼다
+    const p = uploadOthers([new File([new Uint8Array([6, 6, 6])], '새자료.pdf')], '')
+    const seen = await answer('choice', 'rename')
+    expect(seen.title).toContain('같은 이름의 파일이 이미 있어요') // 바뀐 게 아니라 이미 있다
+    const r = await p
+    expect(r.done).toEqual(['새자료 (내 것).pdf'])
+    expect(r.kept).toEqual([])
+    expect(bytesOf('새자료.pdf')).toEqual([5, 5])
+    expect(bytesOf('새자료 (내 것).pdf')).toEqual([6, 6, 6])
+  })
+  it('올리기에서 PC 것 유지를 고르면 올리지 않고 kept 로 알린다', async () => {
+    await connect(true)
+    await sync()
+    host.put('새자료.pdf', Buffer.from([5, 5]), null)
+    const p = uploadOthers([new File([new Uint8Array([6, 6, 6])], '새자료.pdf')], '')
+    await answer('choice', 'keep')
+    const r = await p
+    expect(r).toMatchObject({ done: [], kept: ['새자료.pdf'], failed: [] })
+    expect(bytesOf('새자료.pdf')).toEqual([5, 5])
+  })
+})
+
+describe('충돌 정보와 새 이름', () => {
+  it('conflictOf: 호스트의 409 conflict·case 만 충돌로 본다(클라우드의 409·422 처럼 code 가 없는 오류는 아니다)', () => {
+    expect(conflictOf(Object.assign(new Error('x'), { status: 409, code: 'conflict', currentRev: 'r2', deleted: false }))).toEqual({ code: 'conflict', currentRev: 'r2', deleted: false })
+    expect(conflictOf(Object.assign(new Error('x'), { status: 409, code: 'conflict', currentRev: 'tomb', deleted: true }))?.deleted).toBe(true)
+    expect(conflictOf(Object.assign(new Error('x'), { status: 409, code: 'case' }))).toEqual({ code: 'case', currentRev: null, deleted: false })
+    expect(conflictOf(Object.assign(new Error('x'), { status: 409 }))).toBeNull()
+    expect(conflictOf(Object.assign(new Error('x'), { status: 422 }))).toBeNull()
+    expect(conflictOf(Object.assign(new Error('x'), { status: 403, code: 'noWrite' }))).toBeNull()
+    expect(conflictOf(null)).toBeNull()
+  })
+  it('conflictCopyPath: 확장자 앞에 (내 것), 겹치면 (2)…, 폴더·확장자 없는 이름도 된다', () => {
+    expect(conflictCopyPath('자료/r.docx', new Set())).toBe('자료/r (내 것).docx')
+    expect(conflictCopyPath('자료/r.docx', new Set(['자료/r (내 것).docx']))).toBe('자료/r (내 것) (2).docx')
+    expect(conflictCopyPath('r.tar.gz', new Set())).toBe('r.tar (내 것).gz')
+    expect(conflictCopyPath('Makefile', new Set())).toBe('Makefile (내 것)')
+    expect(conflictCopyPath('a.zip', new Set(), '202611121530')).toBe('a (내 것 202611121530).zip')
   })
 })

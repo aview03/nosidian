@@ -345,8 +345,11 @@ export function MemoTab({ sync }: { sync?: ReactNode }) {
     setUploading(true)
     try {
       const r = await uploadOthers(list, dir)
-      if (r.done.length) app.say(r.done.length === 1 ? t('올렸어요: {name}', { name: r.done[0].split('/').pop()! }) : t('{n}개를 올렸어요', { n: r.done.length }))
-      if (r.failed.length) app.say(t('올리지 못했어요: {name} — {why}', { name: r.failed[0].name, why: r.failed[0].why }))
+      const msg: string[] = []
+      if (r.done.length) msg.push(r.done.length === 1 ? t('올렸어요: {name}', { name: r.done[0].split('/').pop()! }) : t('{n}개를 올렸어요', { n: r.done.length }))
+      if (r.kept.length) msg.push(t('PC에 있는 파일을 그대로 뒀어요: {name}', { name: r.kept[0] }) + (r.kept.length > 1 ? ' ' + t('… 외 {n}개', { n: r.kept.length - 1 }) : ''))
+      if (r.failed.length) msg.push(t('올리지 못했어요: {name} — {why}', { name: r.failed[0].name, why: r.failed[0].why }))
+      if (msg.length) app.say(msg.join(' · '))
     } catch (err) {
       app.say(err instanceof Error ? err.message : String(err))
     } finally {
@@ -402,8 +405,12 @@ export function MemoTab({ sync }: { sync?: ReactNode }) {
     if (!(await confirmAsk(t('"{name}"을(를) 바꿀까요?', { name: f.name }), t('고른 파일("{pick}")의 내용으로 저장소의 파일을 덮어써요. 이전 내용은 저장소에 남지 않을 수 있어요.', { pick: file.name }), t('바꾸기'), true))) return
     setBusyFile(f.path)
     try {
-      await replaceOther(f.path, file)
-      app.say(t('바꿨어요: {name}', { name: f.name }))
+      const r = await replaceOther(f.path, file)
+      app.say(
+        r.outcome === 'kept' ? t('바꾸지 않았어요. PC의 파일을 그대로 뒀어요: {name}', { name: f.name })
+        : r.outcome === 'renamed' ? t('PC의 파일은 그대로 두고 새 이름으로 올렸어요: {name}', { name: r.path.split('/').pop()! })
+        : t('바꿨어요: {name}', { name: f.name }),
+      )
     } catch (err) {
       app.say(err instanceof Error ? err.message : String(err))
     } finally {
@@ -415,7 +422,7 @@ export function MemoTab({ sync }: { sync?: ReactNode }) {
       <span className="memo-ico"><Icon name="import" size={20} /></span>
       <span className="memo-main">
         <b className="memo-title">{f.name}</b>
-        <span className="memo-snip">{busyFile === f.path ? t('받는 중…') : t('눌러서 받기')}</span>
+        <span className="memo-snip">{busyFile === f.path ? t('처리 중…') : t('눌러서 받기')}</span>
       </span>
       <span className="memo-date">{formatSize(f.size)}</span>
       {hasRemote && <span className="memo-chip danger" role="button" tabIndex={0} aria-label={t('더보기')} onClick={(e) => { e.stopPropagation(); void fileMenu(f) }}>⋯</span>}

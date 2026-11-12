@@ -6,7 +6,8 @@ import os from 'node:os'
 import path from 'node:path'
 // @ts-expect-error 메인 프로세스용 CommonJS 파일이라 타입 선언이 없다
 import hostIpc from '../../electron/hostIpc.cjs'
-import { useApp } from './app'
+import { useApp, replaceOther } from './app'
+import { useDialog } from './dialog'
 import { setLang } from './i18n'
 
 setLang('ko')
@@ -181,5 +182,52 @@ describe('PC 앱 ⇄ 호스트 폴더 (기존 동기화 재사용)', () => {
     expect(text('a.md')).toBe('내용\n')
     expect(useApp.getState().files['a.md'].dirty).toBe(true)
     expect(useApp.getState().toast ?? '').toMatch(/호스트 폴더|동기화 실패/)
+  })
+})
+
+describe('바이너리 파일 교체·충돌 (PC 앱 ⇄ 호스트 폴더, 2번)', () => {
+  const REL = '자료/report.docx'
+  const bytesOf = (rel: string) => [...fs.readFileSync(hostFile(rel))]
+  const answer = async (kind: 'choice' | 'confirm', v: string | boolean | null) => {
+    for (let i = 0; i < 400 && useDialog.getState().kind !== kind; i++) await new Promise((r) => setTimeout(r, 5))
+    const d = useDialog.getState()
+    expect(d.kind).toBe(kind)
+    const values = (d.choices ?? []).map((c) => c.value)
+    d.resolve?.(v)
+    useDialog.setState({ kind: null })
+    return values
+  }
+  const setup = async () => {
+    fs.mkdirSync(hostFile('자료'), { recursive: true })
+    fs.writeFileSync(hostFile(REL), Buffer.from([1, 2, 3, 4]))
+    await useApp.getState().sync() // 이 PC 앱이 파일 목록(rev)을 안다
+  }
+  const mine = () => new File([new Uint8Array([9, 9, 9, 9, 9])], 'report.docx')
+
+  it('탐색기에서 아무도 안 고쳤으면 새 버전으로 바꾸기가 그냥 성공한다(예전: baseRev 없이 보내 항상 409)', async () => {
+    await setup()
+    expect((await replaceOther(REL, mine())).outcome).toBe('replaced')
+    expect(bytesOf(REL)).toEqual([9, 9, 9, 9, 9])
+    expect(useDialog.getState().kind).toBeNull()
+  })
+  it('탐색기에서 먼저 고쳤으면 선택 창이 뜨고, 새 이름으로 보관하면 탐색기에서 고친 파일은 그대로다', async () => {
+    await setup()
+    fs.writeFileSync(hostFile(REL), Buffer.from([7, 7]))
+    bump(REL)
+    const p = replaceOther(REL, mine())
+    expect(await answer('choice', 'rename')).toEqual(['rename', 'keep', 'overwrite'])
+    expect(await p).toEqual({ outcome: 'renamed', path: '자료/report (내 것).docx' })
+    expect(bytesOf(REL)).toEqual([7, 7])
+    expect(bytesOf('자료/report (내 것).docx')).toEqual([9, 9, 9, 9, 9])
+  })
+  it('탐색기에서 먼저 고친 파일을 덮어쓰기로 고르면(확인 뒤) 내 것으로 바뀐다', async () => {
+    await setup()
+    fs.writeFileSync(hostFile(REL), Buffer.from([7, 7]))
+    bump(REL)
+    const p = replaceOther(REL, mine())
+    await answer('choice', 'overwrite')
+    await answer('confirm', true)
+    expect((await p).outcome).toBe('replaced')
+    expect(bytesOf(REL)).toEqual([9, 9, 9, 9, 9])
   })
 })

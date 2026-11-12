@@ -31,6 +31,22 @@ export interface Provider {
   notice?(): string | null
 }
 
+/**
+ * 조건부 쓰기(PC 호스트 폴더)의 충돌 정보. 409 + code 'conflict'(내가 본 rev 와 지금 rev 가 다름 / 지워짐) · 'case'(대소문자만 다른 경로가 이미 있음).
+ * 바이너리 충돌 선택 화면이 쓴다. 충돌이 아니면 null(GitHub 의 409·422 처럼 code 가 없는 오류는 여기 해당하지 않는다)
+ */
+export interface WriteConflict {
+  code: 'conflict' | 'case'
+  /** PC 의 현재 rev(덮어쓰기 때 baseRev 로 쓴다). 지워졌으면 삭제 기록의 rev */
+  currentRev: string | null
+  deleted: boolean
+}
+export function conflictOf(e: unknown): WriteConflict | null {
+  const x = e as { status?: number; code?: string; currentRev?: string | null; deleted?: boolean } | null
+  if (!x || x.status !== 409 || (x.code !== 'conflict' && x.code !== 'case')) return null
+  return { code: x.code, currentRev: x.currentRev ?? null, deleted: x.deleted === true }
+}
+
 export class SyncError extends Error {
   status: number
   constructor(msg: string, status = 0) {
