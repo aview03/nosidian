@@ -9,6 +9,7 @@ import { addTask, deleteTask, updateTask, useWorkUi } from '../lib/workOps'
 import { Icon } from './Icon'
 import { Select } from './Select'
 import { useWork } from './WorkHome'
+import { useBackClose } from '../lib/backStack'
 
 export function TaskEditor() {
   const ed = useWorkUi((s) => s.editor)
@@ -27,6 +28,7 @@ function Form({ task, project, closing }: { task?: Task; project: string | null;
   const work = useWork()
   const myName = useApp((s) => s.settings.myName)
   const close = () => useWorkUi.getState().closeEditor()
+  useBackClose(true, close)
   const titleRef = useRef<HTMLInputElement>(null)
 
   const [title, setTitle] = useState(task?.title ?? '')

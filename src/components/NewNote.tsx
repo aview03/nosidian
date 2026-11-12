@@ -7,6 +7,7 @@ import { Icon } from './Icon'
 import { Select } from './Select'
 import { dailyOf, isProjectsRoot, newFolderIn, newNoteIn, placeMessage } from '../lib/folderRules'
 import { useWorkUi } from '../lib/workOps'
+import { useBackClose } from '../lib/backStack'
 
 interface NewNoteUi {
   mode: null | 'note' | 'folder'
@@ -48,6 +49,7 @@ const isProjectsRootDir = isProjectsRoot
 
 function Dialog({ mode }: { mode: 'note' | 'folder' }) {
   const close = () => useNewNote.setState({ mode: null })
+  useBackClose(true, close)
   const files = useApp((s) => s.files)
   const [dir, setDir] = useState(() => useNewNote.getState().dir)
   const [name, setName] = useState('')

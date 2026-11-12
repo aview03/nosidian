@@ -10,6 +10,7 @@ import { useWorkUi, withUndo } from '../lib/workOps'
 import { baseName } from '../lib/links'
 import { Icon } from './Icon'
 import { useWork } from './WorkHome'
+import { useBackClose } from '../lib/backStack'
 
 export function NoteTasksSheet() {
   const path = useWorkUi((s) => s.tidy)
@@ -21,6 +22,7 @@ const splitNames = (v: string) => v.split(/[,，]/).map((x) => x.trim()).filter(
 
 function Sheet({ path }: { path: string }) {
   const close = () => useWorkUi.getState().closeTidy()
+  useBackClose(true, close)
   const work = useWork()
   const myName = useApp((s) => s.settings.myName)
   const content = useApp((s) => s.files[path]?.content ?? '')

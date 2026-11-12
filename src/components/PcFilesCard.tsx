@@ -10,6 +10,7 @@ import { formatSize, gate, gateMessage, handOver } from '../lib/attachments'
 import { entriesIn, forgetPcShare, getShareFile, listShare, pairShare, parseSharePairing, shareErrorText, usePcFilesUi, type PcShare, type ShareEntry, type SharePairing } from '../lib/pcFiles'
 import { Icon } from './Icon'
 import { QrScan } from './QrScan'
+import { useBackClose } from '../lib/backStack'
 
 export function PcFilesCard() {
   const link = usePcFilesUi((s) => s.link)
@@ -65,6 +66,7 @@ export function PcFilesSheet() {
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState<string | null>(null)
   const close = () => usePcFilesUi.setState({ open: false })
+  useBackClose(open && !!link, close)
 
   const load = useCallback(async (l: PcShare) => {
     setErr('')

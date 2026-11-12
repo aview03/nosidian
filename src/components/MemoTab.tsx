@@ -20,6 +20,7 @@ import { formatSize, gate, gateMessage, handOver, othersIn, renamedPath, uploadP
 import { Icon } from './Icon'
 import { openNewFolder } from './NewNote'
 import { useActiveVault } from './VaultSheet'
+import { useBackClose } from '../lib/backStack'
 
 /** 메모 탭 상태: 지금 보는 폴더와 선택 모드(안드로이드 뒤로가기가 먼저 이걸 되돌린다) */
 interface MemoUi { dir: string; sel: Set<string> | null }
@@ -559,6 +560,7 @@ export function MemoTab({ sync }: { sync?: ReactNode }) {
 
 /** 어느 폴더로 옮길지 고르는 시트 */
 function MoveSheet({ current, folders, count, onPick, onClose }: { current: string; folders: string[]; count: number; onPick(dest: string): void; onClose(): void }) {
+  useBackClose(true, onClose)
   const files = useApp((s) => s.files)
   const assets = useApp((s) => s.assets)
   // 노트가 없고 파일만 든 폴더도 목적지로 고를 수 있다

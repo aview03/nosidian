@@ -9,6 +9,7 @@ import type { Reason } from '../lib/docpolicy'
 import { useProposals } from '../lib/proposalStore'
 import { useFileProposals, type FileProposal } from '../lib/fileProposals'
 import { Icon } from './Icon'
+import { useBackClose } from '../lib/backStack'
 
 /** 정책 판정 이유를 사람이 읽는 문장으로 */
 export function reasonText(reason: Reason, text?: string): string {
@@ -172,6 +173,7 @@ export function ProposalReview() {
     window.addEventListener('keydown', f)
     return () => window.removeEventListener('keydown', f)
   }, [open])
+  useBackClose(open, () => useProposals.getState().setOpen(false))
   if (!open) return null
   const close = () => useProposals.getState().setOpen(false)
   const pending = items.filter((p) => p.status === 'pending')

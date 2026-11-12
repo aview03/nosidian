@@ -10,6 +10,7 @@ import { deleteView, saveView, useWorkUi } from '../lib/workOps'
 import { Icon } from './Icon'
 import { Select } from './Select'
 import { useWork } from './WorkHome'
+import { useBackClose } from '../lib/backStack'
 
 export function ViewEditor() {
   const ed = useWorkUi((s) => s.viewEditor)
@@ -19,6 +20,7 @@ export function ViewEditor() {
 
 function Form({ view }: { view?: View }) {
   const close = () => useWorkUi.setState({ viewEditor: null })
+  useBackClose(true, close)
   const work = useWork()
   const files = useApp((s) => s.files)
   const myName = useApp((s) => s.settings.myName)

@@ -8,6 +8,7 @@ import {
 } from '../lib/calendar'
 import { Icon } from './Icon'
 import { Select } from './Select'
+import { useBackClose } from '../lib/backStack'
 
 const addHour = (hhmm: string, h: number) => {
   const [a, b] = hhmm.split(':').map(Number)
@@ -35,6 +36,7 @@ function Form({ date, ev }: { date: string; ev?: CalEvent }) {
   const [until, setUntil] = useState(init?.until ?? addDays(init?.date ?? date, 30))
   const titleRef = useRef<HTMLInputElement>(null)
   const close = () => useCal.getState().closeEditor()
+  useBackClose(true, close)
   const wd = useMemo(() => weekdayLabels(), [])
   const dow = parseYmd(d).getDay()
   const effDays = days.length ? days : [dow]

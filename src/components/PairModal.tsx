@@ -8,6 +8,7 @@ import QRCode from 'qrcode'
 import { t } from '../lib/i18n'
 import { useApp } from '../lib/app'
 import { baselineIds, newcomer, pairPhase, remaining, type PairBase, type PairState } from '../lib/pairModal'
+import { useBackClose } from '../lib/backStack'
 
 export interface PairSource {
   /** 지금 상태(코드는 새로 만들지 않는다) */
@@ -68,6 +69,8 @@ export function PairModal({ title, where, source, onClose, onConnected }: { titl
     try { await src.current.revoke() } catch { /* 서버가 이미 폐기했으면 무시 */ }
     onClose()
   }, [onClose])
+
+  useBackClose(true, () => void close())
 
   // 연결되면 알리고 저절로 닫는다
   useEffect(() => {

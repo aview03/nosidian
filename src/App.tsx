@@ -21,14 +21,13 @@ import { ProjectHub } from './components/ProjectHub'
 import { TaskEditor } from './components/TaskEditor'
 import { NoteTasksSheet } from './components/NoteTasksSheet'
 import { NewProject } from './components/NewProject'
-import { NewNote, useNewNote } from './components/NewNote'
+import { NewNote } from './components/NewNote'
 import { ViewEditor } from './components/ViewEditor'
 import { ProposalReview } from './components/ProposalReview'
 import { PcFilesSheet } from './components/PcFilesCard'
 import { AiPanel } from './components/AiPanel'
 import { startAiThread, useAiThread } from './lib/aiThread'
-import { usePcFilesUi } from './lib/pcFiles'
-import { useWorkUi } from './lib/workOps'
+import { runBack } from './lib/backStack'
 import { startAutomation, useAutomation } from './lib/automation'
 import { startRelayBridge } from './lib/relayBridge'
 import { autoInboxCount } from './components/AutoSettings'
@@ -180,10 +179,7 @@ export default function App() {
     const h = CapApp.addListener('backButton', () => {
       const app = useApp.getState()
       if (useDialog.getState().kind) return useDialog.setState({ kind: null })
-      if (usePcFilesUi.getState().open) return usePcFilesUi.setState({ open: false }) // PC 폴더 시트(뒤쪽 화면이 먼저 물러나던 문제)
-      if (useNewNote.getState().mode) return useNewNote.setState({ mode: null })
-      if (useWorkUi.getState().editor) return useWorkUi.getState().closeEditor()
-      if (useWorkUi.getState().wizard) return useWorkUi.setState({ wizard: false })
+      if (runBack()) return // 열려 있는 시트·창(스스로 등록한 것)을 가장 나중에 연 것부터 닫는다 — 안 그러면 뒤쪽 화면만 물러난다(F46)
       if (app.vaultSheet) return app.setVaultSheet(false)
       if (app.palette) return app.setPalette(null)
       if (app.sheet) return app.setSheet(null)

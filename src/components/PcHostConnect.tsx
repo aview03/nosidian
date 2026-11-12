@@ -10,6 +10,7 @@ import { listVaultSnapshots, type PhoneSnapshot } from '../lib/phoneSnapshot'
 import { Icon } from './Icon'
 import { HostPlanView } from './HostPlan'
 import { QrScan } from './QrScan'
+import { useBackClose } from '../lib/backStack'
 
 const errText = (e: unknown) => {
   const x = e as { message?: string; status?: number; code?: string }
@@ -29,6 +30,7 @@ export function PcHostConnectDialog({ onClose }: { onClose: () => void }) {
   const [plan, setPlan] = useState<ConnectPlan | null>(null)
   const [choices, setChoices] = useState<Record<string, Choice>>({})
   const [busy, setBusy] = useState(false)
+  useBackClose(true, () => { if (!busy) onClose() }) // 진행 중에는 바깥을 눌러도 닫히지 않는 것과 같다
   const [err, setErr] = useState('')
   const [done, setDone] = useState<string | null>(null)
 

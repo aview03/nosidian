@@ -12,6 +12,7 @@ import { HostPlanView } from './HostPlan'
 import { PairModal } from './PairModal'
 import { hostState } from '../lib/pairModal'
 import { DeviceList } from './DeviceList'
+import { useBackClose } from '../lib/backStack'
 
 const PICK_ERR: Record<string, string> = {
   'drive root': '드라이브 전체는 쓸 수 없어요. 폴더를 하나 골라 주세요',
@@ -28,6 +29,7 @@ export function HostConnectDialog({ onClose }: { onClose: () => void }) {
   const [plan, setPlan] = useState<ConnectPlan | null>(null)
   const [choices, setChoices] = useState<Record<string, Choice>>({})
   const [busy, setBusy] = useState(false)
+  useBackClose(true, () => { if (!busy) onClose() }) // 진행 중에는 바깥을 눌러도 닫히지 않는 것과 같다
   const [err, setErr] = useState('')
   const [done, setDone] = useState<string | null>(null)
 

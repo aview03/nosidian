@@ -8,6 +8,7 @@ import { parseMe } from '../lib/work'
 import { builtinTemplates, planProject, vaultTemplates } from '../lib/projectTemplates'
 import { useWorkUi } from '../lib/workOps'
 import { Icon } from './Icon'
+import { useBackClose } from '../lib/backStack'
 
 export function NewProject() {
   const open = useWorkUi((s) => s.wizard)
@@ -17,6 +18,7 @@ export function NewProject() {
 
 function Wizard() {
   const close = () => useWorkUi.setState({ wizard: false })
+  useBackClose(true, close)
   const myName = useApp((s) => s.settings.myName)
   const files = useApp((x) => x.files)
   const templates = useMemo(() => [...builtinTemplates(), ...vaultTemplates(files)], [files])
