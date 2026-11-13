@@ -1,4 +1,4 @@
-# Nosidian 이어서 시작하기 (2026-11-13 기준 · v1.43.8)
+# Nosidian 이어서 시작하기 (2026-11-13 기준 · v1.43.9)
 
 > 새 세션을 시작할 때 이 문서를 그대로 붙여 넣으세요. Claude 는 이 문서를 읽은 뒤, 아래 "첫 행동"을 하고 사용자에게 다음 작업을 확인합니다.
 > 상세 기억은 `C:\Users\USER\.claude\projects\C--Users-USER-Desktop-MD-Reader\memory\nosidian-project-state.md`(자동 메모리)에도 있습니다. 둘이 다르면 **저장소의 코드·git 로그가 사실**입니다.
@@ -9,7 +9,8 @@
 - 노트는 IndexedDB(Vault)에 있고, 동기화는 GitHub·Google Drive·OneDrive(클라우드) **또는** 이 PC 를 호스트로 쓰는 "내 PC" 방식(클라우드 없이)이 있다.
 
 ## 2. 현재 상태
-- 원격 `origin/main` 은 v1.43.7 (`2979a64`) 근처에서 멈춰 있고, **v1.43.8(화면 다듬기)는 로컬 커밋만 있다(푸시 안 함)**. `git status -sb` 로 확인.
+- 원격 `origin/main` 에 **v1.43.8(`87a030d`, 화면 다듬기)까지 푸시됨**. v1.43.9 는 이 문서와 함께 푸시. `git status -sb` 로 확인.
+- **v1.43.9 (2026-11-13)**: 내 업무 타일 화살표를 오른쪽 끝 하나로 통일(접힘 › / 펼침 ⌄, 내용 없는 타일은 숨김), **타일 머리 줄 전체가 접기·펼치기 버튼**(예전엔 제목 글자만 눌림). 폰 실기기에서 확인, PC 는 설치만(실행·캡처 안 함).
 - **v1.43.8 (2026-11-13) 화면 다듬기**: 내 업무 홈(빈 타일 숨김·미분류 칩·기한 초과 기본 맨 위·2열 columns·타일 위계 t1/t2/t3), 캘린더·메모·검색·설정 정렬선 16px·빨강은 기한 초과/위험/활성 상태에만·생성 버튼은 검정·시스템 폴더(`_workspace`) 접기. 상세는 아래 표 v1.43.8 행. 테스트 **1287개 통과**(빈 타일 전용 시험 삭제·순서 시험 갱신), 설치 파일 `release/Nosidian-Setup-1.43.8.exe` 를 이 PC 에 설치(`/S`)·폰에 APK 설치(versionName 1.43.8) — **설치한 앱을 실행해 보지는 않았다**(개발 빌드+시험 데이터와 폰 실기기 화면 캡처로 확인).
 - 테스트 **1290개 통과**(`npm test`, 98개 파일), `npx tsc -b` 오류 없음. 설치 파일 `release/Nosidian-Setup-1.43.7.exe`(~125MB, 코드 서명 없음)까지 빌드됨 — **설치해서 실행해 보지는 않았다**. 폰에는 v1.43.7 디버그 APK 설치됨(시스템 `versionName`/`versionCode` 는 `package.json` 을 따른다: 1.43.7 / 14307). **주의**: APK 를 빌드할 때는 `npm run build` 뒤에 반드시 `npx cap sync android` 를 해야 웹 자산이 갱신된다(이번에 한 번 놓쳐서 옛 자산이 든 APK 가 설치될 뻔했다).
 - 폰: Android(삼성 One UI 추정), USB 연결, 화면 꺼짐 30초(시험할 때만 `svc power stayon true`). **PIN 잠금이 걸려 있어 잠기면 CDP 가 멈춘다 → 폰 시험 전에 사용자에게 "잠금 풀어 주세요" 요청.**
@@ -36,6 +37,7 @@
 | v1.41 | 호스트 동기화 서버: 기기별 쓰기 권한·조건부 쓰기·실행 파일 거부 | `docs/HOST-SERVER.md` |
 | v1.42 | 폰의 "내 PC" 연결(클라우드 없이 폰↔PC 동기화) | `docs/HOST-PHONE.md` |
 | v1.43.8 | 화면 다듬기(밀도·위계·색 규칙): 빈 타일은 화면에서 뺌(오늘 일정·프로젝트·사용자 타일 제외), `정리할 업무`→`프로젝트 미분류` 칩(누르면 펼침, 강제 배정 없음), 담당자 필터 설명 삭제→`전체 +N`, 진행 중 타일 유지+행에 `진행 중` 표시, 기한 초과는 **기본 배치에서만** 맨 위(사용자 순서 존중), PC 2열은 CSS columns(읽는 순서: 왼쪽 열 위→아래 후 오른쪽), 타일 위계 t1(오늘 일정·기한 지난 일)/t2/t3(프로젝트), 하단 입력줄 캘린더·내 업무 통일+비활성 회색, 빨강 정리(링크·상태·태그·캘린더 칩은 중립, 지난 일정만 빨강), 생성 버튼 검정, 검색·내 업무 정렬선 16px, `_workspace` 접기(폰·PC) | `src/components/WorkHome.tsx`, `src/index.css` 끝부분 |
+| v1.43.9 | 내 업무 타일 머리: 화살표 오른쪽 끝 통일(`.wrk-chev`), 머리 전체를 누르는 자리 | `src/components/WorkHome.tsx`, `src/index.css` 끝부분 |
 | v1.43.x | 페르소나(6역할) 점검에서 나온 수정 F1~F47: 노트 "업무 정리"(담당·마감·결정을 한 번에, 모르는 이름 제안), 이미지 붙여넣기, 코드 복사·어두운 테마 문법 색, 홈 종일 체크리스트, 빠른 입력 미리보기에 기간·요일, 받은 파일 `열기`/`공유·저장`(네이티브 `OpenFile.view`), 동기화 점은 저장소 연결 시에만, 안드로이드 뒤로 가기 스택(`lib/backStack.ts`), 5-c 폰의 `연결 해제`가 PC 목록에도 반영(`POST /unpair` + 공통 `ForgetLink`, v1.43.3), 7번 화면 이동 규칙(`drillTo`·`androidBack`, `docs/NAV.md`, v1.43.4), 바이너리 충돌 선택(v1.43.5), 자동 동기화·휴지통 복구·삭제 전파·PC `Alt+←`(v1.43.6), 프로젝트 깊이·용어와 템플릿 `디자인 일정`·`기획 정식`(v1.43.7, `docs/PROJECT-DEPTH.md`) 등 | `docs/personas/FINDINGS.md` · `docs/SHARE.md` · `docs/IMAGES.md` |
 
 주요 코드: `electron/{hostStore,hostServer,hostIpc,fileShare,aiRelay}.cjs`, `src/lib/{pcHost,hostConnect,phoneSnapshot,secureStore,pinnedHttp}.ts`, `src/lib/sync/{host,pchost}.ts`, `src/components/{HostConnect,HostPlan,PcHostConnect}.tsx`, 네이티브 `android/.../{PinnedHttpPlugin,SecureStorePlugin}.java`.
