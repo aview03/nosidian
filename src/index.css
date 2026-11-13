@@ -1579,7 +1579,6 @@ input.inline.wide { width: 100%; box-sizing: border-box; height: 42px; }
 .wrk-tiles > .wrk-tile.wrk-chip { padding: 0; }
 .wrk-chip > .wrk-tiletitle { width: 100%; padding: 10px 14px; display: flex; align-items: center; gap: 8px; }
 .wrk-chip .wrk-tname { font-size: 13.5px; font-weight: 600; color: var(--muted); }
-.wrk-chip .wrk-tiletitle svg { margin-left: auto; color: var(--muted); }
 .wrk-hidden-n { margin-left: 4px; font-size: 12px; color: var(--muted); font-weight: 600; }
 .wrk-doing { color: var(--text); font-weight: 600; }
 
@@ -1930,3 +1929,12 @@ body.board-dragging, body.board-dragging * { cursor: grabbing !important; user-s
 /* 본문·에디터의 #태그도 빨강 대신 중립색 칩 */
 .chip.tag, .md a.tag, .cm-tag { color: var(--text); background: var(--bg3); }
 .filetree .memo-sys { padding: 8px 12px; }
+
+/* ── 타일 머리 전체가 누르는 자리, 화살표는 늘 오른쪽 끝(접힘 ›, 펼침 ⌄) ── */
+.wrk-tile > .wrk-tilehead { padding: 0; }
+.wrk-tile .wrk-tiletitle { width: 100%; min-height: 40px; padding: 4px 14px; cursor: pointer; }
+.wrk-tile.t1 .wrk-tiletitle { min-height: 44px; }
+.wrk-tile .wrk-tiletitle:hover { background: color-mix(in srgb, var(--text) 5%, transparent); }
+.wrk-chev { margin-left: auto; display: grid; place-items: center; color: var(--muted); transition: transform .15s; }
+.wrk-chev.open { transform: rotate(90deg); }
+.wrk-chip > .wrk-tiletitle { padding: 10px 14px; }

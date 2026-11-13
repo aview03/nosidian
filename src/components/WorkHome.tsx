@@ -185,7 +185,7 @@ function TileView({ id, data, limit, collapsed }: {
         <button className="wrk-tiletitle" aria-expanded={false} onClick={() => setOpen(true)}>
           <span className="wrk-tname">{data.title}</span>
           <span className="wrk-count">{data.rows.length}</span>
-          <Icon name="chevron" size={14} />
+          <span className="wrk-chev"><Icon name="chevron" size={14} /></span>
         </button>
       </section>
     )
@@ -197,10 +197,10 @@ function TileView({ id, data, limit, collapsed }: {
     <section className={`wrk-sec wrk-tile ${tierOf(id)} ${data.tone ?? ''}${collapsed && !data.compact ? ' collapsed' : ''}${data.rows.length === 0 ? ' blank' : ''}`}>
       <div className="wrk-tilehead">
         <button className="wrk-tiletitle" aria-expanded={data.compact ? true : !collapsed} onClick={() => (data.compact ? setOpen(false) : patch((l) => setCollapsed(l, id, !collapsed)))}>
-          {collapsed && !data.compact && <Icon name="chevron" size={14} />}
           <span className="wrk-tname">{data.title}</span>
           {count !== undefined && <span className="wrk-count">{count}</span>}
           {data.note && <span className="wrk-note-inline">{data.note}</span>}
+          {data.rows.length > 0 && <span className={`wrk-chev${collapsed && !data.compact ? '' : ' open'}`}><Icon name="chevron" size={14} /></span>}
         </button>
       </div>
       {(data.compact || !collapsed) && (data.top || shown.length > 0 || data.footer || (data.rows.length === 0 && data.emptyText) || (data.limitable && limit > 0 && data.rows.length > limit)) && (
