@@ -15,7 +15,7 @@ import { useAiThread } from '../lib/aiThread'
 import { ProposalBanner } from './ProposalReview'
 import { openMyNameSetting } from './Settings'
 import { applyView, readViews, type View } from '../lib/views'
-import { customName, disableTile, enableTile, isCustom, reorderVisible, resolveTiles, setCollapsed, setLimit, type BuiltinTile } from '../lib/tiles'
+import { customName, disableTile, enableTile, isCustom, reorderVisible, resolveTiles, setCollapsed, setLimit, type BuiltinTile, type ResolvedTile } from '../lib/tiles'
 import { completeWithUndo, moveToProject, toggleOrClose, useWorkUi } from '../lib/workOps'
 import { projectHealth, readThresholds, type Health, type Signal } from '../lib/health'
 import { buildDayItems, type DayItem } from '../lib/dayItems'
@@ -99,6 +99,7 @@ function TaskRow({ q, projects }: { q: QueueItem; projects: Map<string, Project>
           <span className="wrk-meta">
             {proj && <span className="wrk-proj">{proj.name}</span>}
             {tk.owner.length > 0 && <span className="wrk-owner">{tk.owner.join(', ')}</span>}
+            {tk.state === 'doing' && q.reason !== 'doing' && <span className="wrk-doing">{t('진행 중')}</span>}
             {tk.due && q.reason !== 'overdue' && q.reason !== 'today' && <span className="wrk-due">{tk.due.slice(5)}</span>}
           </span>
         </span>
@@ -120,7 +121,7 @@ function DayItemRow({ it }: { it: DayItem }) {
       <button className="wrk-main" onClick={() => useCal.getState().openEditor(ev.origDate ?? ev.date, ev)}>
         <span className="wrk-body">
           <span className="wrk-title">{ev.title}</span>
-          <span className="wrk-meta"><span className="wrk-due">{ev.date.slice(5)}</span></span>
+          {!late && <span className="wrk-meta"><span className="wrk-due">{ev.date.slice(5)}</span></span>}
         </span>
         <em className={`wrk-why ${it.reason}`}>{late ? t('기한 {n}일 지남', { n: it.days }) : it.days === 1 ? t('내일 마감') : t('D-{n}', { n: it.days })}</em>
       </button>
@@ -159,8 +160,15 @@ interface TileData {
   limitable: boolean
   /** 사용자가 만든 타일이면 그 조건 */
   custom?: View
+  /** 제목 옆에 붙는 짧은 안내(비었을 때 "예정 없음" 등) */
+  note?: string
+  /** 평소엔 제목·개수 한 줄(칩)로만 보이고, 눌러야 줄이 펼쳐진다(정상 상태라 눈에 띄지 않아도 되는 것) */
+  compact?: boolean
 }
 
+
+/** 타일의 무게: 1 = 지금 봐야 하는 것(오늘 일정·기한 지난 일), 2 = 보통의 일 목록, 3 = 둘러보는 곳(프로젝트) */
+const tierOf = (id: string) => (id === 'today' || id === 'overdue' ? 't1' : id === 'projects' ? 't3' : 't2')
 
 function TileView({ id, data, limit, collapsed }: {
   id: string
@@ -169,20 +177,33 @@ function TileView({ id, data, limit, collapsed }: {
   collapsed: boolean
 }) {
   const [expanded, setExpanded] = useState(false)
+  const [open, setOpen] = useState(false)
   const patch = useWorkUi.getState().patchLayout
+  if (data.compact && !open) {
+    return (
+      <section className="wrk-sec wrk-tile wrk-chip">
+        <button className="wrk-tiletitle" aria-expanded={false} onClick={() => setOpen(true)}>
+          <span className="wrk-tname">{data.title}</span>
+          <span className="wrk-count">{data.rows.length}</span>
+          <Icon name="chevron" size={14} />
+        </button>
+      </section>
+    )
+  }
   const shown = limit > 0 && !expanded ? data.rows.slice(0, limit) : data.rows
   const rest = data.rows.length - shown.length
   const count = data.count ?? (data.limitable ? data.rows.length : undefined)
   return (
-    <section className={`wrk-sec wrk-tile ${data.tone ?? ''}${collapsed ? ' collapsed' : ''}`}>
+    <section className={`wrk-sec wrk-tile ${tierOf(id)} ${data.tone ?? ''}${collapsed && !data.compact ? ' collapsed' : ''}${data.rows.length === 0 ? ' blank' : ''}`}>
       <div className="wrk-tilehead">
-        <button className="wrk-tiletitle" aria-expanded={!collapsed} onClick={() => patch((l) => setCollapsed(l, id, !collapsed))}>
-          {collapsed && <Icon name="chevron" size={14} />}
+        <button className="wrk-tiletitle" aria-expanded={data.compact ? true : !collapsed} onClick={() => (data.compact ? setOpen(false) : patch((l) => setCollapsed(l, id, !collapsed)))}>
+          {collapsed && !data.compact && <Icon name="chevron" size={14} />}
           <span className="wrk-tname">{data.title}</span>
           {count !== undefined && <span className="wrk-count">{count}</span>}
+          {data.note && <span className="wrk-note-inline">{data.note}</span>}
         </button>
       </div>
-      {!collapsed && (
+      {(data.compact || !collapsed) && (data.top || shown.length > 0 || data.footer || (data.rows.length === 0 && data.emptyText) || (data.limitable && limit > 0 && data.rows.length > limit)) && (
         <div className="wrk-tilebody">
           {data.top}
           {shown}
@@ -206,33 +227,9 @@ const BUILTIN_TITLE: Record<BuiltinTile, string> = {
   waiting: '대기 중인 일',
   doing: '진행 중',
   unowned: '담당자 없는 일',
-  triage: '정리할 업무',
+  triage: '프로젝트 미분류',
   projects: '프로젝트',
 }
-/** 켜 둔 타일이 비었을 때 마우스를 올리면 보이는 설명(이 타일에 어떤 일이 모이는지). 제목을 되풀이하지 않고 화면에는 "지금은 없어요"만 보인다 */
-export const EMPTY_TEXT: Record<BuiltinTile, string> = {
-  today: '오늘의 일정과 할 일이 여기에 모여요',
-  overdue: '마감이 지났는데 아직 끝나지 않은 일이 여기에 모여요',
-  decisions: '결정이 필요한 일이 여기에 모여요',
-  dueToday: '오늘이 마감인 일이 여기에 모여요',
-  week: '이번 주에 마감인 일이 여기에 모여요',
-  waiting: '내가 답이나 결과를 기다리는 일이 여기에 모여요',
-  doing: '지금 하고 있는 일이 여기에 모여요',
-  unowned: '담당자가 정해지지 않은 일이 여기에 모여요',
-  triage: '아직 프로젝트에 넣지 않은 새 업무가 여기에 모여요',
-  projects: '프로젝트가 여기에 모여요',
-}
-
-/** 켜 둔 타일인데 비어 있을 때: 화면에서 빼지 않고 얇은 한 줄로 보인다(역할에 맞춰 고른 구성이 보이도록) */
-export function EmptyTile({ title, text, tone }: { title: string; /** 이 타일에 모이는 일(마우스를 올리면) */ text: string; tone?: string }) {
-  return (
-    <section className={`wrk-sec wrk-tile wrk-tile-empty ${tone ?? ''}`} title={text}>
-      <span className="wrk-tname">{title}</span>
-      <span className="hint">{t('지금은 없어요')}</span>
-    </section>
-  )
-}
-
 const QUEUE_OF: Partial<Record<BuiltinTile, keyof Omit<Queues, 'total'>>> = { overdue: 'overdue', decisions: 'decisions', dueToday: 'today', week: 'week', waiting: 'waiting', doing: 'doing', unowned: 'unowned' }
 
 export function WorkHome() {
@@ -299,7 +296,7 @@ export function WorkHome() {
         title: t(BUILTIN_TITLE.today),
         rows: todayEvents.map((e) => <EventRow key={e.id + e.date} ev={e} />),
         top: <div className="wrk-add-inline"><QuickAdd date={today} /></div>,
-        emptyText: t('이 날은 일정이 없습니다.'),
+        note: todayEvents.length === 0 ? t('예정 없음') : undefined,
         alwaysShow: true,
         limitable: false,
       }
@@ -310,8 +307,8 @@ export function WorkHome() {
       return {
         title: t(BUILTIN_TITLE.triage),
         rows: loose.map((tk) => <TriageRow key={tk.id} tk={tk} work={work} />),
-        top: loose.length ? <p className="hint wrk-triage-hint">{t('프로젝트를 고르면 그 프로젝트의 할 일 노트로 옮겨져요.')}</p> : undefined,
         limitable: true,
+        compact: true,
       }
     }
     // projects
@@ -339,6 +336,12 @@ export function WorkHome() {
       limitable: false,
     }
   }
+
+  // 지금 볼 일이 없는 타일은 화면에서 뺀다(오늘 일정·프로젝트·사용자 타일은 비어도 둔다). 순서는 사용자가 정한 배치를 그대로 따른다
+  const shownTiles = tiles
+    .filter((x) => !x.hidden || autoShow(x.id))
+    .map((tile) => ({ tile, data: dataFor(tile.id) }))
+    .filter((x): x is { tile: ResolvedTile; data: TileData } => !!x.data && (!!x.data.alwaysShow || x.data.rows.length > 0))
 
   const titleOf = (id: string) => (isCustom(id) ? customName(id) : t(BUILTIN_TITLE[id as BuiltinTile]))
   const arrRows = tiles.map((x) => ({ ...x, title: titleOf(x.id), limitable: x.id !== 'today' && x.id !== 'projects', custom: isCustom(x.id) }))
@@ -369,19 +372,12 @@ export function WorkHome() {
           {me.length > 0 ? (
             <div className="seg wrk-scope">
               <button className={scope === 'mine' ? 'on' : ''} onClick={() => setScope('mine')}>{t('내 것 ({name})', { name: me[0] })}</button>
-              <button className={scope === 'all' ? 'on' : ''} onClick={() => setScope('all')}>{t('전체')}</button>
+              <button className={scope === 'all' ? 'on' : ''} onClick={() => setScope('all')}>{t('전체')}{scope === 'mine' && hiddenByScope > 0 && <small className="wrk-hidden-n" title={t('다른 사람 담당 일 {n}개가 가려져 있어요', { n: hiddenByScope })}>+{hiddenByScope}</small>}</button>
             </div>
           ) : (
             work.tasks.length > 0 && (
               <button className="wrk-setname" onClick={openMyNameSetting}>{t('내 이름 설정 →')}</button>
             )
-          )}
-
-          {!editing && me.length > 0 && scope === 'mine' && hiddenByScope > 0 && (
-            <p className="hint small wrk-scope-hint">
-              {t('담당자가 "{name}"인 일만 보여요. 다른 사람 담당 일 {n}개는 가려져 있어요.', { name: me[0], n: hiddenByScope })}{' '}
-              <button className="btn-link" onClick={() => setScope('all')}>{t('전체 보기')}</button>
-            </p>
           )}
 
           {empty && !editing && (
@@ -406,12 +402,7 @@ export function WorkHome() {
               <button className="wrk-newproj" onClick={() => useWorkUi.setState({ viewEditor: {} })}>+ {t('조건으로 새 타일 만들기')}</button>
             </>
           ) : (
-            <div className="wrk-tiles">{tiles.filter((x) => !x.hidden || autoShow(x.id)).map((tile) => {
-              const data = dataFor(tile.id)
-              if (!data) return null
-              if (!data.alwaysShow && data.rows.length === 0) return <EmptyTile key={tile.id} title={data.title} text={t(EMPTY_TEXT[tile.id as BuiltinTile] ?? '')} tone={data.tone} /> // 켜 둔 타일은 비어도 한 줄로 남긴다
-              return <TileView key={tile.id} id={tile.id} data={data} limit={tile.limit} collapsed={tile.collapsed} />
-            })}</div>
+            <div className="wrk-tiles">{shownTiles.map(({ tile, data }) => <TileView key={tile.id} id={tile.id} data={data} limit={tile.limit} collapsed={tile.collapsed} />)}</div>
           )}
 
           {!editing && work.tasks.length > 0 && q.total === 0 && q.doing.length === 0 && q.unowned.length === 0 && (

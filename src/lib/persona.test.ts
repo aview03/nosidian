@@ -8,17 +8,18 @@ import { useWorkUi } from './workOps'
 const shown = (l: ReturnType<typeof defaultLayout>, customs: string[] = []) => resolveTiles(l, customs).filter((x) => !x.hidden).map((x) => x.id)
 
 describe('역할 프리셋', () => {
-  it('모든 역할은 실제 있는 타일만 켜고 "오늘 일정"이 맨 앞이다', () => {
+  it('모든 역할은 실제 있는 타일만 켜고 "오늘 일정"이 켜져 있고 기한 초과가 있으면 그것이 맨 앞이다', () => {
     for (const p of PERSONAS) {
       const tiles = PERSONA_INFO[p].tiles
-      expect(tiles[0]).toBe('today')
+      expect(tiles[0]).toBe(tiles.includes('overdue') ? 'overdue' : 'today')
+      expect(tiles).toContain('today')
       expect(new Set(tiles).size).toBe(tiles.length)
       for (const id of tiles) expect(BUILTIN_TILES).toContain(id)
     }
   })
   it('프리셋은 켜 둔 타일을 위에, 나머지를 꺼서 아래에 둔다', () => {
     const l = presetLayout('planner', defaultLayout(), [])
-    expect(shown(l)).toEqual(['today', 'decisions', 'overdue', 'waiting', 'projects'])
+    expect(shown(l)).toEqual(['overdue', 'today', 'decisions', 'waiting', 'projects'])
     expect(l.order.slice(5).sort()).toEqual(BUILTIN_TILES.filter((x) => !PERSONA_INFO.planner.tiles.includes(x)).sort())
     expect(l.hidden.sort()).toEqual(l.order.slice(5).sort())
     expect(l.collapsed).toEqual([])
@@ -65,11 +66,11 @@ describe('켜진 것 위, 꺼진 것 아래', () => {
   it('끄면 켜 둔 목록에서 빠져 꺼 둔 목록 맨 앞으로, 켜면 켜 둔 목록의 맨 끝으로 간다', () => {
     const l0 = presetLayout('planner', defaultLayout(), [])
     const off = disableTile(l0, [], 'decisions')
-    expect(shown(off)).toEqual(['today', 'overdue', 'waiting', 'projects'])
+    expect(shown(off)).toEqual(['overdue', 'today', 'waiting', 'projects'])
     const rest = resolveTiles(off, []).map((x) => x.id)
     expect(rest.slice(4, 5)).toEqual(['decisions']) // 켜 둔 4개 바로 뒤
     const on = enableTile(off, [], 'unowned')
-    expect(shown(on)).toEqual(['today', 'overdue', 'waiting', 'projects', 'unowned'])
+    expect(shown(on)).toEqual(['overdue', 'today', 'waiting', 'projects', 'unowned'])
     expect(on.hidden).not.toContain('unowned')
   })
   it('켜 둔 타일의 순서를 바꿔도 꺼 둔 타일은 아래에 그대로', () => {

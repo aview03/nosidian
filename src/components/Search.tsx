@@ -91,7 +91,7 @@ export function Search({ autoFocus = true }: { autoFocus?: boolean }) {
           autoFocus={autoFocus}
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder={t('검색…  tag:프로젝트  path:폴더  file:이름')}
+          placeholder={t('검색…')}
           enterKeyHint="search"
         />
         {q && <button className="clear" onClick={() => setQ('')} aria-label={t('지우기')}>✕</button>}

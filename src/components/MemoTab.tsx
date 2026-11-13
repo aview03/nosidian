@@ -19,6 +19,7 @@ import { deleteOther, fetchOther, moveOther, replaceOther, uploadOthers } from '
 import { askHandMode, formatSize, gate, gateMessage, handOver, noAppMessage, othersIn, renamedPath, uploadPath, type OtherFile } from '../lib/attachments'
 import { Icon } from './Icon'
 import { openNewFolder } from './NewNote'
+import { isProtectedPath } from '../lib/docrules'
 import { useActiveVault } from './VaultSheet'
 import { useBackClose } from '../lib/backStack'
 
@@ -188,6 +189,8 @@ export function MemoTab({ sync }: { sync?: ReactNode }) {
   /** 폴더를 고르는 중인 파일(이동) */
   const [movingFile, setMovingFile] = useState<OtherFile | null>(null)
   /** 끌어 옮기는 중: 손가락 위치와 지금 올라가 있는 목적지(폴더 행 또는 위로) */
+  /** 팀 규칙 같은 시스템 폴더(_workspace)는 평소엔 한 줄로 접어 둔다 */
+  const [showSys, setShowSys] = useState(false)
   const [dragging, setDragging] = useState<{ x: number; y: number; over: string | null } | null>(null)
   const pointer = useRef({ x: 0, y: 0 })
   const scroller = useRef<HTMLDivElement>(null)
@@ -199,6 +202,9 @@ export function MemoTab({ sync }: { sync?: ReactNode }) {
   // 노트 없이 파일(.py·.docx …)만 든 폴더도 목록에 보인다
   const others = othersIn(assets, dir)
   const folders = [...noteFolders, ...others.folders.filter((f) => !noteFolders.some((n) => n.path === f.path)).map((f) => ({ path: f.path, name: f.name, count: f.count, mtime: 0 }))].sort((a, b) => a.name.localeCompare(b.name, 'ko'))
+  const isSys = (f: { path: string }) => isProtectedPath(f.path + '/')
+  const sysFolders = folders.filter(isSys)
+  const listed = showSys || sel ? folders : folders.filter((f) => !isSys(f))
   const empty = folders.length === 0 && notes.length === 0 && others.files.length === 0
   useEffect(() => {
     if (dir && empty) useMemoUi.setState({ dir: dirOf(dir) })
@@ -492,7 +498,7 @@ export function MemoTab({ sync }: { sync?: ReactNode }) {
         {folders.length > 0 && (
           <section>
             {marked.length > 0 && !sel && <h3 className="memo-sec">{t('폴더')}</h3>}
-            {folders.map((f) => (
+            {listed.map((f) => (
               <Row key={'d:' + f.path} k={f.path} selecting={!!sel} selected={!!sel?.has(key('d', f.path))} onOpen={() => useMemoUi.setState({ dir: f.path })} onSelect={() => begin(key('d', f.path))} drag={drag} drop={sel && !sel.has(key('d', f.path)) ? 'd:' + f.path : undefined} over={dragging?.over === 'd:' + f.path}>
                 <span className="memo-ico"><Icon name="folder" size={20} /></span>
                 <span className="memo-main"><b className="memo-title">{f.name}</b>{noOverview?.has(f.path) && <span className="memo-snip warn">{t('프로젝트 개요 노트가 없어요')}</span>}</span>
@@ -501,6 +507,11 @@ export function MemoTab({ sync }: { sync?: ReactNode }) {
                 {!sel && <span className="memo-chev"><Icon name="chevron" size={14} /></span>}
               </Row>
             ))}
+            {sysFolders.length > 0 && !sel && (
+              <button className="memo-sys" aria-expanded={showSys} onClick={() => setShowSys(!showSys)}>
+                {showSys ? t('시스템 폴더 접기') : t('시스템 폴더 {n}개', { n: sysFolders.length })}
+              </button>
+            )}
           </section>
         )}
         {notes.length > 0 && (

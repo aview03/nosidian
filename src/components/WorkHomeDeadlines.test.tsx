@@ -67,9 +67,7 @@ describe('학생의 홈: 날짜만 적은 과제(종일 체크리스트)도 이�
     const row = [...section('기한이 지난 일')!.querySelectorAll('.wrk-row')].find((r) => r.textContent!.includes('국어'))!
     act(() => row.querySelector<HTMLInputElement>('input.task')!.click())
     expect(useApp.getState().files['Daily/2026-11-10.md'].content).toContain('- [x] 국어 숙제 제출')
-    const after = section('기한이 지난 일')!
-    expect(after.querySelectorAll('.wrk-row')).toHaveLength(0) // 비면 얇은 "지금은 없어요" 줄이 된다
-    expect(after.textContent).toContain(t('지금은 없어요'))
+    expect(section('기한이 지난 일')).toBeFalsy() // 비면 화면에서 빠진다(문제가 없는 상태는 숨긴다)
   })
 
   it('줄을 누르면 일정 편집기가 열린다(날짜를 옮기거나 지울 수 있다)', () => {

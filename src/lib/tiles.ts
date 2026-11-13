@@ -4,7 +4,7 @@
 // 타일 내용은 노트에서 계산한 값이고, 여기서 저장하는 것은 **배치뿐**이다. 배치는 개인 취향이라 기기(localStorage)에 두고,
 // 사용자가 만든 타일의 조건은 팀이 같이 쓰도록 vault 노트(_workspace/보기.md)에 둔다(views.ts).
 
-export const BUILTIN_TILES = ['today', 'overdue', 'decisions', 'dueToday', 'week', 'waiting', 'doing', 'unowned', 'triage', 'projects'] as const
+export const BUILTIN_TILES = ['overdue', 'today', 'decisions', 'dueToday', 'week', 'waiting', 'doing', 'unowned', 'triage', 'projects'] as const
 export type BuiltinTile = (typeof BUILTIN_TILES)[number]
 
 /** 처음에는 숨겨 두는 타일(필요하면 "타일 추가"로 꺼낸다). triage 는 받은 업무가 생길 때만 내용이 있어 숨기지 않는다 */

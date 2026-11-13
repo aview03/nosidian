@@ -17,11 +17,11 @@ export interface PersonaInfo {
 
 export const PERSONA_INFO: Record<PersonaId, PersonaInfo> = {
   designer: { id: 'designer', label: '디자이너', hint: '시안·리뷰·피드백을 주고받아요', tiles: ['today', 'dueToday', 'waiting', 'projects'] },
-  planner: { id: 'planner', label: '기획자', hint: '결정·정책·일정을 조율해요', tiles: ['today', 'decisions', 'overdue', 'waiting', 'projects'] },
-  developer: { id: 'developer', label: '개발자', hint: '개발하고 기록하고 이슈를 모아요', tiles: ['today', 'doing', 'overdue', 'triage', 'projects'] },
+  planner: { id: 'planner', label: '기획자', hint: '결정·정책·일정을 조율해요', tiles: ['overdue', 'today', 'decisions', 'waiting', 'projects'] },
+  developer: { id: 'developer', label: '개발자', hint: '개발하고 기록하고 이슈를 모아요', tiles: ['overdue', 'today', 'doing', 'triage', 'projects'] },
   marketer: { id: 'marketer', label: '마케터', hint: '캠페인과 콘텐츠 일정을 챙겨요', tiles: ['today', 'week', 'dueToday', 'waiting', 'projects'] },
   researcher: { id: 'researcher', label: '연구자', hint: '읽고 실험하고 아이디어를 모아요', tiles: ['today', 'doing', 'dueToday', 'triage', 'projects'] },
-  student: { id: 'student', label: '학생', hint: '수업 필기와 과제 마감을 챙겨요', tiles: ['today', 'week', 'dueToday', 'overdue'] },
+  student: { id: 'student', label: '학생', hint: '수업 필기와 과제 마감을 챙겨요', tiles: ['overdue', 'today', 'week', 'dueToday'] },
 }
 
 /** 역할 구성에 없어도 내용이 생기면 저절로 보이게 하는 타일 */

@@ -88,19 +88,25 @@ describe('기획자 등 구성에 없는 "정리할 업무": 받은 업무가 �
 
   it('받은 업무가 있고 프로젝트도 있으면 보인다(찾을 곳이 없던 문제)', () => {
     mount([...withProject, inbox])
-    expect(titles()).toContain(t('정리할 업무'))
-    expect(host.textContent).toContain('로그인 오류 확인')
+    expect(titles()).toContain(t('프로젝트 미분류'))
+    expect(host.textContent).not.toContain('로그인 오류 확인') // 평소엔 칩 한 줄
+    act(() => host.querySelector<HTMLButtonElement>('.wrk-chip button')!.click())
+    expect(host.textContent).toContain('로그인 오류 확인') // 누르면 미분류 업무만 펼쳐진다
   })
   it('받은 업무가 없으면 보이지 않는다(가볍게)', () => {
     mount(withProject)
-    expect(titles()).not.toContain(t('정리할 업무'))
+    expect(titles()).not.toContain(t('프로젝트 미분류'))
   })
   it('옮겨 넣을 프로젝트가 없으면 보이지 않는다', () => {
     mount([inbox])
-    expect(titles()).not.toContain(t('정리할 업무'))
+    expect(titles()).not.toContain(t('프로젝트 미분류'))
   })
-  it('개발자 구성(타일이 이미 있음)은 예전 그대로 — 비어 있으면 한 줄', () => {
+  it('개발자 구성(타일이 이미 있음): 미분류가 없으면 숨기고, 있으면 칩으로 보인다', () => {
     mount(withProject, 'developer')
-    expect(titles()).toContain(t('정리할 업무'))
+    expect(titles()).not.toContain(t('프로젝트 미분류'))
+    mount([...withProject, note('받은 업무.md', '- [ ] 메일 답장\n')], 'developer')
+    expect(titles()).toContain(t('프로젝트 미분류'))
+    expect(host.querySelector('.wrk-chip')).not.toBeNull()
+    expect(host.querySelector('.wrk-triage')).toBeNull() // 눌러야 펼쳐진다
   })
 })

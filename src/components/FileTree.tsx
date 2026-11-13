@@ -7,6 +7,7 @@ import { openNewFolder, openNewNote } from './NewNote'
 import { importFromPicker } from '../lib/importFiles'
 import { useActiveVault } from './VaultSheet'
 import { NoteContextMenu, useNoteMenu } from './NoteContextMenu'
+import { isProtectedPath } from '../lib/docrules'
 
 interface Node {
   name: string
@@ -44,6 +45,8 @@ export function FileTree() {
   const app = useApp.getState()
   const vault = useActiveVault()
   const nm = useNoteMenu()
+  /** 팀 규칙 같은 시스템 폴더(_workspace)는 평소엔 한 줄로 접어 둔다(그 안의 노트를 열어 둔 동안은 펼침) */
+  const [showSys, setShowSys] = useState(false)
   const [closed, setClosed] = useState<Set<string>>(() => new Set(JSON.parse(localStorage.getItem('amsidian.closed') ?? '[]')))
 
   const paths = useMemo(() => Object.values(files).filter((f) => !f.deleted).map((f) => f.path), [files])
@@ -89,6 +92,9 @@ export function FileTree() {
   }
 
   const top = [...tree.children.values()].sort((a, b) => (a.file === b.file ? a.name.localeCompare(b.name, 'ko') : a.file ? 1 : -1))
+  const sysTop = top.filter((n) => !n.file && isProtectedPath(n.path + '/'))
+  const sysOpen = showSys || (!!current && isProtectedPath(current))
+  const listed = sysOpen ? top : top.filter((n) => !sysTop.includes(n))
   const valid = (list: string[]) => list.filter((p) => files[p] && !files[p].deleted)
 
   return (
@@ -131,7 +137,12 @@ export function FileTree() {
         )}
         <section>
           <h3>{t('모든 노트')}</h3>
-          {top.map((n) => row(n, 0))}
+          {listed.map((n) => row(n, 0))}
+          {sysTop.length > 0 && !(current && isProtectedPath(current)) && (
+            <button className="memo-sys" aria-expanded={showSys} onClick={() => setShowSys(!showSys)}>
+              {showSys ? t('시스템 폴더 접기') : t('시스템 폴더 {n}개', { n: sysTop.length })}
+            </button>
+          )}
           {!paths.length && <p className="hint pad">{t('노트가 없습니다. ＋ 로 새로 만들거나, 가져오기 버튼으로 기기의 md 파일을 불러오세요.')}</p>}
         </section>
       </div>

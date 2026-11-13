@@ -437,7 +437,7 @@ function AboutGroup() {
   )
 }
 
-type GroupInfo = { id: GroupId; label: string; icon: 'star' | 'sync' | 'spark' | 'sun' | 'tasks' | 'more'; sub: string }
+type GroupInfo = { id: GroupId; label: string; icon: 'star' | 'sync' | 'spark' | 'sun' | 'tasks' | 'info'; sub: string }
 
 /** 설정 그룹 목록(이름·아이콘·지금 상태 한 줄) */
 function useGroups(): GroupInfo[] {
@@ -451,7 +451,7 @@ function useGroups(): GroupInfo[] {
     { id: 'ai', label: 'AI', icon: 'spark', sub: mobile ? t('휴대폰에서 연결해 쓸 수 있어요') : t('연결·자동 문서 관리') },
     { id: 'view', label: t('화면과 캘린더'), icon: 'sun', sub: `${{ auto: t('시스템'), light: t('라이트'), dark: t('다크') }[s.theme]} · ${s.fontSize}px` },
     { id: 'work', label: t('업무와 문서'), icon: 'tasks', sub: t('내 업무 구성·문서 규칙') },
-    { id: 'about', label: t('정보'), icon: 'more', sub: `v${__APP_VERSION__}` },
+    { id: 'about', label: t('정보'), icon: 'info', sub: `v${__APP_VERSION__}` },
   ]
 }
 

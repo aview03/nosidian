@@ -51,6 +51,9 @@ export function DayList({ date }: { date: string }) {
 }
 
 // ── 빠른 입력: "내일 3시 치과" ──
+/** 기한이 지났는데 아직 끝나지 않은 일(노트는 제외) — 캘린더에서 빨강은 이것만 쓴다 */
+const isLate = (e: CalEvent, today: string) => !e.done && e.kind !== 'note' && e.date < today
+
 export function QuickAdd({ date }: { date: string }) {
   if (isWidgetWindow()) {
     // 바탕화면 위젯 창 안에서는 한글 입력이 안 되므로, 입력창 대신 별도의 입력 창을 연다
@@ -140,11 +143,11 @@ export function MonthGrid({ compact }: { compact?: boolean }) {
               {!compact && (hol || lunar) && <span className={`mg-sub${hol ? ' hol' : ''}`}>{hol ?? lunar}</span>}
             </span>
             {compact ? (
-              ev.length > 0 && <span className="mg-dots">{ev.slice(0, 3).map((e, k) => <i key={k} className={e.done ? 'done' : ''} />)}</span>
+              ev.length > 0 && <span className="mg-dots">{ev.slice(0, 3).map((e, k) => <i key={k} className={e.done ? 'done' : isLate(e, today) ? 'late' : ''} />)}</span>
             ) : (
               <div className="mg-chips">
                 {ev.slice(0, max).map((e) => (
-                  <span key={e.id + e.date} className={`mg-chip${e.done ? ' done' : ''}${e.kind === 'note' ? ' note' : ''}`} style={e.color ? { borderLeftColor: e.color } : undefined}>
+                  <span key={e.id + e.date} className={`mg-chip${e.done ? ' done' : isLate(e, today) ? ' late' : ''}${e.kind === 'note' ? ' note' : ''}`} style={e.color ? { borderLeftColor: e.color } : undefined}>
                     {e.cont && '↳ '}{e.start && <b>{e.start}</b>} {e.title}
                   </span>
                 ))}
@@ -252,7 +255,7 @@ function WeekView() {
             <div className="wg-head"><span>{wd[i]}</span><b>{+d.slice(8)}</b>{hol && <em>{hol}</em>}</div>
             <div className="wg-body">
               {(cal.get(d) ?? []).map((e) => (
-                <div key={e.id + e.date} className={`mg-chip${e.done ? ' done' : ''}${e.kind === 'note' ? ' note' : ''}`} style={e.color ? { borderLeftColor: e.color } : undefined}>
+                <div key={e.id + e.date} className={`mg-chip${e.done ? ' done' : isLate(e, today) ? ' late' : ''}${e.kind === 'note' ? ' note' : ''}`} style={e.color ? { borderLeftColor: e.color } : undefined}>
                   {e.cont && '↳ '}{e.start && <b>{e.start}</b>} {e.title}
                 </div>
               ))}

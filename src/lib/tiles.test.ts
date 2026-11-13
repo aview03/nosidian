@@ -10,7 +10,7 @@ describe('내 업무 타일 배치', () => {
   it('처음에는 기본 타일 10개, 이번 주·진행 중·담당자 없는 일은 숨김', () => {
     const l = defaultLayout()
     expect(ids(l)).toEqual([...BUILTIN_TILES])
-    expect(visible(l)).toEqual(['today', 'overdue', 'decisions', 'dueToday', 'waiting', 'triage', 'projects'])
+    expect(visible(l)).toEqual(['overdue', 'today', 'decisions', 'dueToday', 'waiting', 'triage', 'projects'])
   })
   it('사용자 타일은 뒤에 붙고, 없어진 타일은 무시한다', () => {
     const l = { ...defaultLayout(), order: [...BUILTIN_TILES, customId('옛 타일')] }
@@ -26,15 +26,15 @@ describe('내 업무 타일 배치', () => {
   it('위/아래 이동은 숨긴 타일을 건너뛴다', () => {
     let l = defaultLayout()
     l = moveTile(l, [], 'dueToday', -1) // decisions 와 맞바꿈
-    expect(visible(l).slice(0, 4)).toEqual(['today', 'overdue', 'dueToday', 'decisions'])
+    expect(visible(l).slice(0, 4)).toEqual(['overdue', 'today', 'dueToday', 'decisions'])
     l = moveTile(l, [], 'waiting', -1) // 사이의 숨긴 week 를 건너뛰고 decisions 와 맞바꿈
-    expect(visible(l).slice(0, 5)).toEqual(['today', 'overdue', 'dueToday', 'waiting', 'decisions'])
-    expect(moveTile(l, [], 'today', -1)).toBe(l) // 맨 위는 그대로
+    expect(visible(l).slice(0, 5)).toEqual(['overdue', 'today', 'dueToday', 'waiting', 'decisions'])
+    expect(moveTile(l, [], 'overdue', -1)).toBe(l) // 맨 위는 그대로
     expect(moveTile(l, [], 'projects', 1)).toBe(l) // 맨 아래는 그대로
   })
   it('끌어 놓기: 대상 바로 앞으로', () => {
-    const l = moveBefore(defaultLayout(), [], 'projects', 'overdue')
-    expect(visible(l).slice(0, 3)).toEqual(['today', 'projects', 'overdue'])
+    const l = moveBefore(defaultLayout(), [], 'projects', 'today')
+    expect(visible(l).slice(0, 3)).toEqual(['overdue', 'projects', 'today'])
     expect(moveBefore(defaultLayout(), [], 'today', 'today')).toEqual(defaultLayout())
   })
   it('숨기기·다시 보이기·접기', () => {
@@ -47,7 +47,7 @@ describe('내 업무 타일 배치', () => {
     expect(resolveTiles(setCollapsed(l, 'waiting', false), []).find((x) => x.id === 'waiting')!.collapsed).toBe(false)
   })
   it('사용자 타일 이름을 바꾸면 자리와 설정이 따라가고, 지우면 치운다', () => {
-    let l = setLimit(setHidden(moveBefore({ ...defaultLayout(), order: [...BUILTIN_TILES, customId('A')] }, ['A'], customId('A'), 'overdue'), customId('A'), true), customId('A'), 3)
+    let l = setLimit(setHidden(moveBefore({ ...defaultLayout(), order: [...BUILTIN_TILES, customId('A')] }, ['A'], customId('A'), 'today'), customId('A'), true), customId('A'), 3)
     l = renameTile(l, 'A', 'B')
     expect(ids(l, ['B']).indexOf(customId('B'))).toBe(1)
     expect(l.hidden).toContain(customId('B'))
